@@ -9,9 +9,10 @@
 # H3 Resolution Guide:
 # - Resolution 8: ~0.74 km² per cell (~461,354 cells globally)
 # - Resolution 9: ~0.10 km² per cell (~3,279,871 cells globally)
+# - Resolution 10: ~0.015 km² per cell (~23,000,000 cells globally)
 # 
-# We use Resolution 8 as it provides good balance between spatial detail
-# and computational efficiency.
+# We use Resolution 9 as it provides good spatial detail while maintaining
+# computational efficiency.
 #
 ################################################################################
 
@@ -21,7 +22,7 @@ print_header("01 - CREATING HEXAGONAL GRID")
 source(here::here("R/utils.R"))
 
 # Configuration
-H3_RESOLUTION <- 8  # Hexagon resolution (~0.5km² cells)
+H3_RESOLUTION <- 9  # Hexagon resolution (~0.1km² cells)
 OUTPUT_DIR <- here::here("output")
 FIGURES_DIR <- here::here("figures")
 
@@ -49,39 +50,20 @@ print_progress(paste0("Austin boundary loaded. Area: ",
 
 print_progress(paste0("Creating H3 hexagonal grid at resolution ", H3_RESOLUTION, "..."))
 
-# Get the bounding box
-bbox <- st_bbox(austin_boundary)
+# Use polygon_to_cells to get all H3 hexagons that cover Austin
+# This approach captures all hexagons that overlap with the boundary,
+# including those partially outside, ensuring no internal gaps
+h3_indices <- polygon_to_cells(austin_boundary, res = H3_RESOLUTION, simple = FALSE)
 
-# Create a grid of points covering the bounding box
-# We'll use these to generate H3 hexagons
-grid_points <- st_make_grid(
-  austin_boundary,
-  cellsize = 0.01,  # About 1km spacing
-  what = "centers"
-) %>%
-  st_sf() %>%
-  st_transform(4326)
-
-# Convert points to H3 indices
-h3_indices <- point_to_cell(grid_points, res = H3_RESOLUTION)
-
-# Get unique H3 indices
-unique_h3 <- unique(h3_indices)
-
-print_progress(paste0("Generated ", length(unique_h3), " unique H3 hexagons"))
+print_progress(paste0("Generated ", length(h3_indices), " H3 hexagons covering Austin"))
 
 # Convert H3 indices to polygon geometries
 print_progress("Converting H3 indices to polygon geometries...")
-hex_grid <- cell_to_polygon(unique_h3, simple = FALSE) %>%
+hex_grid <- cell_to_polygon(h3_indices, simple = FALSE) %>%
   st_as_sf()
 
 # Add H3 index as a column
-hex_grid$h3_index <- unique_h3
-
-# Filter to hexagons that intersect Austin boundary
-print_progress("Filtering hexagons to Austin boundary...")
-hex_grid <- hex_grid %>%
-  st_filter(austin_boundary, .predicate = st_intersects)
+hex_grid$h3_index <- h3_indices
 
 print_progress(paste0("Final grid contains ", nrow(hex_grid), " hexagons"))
 
