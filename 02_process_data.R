@@ -200,40 +200,25 @@ print_progress("Processing building demolitions data...")
 # For now, we create synthetic data to demonstrate the structure
 
 # Check if actual data exists
-demo_file <- file.path(DATA_DIR, "demolitions.csv")
+demo_file <- file.path(DATA_DIR, "Residential_Demolitions_dataset_20260202.csv")
 
 if(file.exists(demo_file)) {
   print_progress("Loading demolitions data from file...")
   demolitions <- read_csv(demo_file) %>%
-    st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+    st_as_sf(wkt = c("location"), crs = 4326, remove = FALSE)
 } else {
-  print_progress("Creating synthetic demolitions data for demonstration...")
-  
-  # Generate random demolition points within Austin
-  set.seed(42)
-  n_demos <- 500
-  
-  demolitions <- st_sample(st_union(hex_grid), size = n_demos) %>%
-    st_sf() %>%
-    mutate(
-      demo_id = row_number(),
-      demo_date = as.Date("2020-01-01") + sample(0:730, n_demos, replace = TRUE),
-      demo_year = year(demo_date),
-      building_type = sample(c("Single Family", "Multi-Family", "Commercial"), 
-                            n_demos, replace = TRUE, prob = c(0.6, 0.3, 0.1))
-    ) %>%
-    rename(geometry = x)
+  print_progress("File not found")
 }
 
 # Aggregate demolitions to hex grid
-hex_with_demos <- hex_with_census %>%
+hex_with_demos <- hex_grid %>% # hex_with_census %>%
   st_join(demolitions, join = st_intersects) %>%
   group_by(hex_id) %>%
   summarise(
-    demo_count_total = sum(!is.na(demo_id)),
-    demo_count_2020 = sum(demo_year == 2020, na.rm = TRUE),
-    demo_count_2021 = sum(demo_year == 2021, na.rm = TRUE),
-    demo_count_2022 = sum(demo_year == 2022, na.rm = TRUE),
+    demo_count_total = sum(!is.na(.)),
+    demo_count_2020 = sum(calendar_year_issued == 2020, na.rm = TRUE),
+    demo_count_2021 = sum(calendar_year_issued == 2021, na.rm = TRUE),
+    demo_count_2022 = sum(calendar_year_issued == 2022, na.rm = TRUE),
     .groups = "drop"
   ) %>%
   st_drop_geometry()
