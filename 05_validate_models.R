@@ -36,8 +36,8 @@ models_list <- load_output(
 )
 
 hex_features <- load_output(
-  file.path(OUTPUT_DIR, "hex_features.rds"),
-  "engineered features"
+  file.path(OUTPUT_DIR, "hex_features_with_clusters.rds"),
+  "engineered features with cluster assignments"
 )
 
 # Extract components
@@ -48,110 +48,164 @@ predictor_vars <- models_list$predictor_vars
 test_predictions <- models_list$test_predictions
 
 ################################################################################
-# Step 2: Residual diagnostics
+# Step 2: Classification performance metrics
 ################################################################################
 
-print_header("RESIDUAL DIAGNOSTICS")
+print_header("CLASSIFICATION PERFORMANCE METRICS")
 
-print_progress("Creating residual diagnostic plots...")
+print_progress("Creating confusion matrices and classification metrics...")
 
-# Calculate residuals for each model
-residual_df <- test_predictions %>%
-  mutate(
-    resid_elastic = actual - pred_elastic,
-    resid_rf = actual - pred_rf,
-    resid_xgb = actual - pred_xgb
+# For classification, we use confusion matrices instead of residual plots
+test_predictions <- models_list$test_predictions
+
+# Create confusion matrices for each model
+cm_elastic <- confusionMatrix(test_predictions$pred_elastic, test_predictions$actual)
+cm_rf <- confusionMatrix(test_predictions$pred_rf, test_predictions$actual)
+cm_xgb <- confusionMatrix(test_predictions$pred_xgb, test_predictions$actual)
+
+# Extract per-class F1 scores
+extract_f1_scores <- function(cm, model_name) {
+  f1_scores <- cm$byClass[, "F1"]
+  data.frame(
+    cluster = names(f1_scores),
+    f1_score = as.numeric(f1_scores),
+    model = model_name
   )
-
-# Function to create residual plot
-create_residual_plot <- function(predicted, residuals, model_name) {
-  df <- data.frame(predicted = predicted, residuals = residuals)
-  
-  ggplot(df, aes(x = predicted, y = residuals)) +
-    geom_point(alpha = 0.5, color = "steelblue") +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-    geom_smooth(method = "loess", color = "darkblue", se = FALSE) +
-    labs(
-      title = paste(model_name, "- Residual Plot"),
-      x = "Predicted Displacement Risk",
-      y = "Residuals (Actual - Predicted)"
-    ) +
-    theme_minimal() +
-    theme(plot.title = element_text(face = "bold"))
 }
 
-# Create residual plots for all models
-p_resid_elastic <- create_residual_plot(
-  residual_df$pred_elastic, 
-  residual_df$resid_elastic,
-  "Elastic Net"
-)
+f1_data <- rbind(
+  extract_f1_scores(cm_elastic, "Elastic Net"),
+  extract_f1_scores(cm_rf, "Random Forest"),
+  extract_f1_scores(cm_xgb, "XGBoost")
+) %>%
+  mutate(cluster = gsub("Class: ", "", cluster))
 
-p_resid_rf <- create_residual_plot(
-  residual_df$pred_rf,
-  residual_df$resid_rf,
-  "Random Forest"
-)
-
-p_resid_xgb <- create_residual_plot(
-  residual_df$pred_xgb,
-  residual_df$resid_xgb,
-  "XGBoost"
-)
-
-# Combine and save
-p_residuals <- p_resid_elastic / p_resid_rf / p_resid_xgb
+# Plot F1 scores by cluster and model
+p_f1_scores <- ggplot(f1_data, aes(x = cluster, y = f1_score, fill = model)) +
+  geom_col(position = "dodge") +
+  scale_fill_viridis_d(option = "plasma", begin = 0.2, end = 0.8) +
+  labs(
+    title = "F1 Scores by Cluster and Model",
+    subtitle = "Performance on test set",
+    x = "Cluster",
+    y = "F1 Score",
+    fill = "Model"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    legend.position = "bottom"
+  )
 
 ggsave(
-  filename = file.path(FIGURES_DIR, "05_residual_plots.png"),
-  plot = p_residuals,
-  width = 10,
-  height = 12,
+  filename = file.path(FIGURES_DIR, "05_f1_scores_by_cluster.png"),
+  plot = p_f1_scores,
+  width = 12,
+  height = 7,
   dpi = 300
 )
 
-print_progress("Saved residual diagnostic plots")
+print_progress("Saved F1 score comparison plot")
+
+# Print detailed metrics
+cat("\nElastic Net Performance:\n")
+print(cm_elastic$overall[c("Accuracy", "Kappa")])
+cat("\nRandom Forest Performance:\n")
+print(cm_rf$overall[c("Accuracy", "Kappa")])
+cat("\nXGBoost Performance:\n")
+print(cm_xgb$overall[c("Accuracy", "Kappa")])
 
 ################################################################################
-# Step 3: Predicted vs Actual plots
+# Step 3: Confusion matrix visualizations
+################################################################################
+
+print_header("CONFUSION MATRIX VISUALIZATIONS")
+
+print_progress("Creating confusion matrix heatmaps...")
+
+create_confusion_heatmap <- function(cm, model_name) {
+  cm_table <- as.data.frame(cm$table)
+  
+  ggplot(cm_table, aes(x = Reference, y = Prediction, fill = Freq)) +
+    geom_tile() +
+    geom_text(aes(label = Freq), color = "white", size = 5) +
+    scale_fill_viridis_c(option = "inferno") +
+    labs(
+      title = paste(model_name, "- Confusion Matrix"),
+      x = "Actual Cluster",
+      y = "Predicted Cluster",
+      fill = "Count"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(face = "bold", size = 12),
+      panel.grid = element_blank()
+    )
+}
+
+p_cm_elastic <- create_confusion_heatmap(cm_elastic, "Elastic Net")
+p_cm_rf <- create_confusion_heatmap(cm_rf, "Random Forest")
+p_cm_xgb <- create_confusion_heatmap(cm_xgb, "XGBoost")
+
+p_confusion <- p_cm_elastic / p_cm_rf / p_cm_xgb
+
+ggsave(
+  filename = file.path(FIGURES_DIR, "05_confusion_matrices.png"),
+  plot = p_confusion,
+  width = 10,
+  height = 15,
+  dpi = 300
+)
+
+print_progress("Saved confusion matrix visualizations")
+
+################################################################################
+# Step 4: Cluster-specific accuracy analysis
 ################################################################################
 
 print_progress("Creating predicted vs. actual plots...")
 
-create_pred_actual_plot <- function(predicted, actual, model_name) {
-  df <- data.frame(predicted = predicted, actual = actual)
+# For classification, show agreement/disagreement
+create_agreement_plot <- function(predicted, actual, model_name) {
+  df <- data.frame(
+    predicted = predicted,
+    actual = actual,
+    correct = predicted == actual
+  )
   
-  # Calculate R²
-  r2 <- cor(predicted, actual)^2
-  rmse <- sqrt(mean((predicted - actual)^2))
+  # Count by actual and predicted
+  agreement_summary <- df %>%
+    count(actual, predicted, correct)
   
-  ggplot(df, aes(x = actual, y = predicted)) +
-    geom_point(alpha = 0.5, color = "steelblue") +
-    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
-    geom_smooth(method = "lm", color = "darkblue", se = TRUE) +
+  ggplot(agreement_summary, aes(x = actual, y = predicted, fill = correct, size = n)) +
+    geom_point(shape = 21, alpha = 0.7) +
+    scale_fill_manual(values = c("FALSE" = "red", "TRUE" = "green"),
+                     labels = c("Incorrect", "Correct")) +
+    scale_size_continuous(range = c(3, 15)) +
     labs(
-      title = paste(model_name),
-      subtitle = paste0("R² = ", round(r2, 3), ", RMSE = ", round(rmse, 2)),
-      x = "Actual Displacement Risk",
-      y = "Predicted Displacement Risk"
+      title = model_name,
+      x = "Actual Cluster",
+      y = "Predicted Cluster",
+      fill = "Prediction",
+      size = "Count"
     ) +
     theme_minimal() +
     theme(plot.title = element_text(face = "bold"))
 }
 
-p_pred_elastic <- create_pred_actual_plot(
+p_pred_elastic <- create_agreement_plot(
   test_predictions$pred_elastic,
   test_predictions$actual,
   "Elastic Net"
 )
 
-p_pred_rf <- create_pred_actual_plot(
+p_pred_rf <- create_agreement_plot(
   test_predictions$pred_rf,
   test_predictions$actual,
   "Random Forest"
 )
 
-p_pred_xgb <- create_pred_actual_plot(
+p_pred_xgb <- create_agreement_plot(
   test_predictions$pred_xgb,
   test_predictions$actual,
   "XGBoost"
@@ -160,18 +214,14 @@ p_pred_xgb <- create_pred_actual_plot(
 p_pred_actual <- p_pred_elastic | p_pred_rf | p_pred_xgb
 
 ggsave(
-  filename = file.path(FIGURES_DIR, "05_predicted_vs_actual.png"),
+  filename = file.path(FIGURES_DIR, "05_prediction_agreement.png"),
   plot = p_pred_actual,
   width = 15,
   height = 5,
   dpi = 300
 )
 
-print_progress("Saved predicted vs. actual plots")
-
-################################################################################
-# Step 4: Feature importance comparison
-################################################################################
+print_progress("Saved prediction agreement plots")
 
 print_header("FEATURE IMPORTANCE COMPARISON")
 
@@ -270,7 +320,8 @@ print_progress("Performing spatial cross-validation to assess spatial autocorrel
 # Prepare data for spatial CV
 hex_features_clean <- hex_features %>%
   filter(sufficient_data) %>%
-  drop_na(any_of(c("displacement_risk", predictor_vars)))
+  filter(!is.na(cluster)) %>%
+  drop_na(any_of(c("cluster", predictor_vars)))
 
 # Create spatial blocks for cross-validation
 # This divides the study area into spatial blocks
@@ -280,7 +331,7 @@ tryCatch({
   # Create spatial blocks using blockCV package
   spatial_blocks <- cv_spatial(
     x = hex_features_clean,
-    column = "displacement_risk",
+    column = "cluster",
     k = 5,                    # 5-fold cross-validation
     hexagon = FALSE,          # Use squares for blocks
     selection = "random"      # Random fold assignment
@@ -293,7 +344,7 @@ tryCatch({
   
   spatial_cv_results <- cv_cluster(
     x = hex_features_clean,
-    column = "displacement_risk",
+    column = "cluster",
     k = 5,
     scale = TRUE
   )
@@ -307,34 +358,39 @@ tryCatch({
 })
 
 ################################################################################
-# Step 6: Distribution of predictions
+# Step 6: Cluster prediction distribution
 ################################################################################
 
-print_header("PREDICTION DISTRIBUTIONS")
+print_header("CLUSTER PREDICTION DISTRIBUTIONS")
 
-print_progress("Analyzing distribution of predictions...")
+print_progress("Analyzing distribution of cluster predictions...")
 
-# Compare distributions
-pred_dist <- test_predictions %>%
+# Compare actual vs predicted distributions
+cluster_dist <- test_predictions %>%
   select(actual, pred_elastic, pred_rf, pred_xgb) %>%
-  pivot_longer(everything(), names_to = "type", values_to = "value") %>%
+  pivot_longer(everything(), names_to = "type", values_to = "cluster") %>%
   mutate(
     type = case_when(
       type == "actual" ~ "Actual",
       type == "pred_elastic" ~ "Elastic Net",
       type == "pred_rf" ~ "Random Forest",
       type == "pred_xgb" ~ "XGBoost"
-    )
-  )
+    ),
+    cluster = factor(cluster)
+  ) %>%
+  count(type, cluster) %>%
+  group_by(type) %>%
+  mutate(proportion = n / sum(n))
 
-p_distributions <- ggplot(pred_dist, aes(x = value, fill = type)) +
-  geom_density(alpha = 0.6) +
+p_distributions <- ggplot(cluster_dist, aes(x = cluster, y = proportion, fill = type)) +
+  geom_col(position = "dodge") +
   scale_fill_viridis_d(option = "viridis", begin = 0.2, end = 0.8) +
+  scale_y_continuous(labels = scales::percent) +
   labs(
-    title = "Distribution of Predictions vs. Actual Values",
+    title = "Distribution of Cluster Predictions vs. Actual",
     subtitle = "Comparing model predictions on test set",
-    x = "Displacement Risk Score",
-    y = "Density",
+    x = "Cluster",
+    y = "Proportion",
     fill = "Type"
   ) +
   theme_minimal() +
@@ -344,65 +400,64 @@ p_distributions <- ggplot(pred_dist, aes(x = value, fill = type)) +
   )
 
 ggsave(
-  filename = file.path(FIGURES_DIR, "05_prediction_distributions.png"),
+  filename = file.path(FIGURES_DIR, "05_cluster_distributions.png"),
   plot = p_distributions,
   width = 10,
   height = 6,
   dpi = 300
 )
 
-print_progress("Saved prediction distribution plot")
+print_progress("Saved cluster distribution plot")
 
 ################################################################################
-# Step 7: Error analysis by risk level
+# Step 7: Per-cluster accuracy analysis
 ################################################################################
 
-print_header("ERROR ANALYSIS BY RISK LEVEL")
+print_header("PER-CLUSTER ACCURACY ANALYSIS")
 
-print_progress("Analyzing prediction errors by risk level...")
+print_progress("Analyzing prediction accuracy by cluster...")
 
-error_by_risk <- test_predictions %>%
+# Calculate accuracy for each cluster
+cluster_accuracy <- test_predictions %>%
   mutate(
-    risk_level = cut(actual, 
-                    breaks = c(-Inf, 25, 50, 75, Inf),
-                    labels = c("Low", "Moderate", "High", "Very High")),
-    error_elastic = abs(actual - pred_elastic),
-    error_rf = abs(actual - pred_rf),
-    error_xgb = abs(actual - pred_xgb)
+    correct_elastic = (actual == pred_elastic),
+    correct_rf = (actual == pred_rf),
+    correct_xgb = (actual == pred_xgb)
   ) %>%
-  group_by(risk_level) %>%
+  group_by(actual) %>%
   summarise(
     n = n(),
-    mae_elastic = mean(error_elastic),
-    mae_rf = mean(error_rf),
-    mae_xgb = mean(error_xgb),
+    acc_elastic = mean(correct_elastic),
+    acc_rf = mean(correct_rf),
+    acc_xgb = mean(correct_xgb),
     .groups = "drop"
   )
 
-cat("\nMean Absolute Error by Risk Level:\n")
-print(error_by_risk)
+cat("\nAccuracy by Cluster:\n")
+print(cluster_accuracy)
 
 # Plot
-error_long <- error_by_risk %>%
-  pivot_longer(cols = starts_with("mae_"), 
+accuracy_long <- cluster_accuracy %>%
+  pivot_longer(cols = starts_with("acc_"), 
               names_to = "model", 
-              values_to = "mae") %>%
+              values_to = "accuracy") %>%
   mutate(
     model = case_when(
-      model == "mae_elastic" ~ "Elastic Net",
-      model == "mae_rf" ~ "Random Forest",
-      model == "mae_xgb" ~ "XGBoost"
+      model == "acc_elastic" ~ "Elastic Net",
+      model == "acc_rf" ~ "Random Forest",
+      model == "acc_xgb" ~ "XGBoost"
     )
   )
 
-p_error_by_risk <- ggplot(error_long, aes(x = risk_level, y = mae, fill = model)) +
+p_accuracy_by_cluster <- ggplot(accuracy_long, aes(x = actual, y = accuracy, fill = model)) +
   geom_col(position = "dodge") +
   scale_fill_viridis_d(option = "mako", begin = 0.3, end = 0.7) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
   labs(
-    title = "Prediction Error by Risk Level",
-    subtitle = "Mean Absolute Error for different risk categories",
-    x = "Risk Level",
-    y = "Mean Absolute Error",
+    title = "Prediction Accuracy by Cluster",
+    subtitle = "How well can models identify each cluster?",
+    x = "Cluster",
+    y = "Accuracy",
     fill = "Model"
   ) +
   theme_minimal() +
@@ -412,14 +467,14 @@ p_error_by_risk <- ggplot(error_long, aes(x = risk_level, y = mae, fill = model)
   )
 
 ggsave(
-  filename = file.path(FIGURES_DIR, "05_error_by_risk_level.png"),
-  plot = p_error_by_risk,
+  filename = file.path(FIGURES_DIR, "05_accuracy_by_cluster.png"),
+  plot = p_accuracy_by_cluster,
   width = 10,
   height = 6,
   dpi = 300
 )
 
-print_progress("Saved error by risk level plot")
+print_progress("Saved accuracy by cluster plot")
 
 ################################################################################
 # Step 8: Save validation results
@@ -427,8 +482,12 @@ print_progress("Saved error by risk level plot")
 
 validation_results <- list(
   feature_importance = all_importance,
-  residuals = residual_df,
-  error_by_risk = error_by_risk,
+  confusion_matrices = list(
+    elastic_net = cm_elastic,
+    random_forest = cm_rf,
+    xgboost = cm_xgb
+  ),
+  cluster_accuracy = cluster_accuracy,
   test_predictions = test_predictions
 )
 
@@ -443,11 +502,13 @@ save_output(
 ################################################################################
 
 print_header("STEP 05 COMPLETE")
-cat("✓ Residual diagnostics created\n")
-cat("✓ Predicted vs. actual plots generated\n")
+cat("✓ Classification performance metrics calculated\n")
+cat("✓ Confusion matrices generated for all models\n")
+cat("✓ F1 scores computed by cluster\n")
+cat("✓ Prediction agreement plots created\n")
 cat("✓ Feature importance compared across models\n")
 cat("✓ Spatial cross-validation performed\n")
-cat("✓ Error analysis by risk level completed\n")
+cat("✓ Per-cluster accuracy analysis completed\n")
 cat("✓ All validation plots saved to figures/\n")
 cat(paste0("✓ Validation results saved to: ", 
           file.path(OUTPUT_DIR, "validation_results.rds"), "\n"))

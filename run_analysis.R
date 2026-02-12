@@ -135,7 +135,7 @@ tryCatch({
 # Step 3: Feature engineering
 cat("\n")
 cat("################################################################################\n")
-cat("# STEP 3/7: Engineering features\n")
+cat("# STEP 3/8: Engineering features\n")
 cat("################################################################################\n\n")
 
 tryCatch({
@@ -147,10 +147,25 @@ tryCatch({
   stop("Pipeline halted at Step 3")
 })
 
+# Step 3b: Cluster analysis
+cat("\n")
+cat("################################################################################\n")
+cat("# STEP 3b/8: Cluster analysis for displacement patterns\n")
+cat("################################################################################\n\n")
+
+tryCatch({
+  source(here::here("03b_cluster_analysis.R"))
+  cat("\n✓ Step 3b completed successfully\n")
+}, error = function(e) {
+  cat("\n✗ ERROR in Step 3b:\n")
+  cat(e$message, "\n")
+  stop("Pipeline halted at Step 3b")
+})
+
 # Step 4: Train models
 cat("\n")
 cat("################################################################################\n")
-cat("# STEP 4/7: Training machine learning models\n")
+cat("# STEP 4/8: Training machine learning models\n")
 cat("################################################################################\n\n")
 
 tryCatch({
@@ -165,7 +180,7 @@ tryCatch({
 # Step 5: Validate models
 cat("\n")
 cat("################################################################################\n")
-cat("# STEP 5/7: Validating models\n")
+cat("# STEP 5/8: Validating models\n")
 cat("################################################################################\n\n")
 
 tryCatch({
@@ -180,7 +195,7 @@ tryCatch({
 # Step 6: Generate risk scores
 cat("\n")
 cat("################################################################################\n")
-cat("# STEP 6/7: Generating displacement risk scores\n")
+cat("# STEP 6/8: Generating displacement risk scores\n")
 cat("################################################################################\n\n")
 
 tryCatch({
@@ -195,7 +210,7 @@ tryCatch({
 # Step 7: Visualize results
 cat("\n")
 cat("################################################################################\n")
-cat("# STEP 7/7: Creating visualizations\n")
+cat("# STEP 7/8: Creating visualizations\n")
 cat("################################################################################\n\n")
 
 tryCatch({
@@ -228,6 +243,9 @@ cat("Output Files:\n")
 cat("  - Hexagonal grid:        output/hex_grid.rds\n")
 cat("  - Processed data:        output/hex_data_processed.rds\n")
 cat("  - Engineered features:   output/hex_features.rds\n")
+cat("  - Cluster analysis:      output/cluster_analysis_results.rds\n")
+cat("  - Features w/ clusters:  output/hex_features_with_clusters.rds\n")
+cat("  - Cluster profiles:      output/cluster_profiles.csv\n")
 cat("  - Trained models:        output/trained_models.rds\n")
 cat("  - Validation results:    output/validation_results.rds\n")
 cat("  - Risk scores (spatial): output/displacement_risk_scores.rds\n")

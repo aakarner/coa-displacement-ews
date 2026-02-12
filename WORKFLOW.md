@@ -140,16 +140,25 @@ packages.R (load first)
             │       ├─ requires: hex_data_processed.rds
             │       └─► output/hex_features.rds
             │
-            ├─► 04_train_models.R
+            ├─► 03b_cluster_analysis.R (NEW)
             │       ├─ requires: hex_features.rds
+            │       └─► output/hex_features_with_clusters.rds
+            │       └─► output/cluster_analysis_results.rds
+            │       └─► output/cluster_profiles.csv
+            │       └─► figures/03b_*.png
+            │
+            ├─► 04_train_models.R
+            │       ├─ requires: hex_features_with_clusters.rds
+            │       ├─ requires: cluster_analysis_results.rds
             │       └─► output/trained_models.rds
             │
             ├─► 05_validate_models.R
-            │       ├─ requires: trained_models.rds, hex_features.rds
+            │       ├─ requires: trained_models.rds, hex_features_with_clusters.rds
             │       └─► output/validation_results.rds + figures/
             │
             ├─► 06_predict_risk_scores.R
-            │       ├─ requires: trained_models.rds, hex_features.rds
+            │       ├─ requires: trained_models.rds, hex_features_with_clusters.rds
+            │       ├─ requires: cluster_analysis_results.rds
             │       └─► output/displacement_risk_scores.rds/.csv
             │
             └─► 07_visualize_results.R
@@ -161,8 +170,14 @@ packages.R (load first)
 
 ### Primary Outputs
 - **displacement_risk_scores.rds** - Spatial risk scores (main result)
-- **displacement_risk_scores.csv** - Tabular risk scores
+- **displacement_risk_scores.csv** - Tabular risk scores with cluster predictions
 - **07_interactive_risk_map.html** - Interactive map (main visualization)
+
+### Clustering Outputs (NEW)
+- **cluster_analysis_results.rds** - Complete clustering analysis
+- **cluster_profiles.csv** - Cluster characterizations
+- **hex_features_with_clusters.rds** - Features + cluster assignments
+- **figures/03b_*.png** - Cluster visualizations (elbow, silhouette, PCA, map, profiles)
 
 ### Supporting Outputs
 - **trained_models.rds** - All 3 trained ML models
@@ -177,11 +192,12 @@ packages.R (load first)
 | 01 - Create Grid | 1-2 minutes |
 | 02 - Process Data | 3-5 minutes |
 | 03 - Feature Engineering | 2-4 minutes |
+| 03b - Cluster Analysis | 3-5 minutes |
 | 04 - Train Models | 15-30 minutes |
 | 05 - Validate Models | 5-10 minutes |
 | 06 - Risk Scores | 2-3 minutes |
 | 07 - Visualize | 3-5 minutes |
-| **TOTAL** | **30-60 minutes** |
+| **TOTAL** | **35-65 minutes** |
 
 *Times vary based on hardware, data size, and model parameters*
 
@@ -190,7 +206,9 @@ packages.R (load first)
 | Component | Customization | File |
 |-----------|--------------|------|
 | Grid Resolution | H3_RESOLUTION | 01_create_hex_grid.R |
-| Risk Weights | displacement_risk formula | 06_predict_risk_scores.R |
+| Clustering Variables | clustering_vars | 03b_cluster_analysis.R |
+| Optimal Clusters | optimal_k | 03b_cluster_analysis.R |
+| Cluster Risk Mapping | cluster_risk_mapping | 06_predict_risk_scores.R |
 | Model Parameters | Grid searches | 04_train_models.R |
 | Feature Selection | predictor_vars | 04_train_models.R |
 | Risk Thresholds | categorize_risk() | R/utils.R |

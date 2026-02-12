@@ -44,56 +44,71 @@ OUTPUT_DIR <- here::here("output")
 set.seed(42)  # For reproducibility - ensures same random splits each time
 
 ################################################################################
-# Step 1: Load engineered features
+# Step 1: Load engineered features with cluster assignments
 ################################################################################
 
-print_progress("Loading engineered features...")
+print_progress("Loading engineered features with cluster assignments...")
 hex_features <- load_output(
-  file.path(OUTPUT_DIR, "hex_features.rds"),
-  "engineered features"
+  file.path(OUTPUT_DIR, "hex_features_with_clusters.rds"),
+  "engineered features with cluster assignments"
 )
 
+# Load cluster analysis results for reference
+clustering_results <- load_output(
+  file.path(OUTPUT_DIR, "cluster_analysis_results.rds"),
+  "cluster analysis results"
+)
+
+cat("\nCluster-based outcome information:\n")
+cat(paste0("  - Number of clusters: ", clustering_results$optimal_k, "\n"))
+cat("  - Cluster labels:\n")
+for(i in 1:length(clustering_results$cluster_labels)) {
+  cat(paste0("    ", clustering_results$cluster_labels[i], "\n"))
+}
+
 ################################################################################
-# Step 2: Define outcome variable (target for prediction)
+# Step 2: Define outcome variable (cluster-based)
 ################################################################################
 
-print_header("DEFINING OUTCOME VARIABLE")
+print_header("DEFINING CLUSTER-BASED OUTCOME VARIABLE")
 
-# IMPORTANT CONCEPT: In supervised learning, we need a "target" or "outcome" 
-# variable to predict. This is like your dependent variable in regression.
+# IMPORTANT METHODOLOGICAL NOTE:
+# ================================
+# Previous approach: Created a synthetic "displacement_risk" variable by
+# combining the same features used for prediction → CIRCULAR REASONING
 #
-# For displacement risk, we create a COMPOSITE OUTCOME combining:
-# - Rent increases (market pressure)
-# - Demolitions (direct displacement)
-# - Vulnerability (community susceptibility)
+# New approach: Use unsupervised clustering to identify displacement patterns,
+# then predict cluster membership → DEFENSIBLE, NON-CIRCULAR METHODOLOGY
+#
+# This provides:
+# 1. Empirically-derived displacement "types" rather than assumptions
+# 2. Interpretable results: "This area resembles other high-risk clusters"
+# 3. Ability to discover unexpected displacement patterns
+# 4. No circularity in the prediction task
 
-print_progress("Creating composite displacement risk outcome...")
+print_progress("Creating cluster-based outcome variable...")
 
 model_data <- hex_features %>%
   st_drop_geometry() %>%  # Remove spatial geometry for modeling
   filter(sufficient_data) %>%  # Only use observations with enough data
+  filter(!is.na(cluster)) %>%  # Only use observations with cluster assignments
   mutate(
-    # Standardize components to 0-100 scale
-    rent_risk = normalize_to_100(rent_change_total),
-    demo_risk = normalize_to_100(demo_density),
-    vuln_risk = normalize_to_100(vulnerability_index),
+    # Primary outcome: Cluster membership (classification)
+    cluster_class = factor(cluster, levels = 1:clustering_results$optimal_k),
     
-    # Composite outcome: weighted average of risk factors
-    # You can adjust these weights based on domain knowledge
-    displacement_risk = (
-      0.4 * rent_risk +      # 40% weight on rent increases
-      0.3 * demo_risk +      # 30% weight on demolitions
-      0.3 * vuln_risk        # 30% weight on vulnerability
-    ),
-    
-    # Also create binary outcome for classification (high risk vs. not)
-    high_risk = if_else(displacement_risk > 60, 1, 0)
+    # Alternative: Binary high-risk indicator
+    # Identify which clusters represent high displacement risk
+    # For now, use a simple heuristic: clusters with high average characteristics
+    # Users can adjust this based on cluster profiles
+    high_risk_cluster = if_else(cluster %in% c(1, 2), 1, 0)
   )
 
-cat("\nOutcome variable summary:\n")
-cat("  - displacement_risk: Continuous 0-100 score\n")
-cat("  - high_risk: Binary indicator (>60 threshold)\n")
-print(summary(model_data$displacement_risk))
+cat("\nCluster-based outcome variable summary:\n")
+cat("  - cluster_class: Multi-class classification outcome (", 
+    clustering_results$optimal_k, " clusters)\n", sep = "")
+cat("  - high_risk_cluster: Binary outcome (high-risk clusters vs. others)\n")
+cat("\nCluster distribution in modeling data:\n")
+print(table(model_data$cluster_class))
 
 ################################################################################
 # Step 3: Prepare feature matrix (predictors)
@@ -126,7 +141,7 @@ print_progress(paste0("Using ", length(predictor_vars), " predictor variables"))
 
 # Create clean modeling dataset
 model_data_clean <- model_data %>%
-  select(hex_id, displacement_risk, high_risk, all_of(predictor_vars)) %>%
+  select(hex_id, cluster_class, high_risk_cluster, all_of(predictor_vars)) %>%
   drop_na()  # Remove any remaining rows with missing values
 
 cat(paste0("\nFinal modeling dataset: ", nrow(model_data_clean), " observations\n"))
@@ -146,7 +161,7 @@ print_header("TRAIN/TEST SPLIT")
 print_progress("Splitting data into training (70%) and testing (30%) sets...")
 
 train_index <- createDataPartition(
-  model_data_clean$displacement_risk, 
+  model_data_clean$cluster_class, 
   p = 0.7,           # 70% for training
   list = FALSE       # Return as matrix, not list
 )
@@ -174,7 +189,9 @@ train_control <- trainControl(
   method = "cv",           # Cross-validation method
   number = 5,              # 5 folds (common choice: 5 or 10)
   verboseIter = TRUE,      # Show progress
-  savePredictions = "final"  # Save predictions for analysis
+  savePredictions = "final",  # Save predictions for analysis
+  classProbs = TRUE,       # Compute class probabilities for multi-class
+  summaryFunction = multiClassSummary  # Use multi-class metrics
 )
 
 ################################################################################
@@ -221,12 +238,12 @@ print_progress(paste0("  - Testing ", nrow(elastic_grid), " parameter combinatio
 tic("Elastic Net training")
 model_elastic <- train(
   x = train_data[, predictor_vars],
-  y = train_data$displacement_risk,
-  method = "glmnet",           # Elastic Net method
+  y = train_data$cluster_class,
+  method = "glmnet",           # Elastic Net method (supports multi-class)
   trControl = train_control,
   tuneGrid = elastic_grid,
   preProcess = c("center", "scale"),  # Standardize predictors (important for penalties)
-  metric = "RMSE"              # Optimize for Root Mean Squared Error
+  metric = "Accuracy"          # Optimize for classification accuracy
 )
 toc()
 
@@ -292,13 +309,13 @@ print_progress(paste0("  - Testing ", nrow(rf_grid), " values of mtry"))
 tic("Random Forest training")
 model_rf <- train(
   x = train_data[, predictor_vars],
-  y = train_data$displacement_risk,
+  y = train_data$cluster_class,
   method = "rf",               # Random Forest
   trControl = train_control,
   tuneGrid = rf_grid,
   ntree = 500,                 # Number of trees (fixed at 500)
   importance = TRUE,           # Calculate feature importance
-  metric = "RMSE"
+  metric = "Accuracy"          # Optimize for classification accuracy
 )
 toc()
 
@@ -377,12 +394,13 @@ print_progress("  - This may take several minutes...")
 tic("XGBoost training")
 model_xgb <- train(
   x = train_data[, predictor_vars],
-  y = train_data$displacement_risk,
+  y = train_data$cluster_class,
   method = "xgbTree",          # XGBoost with trees
   trControl = train_control,
   tuneGrid = xgb_grid,
-  metric = "RMSE",
-  verbosity = 0                # Reduce XGBoost output
+  metric = "Accuracy",         # Optimize for classification accuracy
+  verbosity = 0,               # Reduce XGBoost output
+  objective = "multi:softprob"  # Multi-class classification
 )
 toc()
 
@@ -409,23 +427,24 @@ pred_elastic <- predict(model_elastic, newdata = test_data[, predictor_vars])
 pred_rf <- predict(model_rf, newdata = test_data[, predictor_vars])
 pred_xgb <- predict(model_xgb, newdata = test_data[, predictor_vars])
 
-# Calculate performance metrics
-# RMSE: Root Mean Squared Error (average prediction error, same units as outcome)
-# MAE: Mean Absolute Error (average absolute error, more robust to outliers)
-# R²: R-squared (proportion of variance explained, 0-1, higher is better)
+# Calculate performance metrics for classification
+# Accuracy: Proportion of correct predictions
+# Kappa: Agreement adjusted for chance
+# Mean F1: Average F1 score across all classes
 
 calc_metrics <- function(pred, actual) {
+  cm <- confusionMatrix(pred, actual)
   data.frame(
-    RMSE = sqrt(mean((pred - actual)^2)),
-    MAE = mean(abs(pred - actual)),
-    R2 = cor(pred, actual)^2
+    Accuracy = cm$overall["Accuracy"],
+    Kappa = cm$overall["Kappa"],
+    Mean_F1 = mean(cm$byClass[, "F1"], na.rm = TRUE)
   )
 }
 
 performance <- rbind(
-  Elastic_Net = calc_metrics(pred_elastic, test_data$displacement_risk),
-  Random_Forest = calc_metrics(pred_rf, test_data$displacement_risk),
-  XGBoost = calc_metrics(pred_xgb, test_data$displacement_risk)
+  Elastic_Net = calc_metrics(pred_elastic, test_data$cluster_class),
+  Random_Forest = calc_metrics(pred_rf, test_data$cluster_class),
+  XGBoost = calc_metrics(pred_xgb, test_data$cluster_class)
 )
 
 cat("\nTest Set Performance Metrics:\n")
@@ -433,9 +452,21 @@ print(round(performance, 3))
 
 # Interpretation guide
 cat("\nInterpretation:\n")
-cat("  - RMSE: Lower is better (average prediction error in risk score points)\n")
-cat("  - MAE: Lower is better (typical absolute error)\n")
-cat("  - R²: Higher is better (1.0 = perfect predictions, 0 = no better than mean)\n")
+cat("  - Accuracy: Higher is better (1.0 = perfect, 0.0 = all wrong)\n")
+cat("  - Kappa: Higher is better (1.0 = perfect, 0.0 = random guessing)\n")
+cat("  - Mean F1: Higher is better (harmonic mean of precision and recall)\n")
+
+# Show confusion matrix for best model
+best_model_name <- rownames(performance)[which.max(performance$Accuracy)]
+cat(paste0("\nConfusion Matrix for ", best_model_name, ":\n"))
+
+if(best_model_name == "Elastic_Net") {
+  print(confusionMatrix(pred_elastic, test_data$cluster_class))
+} else if(best_model_name == "Random_Forest") {
+  print(confusionMatrix(pred_rf, test_data$cluster_class))
+} else {
+  print(confusionMatrix(pred_xgb, test_data$cluster_class))
+}
 
 ################################################################################
 # Step 10: Save trained models
@@ -449,10 +480,11 @@ models_list <- list(
   xgboost = model_xgb,
   predictor_vars = predictor_vars,
   performance = performance,
-  train_data_summary = summary(train_data$displacement_risk),
+  clustering_results = clustering_results,  # Include cluster information
+  train_data_summary = table(train_data$cluster_class),
   test_predictions = data.frame(
     hex_id = test_data$hex_id,
-    actual = test_data$displacement_risk,
+    actual = test_data$cluster_class,
     pred_elastic = pred_elastic,
     pred_rf = pred_rf,
     pred_xgb = pred_xgb

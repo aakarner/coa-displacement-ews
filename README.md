@@ -7,17 +7,42 @@ A machine learning-based early warning system for predicting residential displac
 This project implements a prototype displacement early warning system that:
 - Analyzes displacement risk at the neighborhood level using hexagonal grids
 - Combines multiple data sources (Census demographics, rent prices, building demolitions)
-- Employs three machine learning approaches (Random Forest, XGBoost, Elastic Net)
+- **Uses a two-phase machine learning approach** with unsupervised clustering followed by supervised classification
+- Employs three machine learning algorithms (Random Forest, XGBoost, Elastic Net)
 - Generates interpretable risk scores and visualizations for policy action
 
 **Target Users**: Urban planners, housing policy analysts, community organizations, and researchers working on displacement prevention.
 
+## Methodology: Two-Phase Machine Learning Approach
+
+This system uses a scientifically rigorous two-phase approach to avoid circular reasoning:
+
+### Phase 1: Unsupervised Clustering (Pattern Discovery)
+Instead of creating a synthetic "displacement_risk" variable from the same features used for prediction (which creates circular reasoning), we:
+1. **Identify natural displacement patterns** using unsupervised clustering (K-means, Hierarchical, DBSCAN)
+2. **Characterize clusters** based on rent pressure, demolition activity, and socioeconomic vulnerability
+3. **Label clusters** as displacement risk types (e.g., "High Rent Growth + High Vulnerability")
+
+### Phase 2: Supervised Classification (Risk Prediction)
+We then train models to predict which cluster (displacement pattern) a neighborhood belongs to:
+1. **Train classifiers** to predict cluster membership based on observable features
+2. **Generate risk scores** by converting cluster probabilities to continuous risk scores
+3. **Interpret results** as "This area resembles other high-risk displacement clusters"
+
+**Key Advantages:**
+- ✅ **Non-circular methodology**: Outcome is derived independently from predictors
+- ✅ **Empirically-grounded**: Displacement patterns emerge from data, not assumptions
+- ✅ **Interpretable**: Results explain which displacement type an area resembles
+- ✅ **Discovery-oriented**: Can identify unexpected displacement patterns
+
 ## Key Features
 
 - 🗺️ **Hexagonal Grid Analysis**: Uses H3 spatial indexing for consistent, efficient spatial analysis
-- 🤖 **Multiple ML Models**: Trains and compares Random Forest, XGBoost, and Elastic Net
-- 📊 **Rich Visualizations**: Interactive maps, static plots, and summary dashboards
+- 🔬 **Cluster-Based Risk Assessment**: Unsupervised learning identifies displacement patterns
+- 🤖 **Multiple ML Models**: Trains and compares Random Forest, XGBoost, and Elastic Net classifiers
+- 📊 **Rich Visualizations**: Interactive maps, cluster profiles, static plots, and summary dashboards
 - 📈 **Feature Importance**: Identifies key drivers of displacement risk
+- 🎯 **Interpretable Predictions**: "This area resembles Cluster 2: High Rent Growth + High Vulnerability"
 - 🔄 **Extensible Design**: Easy to add new data sources (evictions, land values, corporate ownership)
 - 📚 **Educational**: Extensive comments explaining ML concepts for traditional statisticians
 
@@ -32,7 +57,8 @@ coa-displacement-ews/
 ├── 01_create_hex_grid.R         # Create hexagonal grid
 ├── 02_process_data.R            # Process and aggregate data
 ├── 03_feature_engineering.R     # Engineer features for ML
-├── 04_train_models.R            # Train ML models
+├── 03b_cluster_analysis.R       # **NEW: Unsupervised clustering**
+├── 04_train_models.R            # Train ML models (cluster-based)
 ├── 05_validate_models.R         # Validate and diagnose models
 ├── 06_predict_risk_scores.R     # Generate risk scores
 ├── 07_visualize_results.R       # Create visualizations
@@ -49,12 +75,20 @@ coa-displacement-ews/
 │   ├── hex_grid.rds             # Hexagonal grid
 │   ├── hex_data_processed.rds   # Processed data
 │   ├── hex_features.rds         # Engineered features
+│   ├── cluster_analysis_results.rds  # **NEW: Clustering results**
+│   ├── hex_features_with_clusters.rds # **NEW: Features + clusters**
+│   ├── cluster_profiles.csv     # **NEW: Cluster characterizations**
 │   ├── trained_models.rds       # Trained ML models
 │   ├── validation_results.rds   # Model validation results
 │   └── displacement_risk_scores.rds  # Final risk scores
 │
 └── figures/                     # Generated visualizations
     ├── 01_hex_grid_static.png
+    ├── 03b_elbow_plot.png       # **NEW: Cluster optimization**
+    ├── 03b_silhouette_plot.png  # **NEW: Cluster validation**
+    ├── 03b_pca_clusters.png     # **NEW: Cluster visualization**
+    ├── 03b_cluster_map.png      # **NEW: Geographic clusters**
+    ├── 03b_cluster_profiles.png # **NEW: Cluster characteristics**
     ├── 07_interactive_risk_map.html
     ├── 07_summary_dashboard.png
     └── ...
@@ -97,6 +131,7 @@ source("packages.R")
 This will automatically install all required packages including:
 - Spatial: `sf`, `h3jsr`, `tigris`, `lwgeom`
 - ML: `caret`, `randomForest`, `xgboost`, `glmnet`
+- Clustering: `cluster`, `factoextra`, `dbscan`, `Rtsne`
 - Data: `tidyverse`, `data.table`, `lubridate`
 - Visualization: `leaflet`, `mapview`, `ggplot2`, `viridis`
 - Census: `tidycensus`
@@ -145,6 +180,7 @@ source("packages.R")
 source("01_create_hex_grid.R")
 source("02_process_data.R")
 source("03_feature_engineering.R")
+source("03b_cluster_analysis.R")    # NEW: Clustering step
 source("04_train_models.R")
 source("05_validate_models.R")
 source("06_predict_risk_scores.R")

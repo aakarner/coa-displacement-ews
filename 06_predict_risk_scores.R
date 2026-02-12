@@ -32,8 +32,14 @@ models_list <- load_output(
 )
 
 hex_features <- load_output(
-  file.path(OUTPUT_DIR, "hex_features.rds"),
-  "engineered features"
+  file.path(OUTPUT_DIR, "hex_features_with_clusters.rds"),
+  "engineered features with cluster assignments"
+)
+
+# Load clustering results to understand cluster labels
+clustering_results <- load_output(
+  file.path(OUTPUT_DIR, "cluster_analysis_results.rds"),
+  "cluster analysis results"
 )
 
 # Extract components
@@ -65,69 +71,159 @@ cat(paste0("  - Cells with missing values: ", total_cases - complete_cases,
           " (", round((total_cases - complete_cases)/total_cases*100, 1), "%)\n"))
 
 ################################################################################
-# Step 3: Generate predictions from each model
+# Step 3: Generate cluster predictions from each model
 ################################################################################
 
-print_header("GENERATING PREDICTIONS")
+print_header("GENERATING CLUSTER PREDICTIONS")
 
-print_progress("Generating predictions from Elastic Net model...")
+print_progress("Generating cluster predictions from Elastic Net model...")
 # Elastic Net requires complete cases (no missing values)
-pred_elastic <- rep(NA_real_, nrow(prediction_data))
+pred_elastic_class <- rep(NA, nrow(prediction_data))
 complete_idx <- complete.cases(prediction_data[, predictor_vars])
-pred_elastic[complete_idx] <- predict(
+pred_elastic_class[complete_idx] <- as.character(predict(
   model_elastic,
   newdata = prediction_data[complete_idx, predictor_vars]
-)
+))
 
-print_progress("Generating predictions from Random Forest model...")
+# Also get class probabilities for ensemble
+pred_elastic_prob <- matrix(NA, nrow = nrow(prediction_data), 
+                            ncol = clustering_results$optimal_k)
+if(sum(complete_idx) > 0) {
+  pred_elastic_prob[complete_idx, ] <- predict(
+    model_elastic,
+    newdata = prediction_data[complete_idx, predictor_vars],
+    type = "prob"
+  )
+}
+
+print_progress("Generating cluster predictions from Random Forest model...")
 # Random Forest can handle some missing values
-pred_rf <- predict(
+pred_rf_class <- as.character(predict(
   model_rf,
   newdata = prediction_data[, predictor_vars]
+))
+
+pred_rf_prob <- predict(
+  model_rf,
+  newdata = prediction_data[, predictor_vars],
+  type = "prob"
 )
 
-print_progress("Generating predictions from XGBoost model...")
+print_progress("Generating cluster predictions from XGBoost model...")
 # XGBoost can handle missing values
-pred_xgb <- predict(
+pred_xgb_class <- as.character(predict(
   model_xgb,
   newdata = prediction_data[, predictor_vars]
+))
+
+pred_xgb_prob <- predict(
+  model_xgb,
+  newdata = prediction_data[, predictor_vars],
+  type = "prob"
 )
 
 cat("\nPrediction coverage:\n")
-cat(paste0("  - Elastic Net: ", sum(!is.na(pred_elastic)), " cells\n"))
-cat(paste0("  - Random Forest: ", sum(!is.na(pred_rf)), " cells\n"))
-cat(paste0("  - XGBoost: ", sum(!is.na(pred_xgb)), " cells\n"))
+cat(paste0("  - Elastic Net: ", sum(!is.na(pred_elastic_class)), " cells\n"))
+cat(paste0("  - Random Forest: ", sum(!is.na(pred_rf_class)), " cells\n"))
+cat(paste0("  - XGBoost: ", sum(!is.na(pred_xgb_class)), " cells\n"))
 
 ################################################################################
-# Step 4: Create ensemble prediction
+# Step 4: Convert cluster predictions to risk scores
+################################################################################
+
+print_header("CONVERTING CLUSTER PREDICTIONS TO RISK SCORES")
+
+# METHODOLOGY:
+# For cluster-based predictions, we need to convert cluster assignments
+# into continuous risk scores. We use two approaches:
+# 1. Direct cluster mapping: Assign risk scores based on cluster profiles
+# 2. Probability-based: Use probability of high-risk cluster membership
+
+print_progress("Mapping clusters to risk scores based on cluster profiles...")
+
+# Get cluster profiles to determine which clusters are high-risk
+cluster_profiles <- clustering_results$cluster_profiles
+
+# Simple heuristic: Rank clusters by average displacement indicators
+# Users can customize this based on domain knowledge
+cluster_risk_mapping <- cluster_profiles %>%
+  mutate(
+    # Composite risk score for each cluster
+    cluster_risk_score = (
+      normalize_to_100(mean_rent_change_total) * 0.4 +
+      normalize_to_100(mean_demo_density) * 0.3 +
+      normalize_to_100(mean_vulnerability) * 0.3
+    )
+  ) %>%
+  select(cluster, cluster_risk_score) %>%
+  arrange(cluster)
+
+cat("\nCluster Risk Score Mapping:\n")
+print(cluster_risk_mapping)
+
+# Function to convert cluster prediction to risk score
+cluster_to_risk <- function(cluster_pred) {
+  cluster_num <- as.numeric(cluster_pred)
+  ifelse(!is.na(cluster_num),
+         cluster_risk_mapping$cluster_risk_score[cluster_num],
+         NA_real_)
+}
+
+# Convert class predictions to risk scores
+pred_elastic_risk <- cluster_to_risk(pred_elastic_class)
+pred_rf_risk <- cluster_to_risk(pred_rf_class)
+pred_xgb_risk <- cluster_to_risk(pred_xgb_class)
+
+# Alternative: Use probability-weighted risk scores
+# Weight each cluster's risk score by the probability of membership
+pred_elastic_risk_prob <- rowSums(
+  sweep(pred_elastic_prob, 2, cluster_risk_mapping$cluster_risk_score, "*"),
+  na.rm = TRUE
+)
+pred_elastic_risk_prob[!complete_idx] <- NA_real_
+
+pred_rf_risk_prob <- rowSums(
+  sweep(as.matrix(pred_rf_prob), 2, cluster_risk_mapping$cluster_risk_score, "*")
+)
+
+pred_xgb_risk_prob <- rowSums(
+  sweep(as.matrix(pred_xgb_prob), 2, cluster_risk_mapping$cluster_risk_score, "*")
+)
+
+################################################################################
+# Step 5: Create ensemble prediction
 ################################################################################
 
 print_header("CREATING ENSEMBLE PREDICTIONS")
 
 # CONCEPT: Ensemble = combining multiple models
-# Often more robust than any single model
-# Simple approach: Average predictions
-# More sophisticated: Weighted average based on validation performance
+# For cluster-based predictions, we combine using probability-weighted risk scores
+# This provides more nuanced predictions than simple cluster assignment
 
 print_progress("Combining models into ensemble prediction...")
 
-# Get model performance weights from validation
+# Get model performance weights from validation (use accuracy instead of RMSE)
 performance <- models_list$performance
-weights <- 1 / performance$RMSE  # Lower RMSE = higher weight
+weights <- performance$Accuracy  # Higher accuracy = higher weight
 weights <- weights / sum(weights)  # Normalize to sum to 1
 
-cat("\nEnsemble weights (based on test RMSE):\n")
+cat("\nEnsemble weights (based on test accuracy):\n")
 cat(paste0("  - Elastic Net: ", round(weights[1], 3), "\n"))
 cat(paste0("  - Random Forest: ", round(weights[2], 3), "\n"))
 cat(paste0("  - XGBoost: ", round(weights[3], 3), "\n"))
 
-# Create weighted ensemble
-# Use simple average where elastic net is missing
+# Create weighted ensemble using probability-based risk scores
 risk_scores <- prediction_data %>%
   mutate(
-    pred_elastic_net = pred_elastic,
-    pred_random_forest = pred_rf,
-    pred_xgboost = pred_xgb,
+    # Individual model predictions (cluster-based risk)
+    pred_elastic_net_cluster = pred_elastic_class,
+    pred_random_forest_cluster = pred_rf_class,
+    pred_xgboost_cluster = pred_xgb_class,
+    
+    # Individual model risk scores (probability-weighted)
+    pred_elastic_net = pred_elastic_risk_prob,
+    pred_random_forest = pred_rf_risk_prob,
+    pred_xgboost = pred_xgb_risk_prob,
     
     # Weighted ensemble (when all models available)
     risk_score_ensemble = if_else(
@@ -141,11 +237,17 @@ risk_scores <- prediction_data %>%
     
     # Also keep individual model scores
     risk_score_rf = pmax(0, pmin(100, pred_random_forest)),
-    risk_score_xgb = pmax(0, pmin(100, pred_xgboost))
+    risk_score_xgb = pmax(0, pmin(100, pred_xgboost)),
+    
+    # Most likely cluster for each model (for interpretation)
+    cluster_pred_ensemble = {
+      # Use Random Forest's prediction as default (best coverage)
+      pred_rf_class
+    }
   )
 
 ################################################################################
-# Step 5: Classify into risk categories
+# Step 6: Classify into risk categories
 ################################################################################
 
 print_progress("Classifying cells into risk categories...")
@@ -168,7 +270,7 @@ cat("\nRisk category percentages:\n")
 print(round(prop.table(table(risk_scores$risk_category)) * 100, 1))
 
 ################################################################################
-# Step 6: Identify key contributing factors
+# Step 7: Identify key contributing factors
 ################################################################################
 
 print_header("IDENTIFYING KEY CONTRIBUTING FACTORS")
@@ -233,13 +335,15 @@ risk_scores_with_factors <- risk_scores %>%
 # Clean up by removing the extra feature columns
 risk_scores <- risk_scores_with_factors %>%
   select(hex_id, h3_index, longitude, latitude,
+         pred_elastic_net_cluster, pred_random_forest_cluster, pred_xgboost_cluster,
+         cluster_pred_ensemble,
          pred_elastic_net, pred_random_forest, pred_xgboost,
          risk_score_ensemble, risk_score_rf, risk_score_xgb,
          risk_category, risk_category_rf, risk_category_xgb,
          contributing_factors)
 
 ################################################################################
-# Step 7: Add spatial geometry back
+# Step 8: Add spatial geometry back
 ################################################################################
 
 print_progress("Adding spatial geometry to risk scores...")
@@ -255,13 +359,16 @@ risk_scores_spatial <- hex_grid %>%
   )
 
 ################################################################################
-# Step 8: Generate summary statistics
+# Step 9: Generate summary statistics
 ################################################################################
 
 print_header("RISK SCORE SUMMARY STATISTICS")
 
 cat("\nEnsemble Risk Score Statistics:\n")
 print(summary(risk_scores$risk_score_ensemble))
+
+cat("\nPredicted Cluster Distribution:\n")
+print(table(risk_scores$cluster_pred_ensemble))
 
 cat("\nRisk Categories:\n")
 risk_category_summary <- risk_scores %>%
@@ -279,11 +386,12 @@ cat("\nTop 10 Highest Risk Cells:\n")
 top_risk <- risk_scores %>%
   arrange(desc(risk_score_ensemble)) %>%
   head(10) %>%
-  select(hex_id, longitude, latitude, risk_score_ensemble, risk_category, contributing_factors)
+  select(hex_id, longitude, latitude, risk_score_ensemble, risk_category, 
+         cluster_pred_ensemble, contributing_factors)
 print(top_risk)
 
 ################################################################################
-# Step 9: Save risk scores
+# Step 10: Save risk scores
 ################################################################################
 
 print_progress("Saving risk scores...")
@@ -301,6 +409,7 @@ risk_scores_csv <- risk_scores_spatial %>%
   select(hex_id, h3_index, longitude, latitude,
          risk_score = risk_score_ensemble,
          risk_category,
+         predicted_cluster = cluster_pred_ensemble,
          contributing_factors,
          risk_score_rf, risk_score_xgb)
 
@@ -338,12 +447,17 @@ save_output(
 ################################################################################
 
 print_header("STEP 06 COMPLETE")
-cat("✓ Predictions generated from all three models\n")
-cat("✓ Ensemble predictions created using weighted average\n")
+cat("✓ Cluster predictions generated from all three models\n")
+cat("✓ Cluster assignments converted to risk scores\n")
+cat("✓ Ensemble predictions created using weighted probabilities\n")
 cat("✓ Risk scores calculated for all cells (0-100 scale)\n")
 cat("✓ Cells classified into risk categories\n")
 cat("✓ Contributing factors identified for each cell\n")
-cat(paste0("✓ Spatial risk scores saved to: ", 
+cat("\nInterpretation:\n")
+cat("  - Risk scores are based on probability-weighted cluster membership\n")
+cat("  - Higher scores indicate similarity to high-risk displacement clusters\n")
+cat("  - Cluster predictions show which displacement pattern each area resembles\n")
+cat(paste0("\n✓ Spatial risk scores saved to: ", 
           file.path(OUTPUT_DIR, "displacement_risk_scores.rds"), "\n"))
 cat(paste0("✓ CSV export saved to: ",
           file.path(OUTPUT_DIR, "displacement_risk_scores.csv"), "\n"))
