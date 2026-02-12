@@ -57,9 +57,19 @@ h3_indices <- polygon_to_cells(austin_boundary, res = H3_RESOLUTION, simple = FA
 
 print_progress(paste0("Generated ", length(h3_indices), " H3 hexagons covering Austin"))
 
+# Use polygon_to_cells to get all H3 hexagons that cover Austin
+# This approach captures all hexagons that overlap with the boundary,
+# including those partially outside, ensuring no internal gaps
+h3_indices_sf <- polygon_to_cells(austin_boundary, res = H3_RESOLUTION, simple = FALSE)
+
+# Extract H3 indices as a character vector
+h3_indices <- h3_indices_sf$h3_address
+
+print_progress(paste0("Generated ", length(h3_indices), " H3 hexagons covering Austin"))
+
 # Convert H3 indices to polygon geometries
 print_progress("Converting H3 indices to polygon geometries...")
-hex_grid <- cell_to_polygon(h3_indices, simple = FALSE) %>%
+hex_grid <- cell_to_polygon(h3_indices, simple = FALSE) |>
   st_as_sf()
 
 # Add H3 index as a column
@@ -79,7 +89,9 @@ hex_grid <- hex_grid %>%
     centroid = st_centroid(geometry),
     longitude = st_coordinates(centroid)[, 1],
     latitude = st_coordinates(centroid)[, 2],
-    
+  ) %>%
+  select(-centroid) %>%
+  mutate(
     # Calculate area in km²
     area_km2 = as.numeric(st_area(geometry)) / 1e6,
     
@@ -87,7 +99,7 @@ hex_grid <- hex_grid %>%
     hex_id = row_number()
   ) %>%
   select(hex_id, h3_index, longitude, latitude, area_km2, geometry)
-  # select(-centroid)
+  
 
 # Summary statistics
 print_progress("Grid summary:")
@@ -146,6 +158,11 @@ hex_sample <- if(nrow(hex_grid) > 1000) {
 } else {
   hex_grid
 }
+
+# Remove the problematic h3_index list column
+hex_sample <- hex_sample %>%
+  select(hex_id, longitude, latitude, area_km2, geometry)
+
 
 map <- mapview(
   austin_boundary,
