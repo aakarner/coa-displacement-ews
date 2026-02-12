@@ -28,6 +28,9 @@ packages <- list(
   # Machine Learning
   ml = c("caret", "randomForest", "xgboost", "glmnet"),
   
+  # Clustering and dimensionality reduction
+  clustering = c("cluster", "factoextra", "dbscan", "Rtsne"),
+  
   # Data manipulation and processing
   data = c("tidyverse", "data.table", "lubridate"),
   
@@ -62,6 +65,12 @@ suppressPackageStartupMessages({
   library(randomForest)
   library(xgboost)
   library(glmnet)
+  
+  # Clustering
+  library(cluster)
+  library(factoextra)
+  library(dbscan)
+  library(Rtsne)
   
   # Data manipulation
   library(tidyverse)
