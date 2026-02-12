@@ -4,11 +4,15 @@
 #
 # This script creates comprehensive visualizations of the displacement risk
 # analysis results, including:
-# - Interactive maps of risk scores
+# - Interactive maps of risk scores (with cluster information)
 # - Static publication-quality maps
 # - Feature importance plots
 # - Model comparison visualizations
 # - Summary dashboards
+#
+# NOTE: Risk scores are now based on cluster-based predictions rather than
+# synthetic composite scores. Interpretation: "This area resembles high-risk
+# displacement clusters" rather than an arbitrary composite score.
 #
 ################################################################################
 
