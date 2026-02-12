@@ -104,8 +104,8 @@ hex_grid <- hex_grid %>%
     # Create sequential ID
     hex_id = row_number()
   ) %>%
-  select(hex_id, h3_index, longitude, latitude, area_km2, geometry) %>%
-  select(-centroid)
+  select(hex_id, h3_index, longitude, latitude, area_km2, geometry)
+  # select(-centroid)
 
 # Summary statistics
 print_progress("Grid summary:")
