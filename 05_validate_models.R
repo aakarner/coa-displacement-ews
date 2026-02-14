@@ -3,16 +3,33 @@
 ################################################################################
 #
 # This script performs comprehensive validation of the trained models using:
-# - Temporal cross-validation (train on past, test on future)
 # - Spatial cross-validation (account for spatial autocorrelation)
 # - Diagnostic plots for model performance
 # - Feature importance comparison across models
+#
+# WHY SPATIAL CV MATTERS:
+# Standard k-fold CV can be misleading for spatial data because nearby areas
+# are similar (spatial autocorrelation). Spatial CV uses spatial blocking to
+# ensure test sets are spatially separated from training sets, providing more
+# realistic performance estimates for deployment.
+#
+# NOTE: Temporal cross-validation (training on past, testing on future) would
+# be valuable for this analysis but requires temporal ordering of the data.
+# This is planned for a future enhancement when longitudinal data becomes available.
+#
+# INPUTS:
+#   - output/trained_models.rds: Trained models from script 04
+#   - output/clustered_features.rds: Feature data with cluster assignments
+#
+# OUTPUTS:
+#   - output/validation_results.rds: Spatial CV performance metrics
+#   - figures/validation_*.png: Diagnostic plots and performance comparisons
 #
 ################################################################################
 
 print_header("05 - MODEL VALIDATION AND DIAGNOSTICS")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Load required additional packages
@@ -22,6 +39,7 @@ library(blockCV)
 # Configuration
 OUTPUT_DIR <- here::here("output")
 FIGURES_DIR <- here::here("figures")
+# Set seed for reproducibility (enables standalone execution; harmless when run via run_analysis.R)
 set.seed(42)
 
 ################################################################################

@@ -4,18 +4,33 @@
 #
 # This script creates features from the processed data for use in machine
 # learning models. Features include:
-# - Temporal features from rent price changes
-# - Spatial lag features (neighborhood effects)
-# - Interaction terms
-# - Derived risk indicators
+# - Temporal features: rent change rates, acceleration, volatility
+# - Spatial lag features: neighborhood effects using k-nearest neighbors
+# - Interaction terms: combined effects of multiple variables
+# - Derived risk indicators: composite measures of displacement pressure
 #
-# Each feature is explained with comments on why it matters for displacement.
+# WHY THIS MATTERS:
+# Raw data rarely captures complex displacement dynamics. Engineered features
+# help models detect patterns like rapidly gentrifying neighborhoods (high rent
+# acceleration + low income) or spatial contagion effects (displacement
+# spreading from one area to adjacent areas).
+#
+# INPUTS:
+#   - output/hex_data.rds: Processed hexagonal data from script 02
+#
+# OUTPUTS:
+#   - output/engineered_features.rds: Feature matrix ready for ML models
+#     Contains: all input variables + engineered temporal/spatial features
+#
+# DEPENDENCIES:
+#   - spdep for spatial operations (k-nearest neighbors)
+#   - tidyverse for data manipulation
 #
 ################################################################################
 
 print_header("03 - FEATURE ENGINEERING")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Load required packages for spatial operations

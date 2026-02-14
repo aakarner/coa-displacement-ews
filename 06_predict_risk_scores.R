@@ -4,20 +4,30 @@
 #
 # This script uses the trained models to generate displacement risk scores
 # for all hexagonal cells in Austin. It produces:
-# - Risk scores (0-100 scale)
-# - Risk categories (Low, Moderate, High, Very High)
-# - Contributing factors for each cell
-# - Ensemble predictions combining multiple models
+# - Risk scores (0-100 scale) normalized for interpretability
+# - Risk categories (Low, Moderate, High, Very High) using quartile thresholds
+# - Contributing factors showing which variables drive risk in each area
+# - Ensemble predictions combining multiple models for robustness
+#
+# INPUTS:
+#   - output/trained_models.rds: Trained models from script 04
+#   - output/clustered_features.rds: Full feature dataset
+#   - output/hex_grid.rds: Original hexagonal grid with geometries
+#
+# OUTPUTS:
+#   - output/risk_scores.rds: Final risk scores and categories for all hexagons
+#   - output/risk_map_data.rds: Spatially-enabled data for visualization
 #
 ################################################################################
 
 print_header("06 - GENERATING DISPLACEMENT RISK SCORES")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Configuration
 OUTPUT_DIR <- here::here("output")
+# Set seed for reproducibility (enables standalone execution; harmless when run via run_analysis.R)
 set.seed(42)
 
 ################################################################################

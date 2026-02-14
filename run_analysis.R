@@ -45,7 +45,10 @@ CONFIG <- list(
   figures_dir = "figures",
   
   # Hexagonal grid parameters
-  h3_resolution = 8,  # Resolution 8 ≈ 0.5 km² cells
+  # NOTE: Currently documented for reference only. Individual scripts define their
+  # own constants to enable standalone execution (01_create_hex_grid.R sets H3_RESOLUTION = 9)
+  # Future enhancement: Pass CONFIG to child scripts to maintain single source of truth
+  h3_resolution = 9,  # Resolution 9 ≈ 0.1 km² cells
   
   # Census data
   acs_year = 2021,
@@ -64,6 +67,9 @@ CONFIG <- list(
 )
 
 # Set global seed for reproducibility
+# NOTE: This is the master seed for the entire pipeline. Individual scripts
+# may also set seed(42) for standalone execution, which is harmless when
+# running through this master script
 set.seed(CONFIG$random_seed)
 
 ################################################################################
@@ -105,7 +111,7 @@ cat("\n")
 # Step 1: Create hexagonal grid
 cat("\n")
 cat("################################################################################\n")
-cat("# STEP 1/7: Creating hexagonal grid\n")
+cat("# STEP 1/8: Creating hexagonal grid\n")
 cat("################################################################################\n\n")
 
 tryCatch({
@@ -120,7 +126,7 @@ tryCatch({
 # Step 2: Process data
 cat("\n")
 cat("################################################################################\n")
-cat("# STEP 2/7: Processing and aggregating data\n")
+cat("# STEP 2/8: Processing and aggregating data\n")
 cat("################################################################################\n\n")
 
 tryCatch({

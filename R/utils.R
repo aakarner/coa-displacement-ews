@@ -27,23 +27,29 @@ print_progress <- function(text) {
 #' @param value_col Name of the column to calculate lag for
 #' @param k Number of nearest neighbors to consider
 #' @return Vector of spatial lag values
-calculate_spatial_lag <- function(sf_data, value_col, k = 6) {
-  print_progress(paste0("Calculating spatial lag for ", value_col, "..."))
-  
-  # Get centroids
-  centroids <- st_centroid(sf_data)
-  
-  # Find k nearest neighbors
-  neighbors <- st_nn(centroids, centroids, k = k + 1)  # +1 to exclude self
-  
-  # Calculate lag
-  lag_values <- sapply(1:nrow(sf_data), function(i) {
-    neighbor_indices <- neighbors[[i]][-1]  # Remove self (first element)
-    mean(sf_data[[value_col]][neighbor_indices], na.rm = TRUE)
-  })
-  
-  return(lag_values)
-}
+#' 
+#' NOTE: This function is currently unused and requires the 'nngeo' package
+#' which is not loaded. The actual pipeline uses safe_spatial_lag() in
+#' 03_feature_engineering.R which uses spdep::knearneigh instead.
+#' Kept here for reference but commented out to avoid dependency issues.
+#' 
+# calculate_spatial_lag <- function(sf_data, value_col, k = 6) {
+#   print_progress(paste0("Calculating spatial lag for ", value_col, "..."))
+#   
+#   # Get centroids
+#   centroids <- st_centroid(sf_data)
+#   
+#   # Find k nearest neighbors (requires nngeo package)
+#   neighbors <- st_nn(centroids, centroids, k = k + 1)  # +1 to exclude self
+#   
+#   # Calculate lag
+#   lag_values <- sapply(1:nrow(sf_data), function(i) {
+#     neighbor_indices <- neighbors[[i]][-1]  # Remove self (first element)
+#     mean(sf_data[[value_col]][neighbor_indices], na.rm = TRUE)
+#   })
+#   
+#   return(lag_values)
+# }
 
 #' Normalize values to 0-100 scale
 #' @param x Vector of values to normalize

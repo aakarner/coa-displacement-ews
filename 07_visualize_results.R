@@ -5,20 +5,31 @@
 # This script creates comprehensive visualizations of the displacement risk
 # analysis results, including:
 # - Interactive maps of risk scores (with cluster information)
-# - Static publication-quality maps
-# - Feature importance plots
+# - Static publication-quality maps for reports
+# - Feature importance plots showing what drives risk
 # - Model comparison visualizations
-# - Summary dashboards
+# - Summary dashboards with key statistics
 #
-# NOTE: Risk scores are now based on cluster-based predictions rather than
+# NOTE: Risk scores are based on cluster-based predictions rather than
 # synthetic composite scores. Interpretation: "This area resembles high-risk
-# displacement clusters" rather than an arbitrary composite score.
+# displacement clusters identified in the data" rather than an arbitrary score.
+#
+# INPUTS:
+#   - output/risk_scores.rds: Risk scores from script 06
+#   - output/trained_models.rds: Models for feature importance
+#   - output/cluster_assignments.rds: Cluster information for context
+#
+# OUTPUTS:
+#   - figures/risk_map_interactive.html: Interactive Leaflet map
+#   - figures/risk_map_static.png: Publication-ready static map
+#   - figures/feature_importance.png: Variable importance charts
+#   - figures/summary_dashboard.png: Overview statistics
 #
 ################################################################################
 
 print_header("07 - VISUALIZING DISPLACEMENT RISK RESULTS")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Configuration

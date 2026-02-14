@@ -4,18 +4,34 @@
 #
 # This script processes various data sources and aggregates them to the
 # hexagonal grid cells. It handles:
-# - Building demolitions
-# - Rent prices over time
-# - Census/ACS demographic and socioeconomic data
+# - Census/ACS demographic and socioeconomic data (fetched via tidycensus API)
+# - Building demolitions (from CSV if available, else creates empty object)
+# - Rent prices over time (synthetic time series for demonstration)
 # - Placeholder structure for future data (evictions, land value, ownership)
 #
-# All data is spatially joined to hexagonal grid for analysis.
+# WHY THIS MATTERS:
+# Aggregating diverse data sources to a common spatial unit (hexagons) enables
+# integrated analysis of displacement risk factors. The script includes robust
+# error handling to work with or without external data sources.
+#
+# INPUTS:
+#   - output/hex_grid.rds: Hexagonal grid from script 01
+#   - data/Residential_Demolitions_dataset_*.csv (optional)
+#   - Census API (via tidycensus; requires API key or uses synthetic fallback)
+#
+# OUTPUTS:
+#   - output/hex_data.rds: Hexagonal grid with aggregated data
+#     Contains: demographics, rent, demolitions, derived variables
+#
+# DEPENDENCIES:
+#   - tidyverse, sf, tidycensus packages
+#   - Census API key (optional; falls back to synthetic data if unavailable)
 #
 ################################################################################
 
 print_header("02 - PROCESSING AND AGGREGATING DATA")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Configuration
@@ -85,8 +101,9 @@ acs_vars <- c(
 
 # Fetch ACS data for Travis County (where Austin is located)
 # We use tracts as the base geography
-tryCatch({
-  acs_data <- get_acs(
+acs_data <- tryCatch({
+  # Try to fetch from Census API
+  result <- get_acs(
     geography = "tract",
     variables = acs_vars,
     state = "TX",
@@ -98,7 +115,10 @@ tryCatch({
   ) %>%
     st_transform(4326)
   
-  print_progress(paste0("Retrieved ACS data for ", nrow(acs_data), " census tracts"))
+  print_progress(paste0("Retrieved ACS data for ", nrow(result), " census tracts"))
+  
+  # Return the successfully fetched data
+  result
   
 }, error = function(e) {
   print_progress("WARNING: Could not fetch Census data. You may need to set up a Census API key.")
@@ -106,8 +126,8 @@ tryCatch({
   print_progress("Then run: tidycensus::census_api_key('YOUR_KEY_HERE', install = TRUE)")
   print_progress("Creating synthetic ACS data for demonstration purposes...")
   
-  # Create synthetic data for demonstration
-  acs_data <- hex_grid %>%
+  # Create synthetic data for demonstration and return it
+  hex_grid %>%
     st_transform(4326) %>%
     mutate(
       median_incomeE = rnorm(n(), 65000, 25000),
@@ -223,15 +243,22 @@ if(file.exists(demo_file)) {
   demolitions <- read_csv(demo_file) %>%
     st_as_sf(wkt = c("location"), crs = 4326, remove = FALSE)
 } else {
-  print_progress("File not found")
+  print_progress("Demolitions file not found - creating empty fallback object...")
+  # Create empty sf object with expected schema to prevent downstream errors
+  demolitions <- st_sf(
+    calendar_year_issued = integer(),
+    geometry = st_sfc(crs = 4326)
+  )
 }
 
 # Aggregate demolitions to hex grid
-hex_with_demos <- hex_grid %>% # hex_with_census %>%
+# NOTE: We join to hex_grid (not hex_with_census) to count demolitions per hex
+# independently before merging with other data sources
+hex_with_demos <- hex_grid %>%
   st_join(demolitions, join = st_intersects) %>%
   group_by(hex_id) %>%
   summarise(
-    demo_count_total = sum(!is.na(.)),
+    demo_count_total = sum(!is.na(calendar_year_issued)),
     demo_count_2020 = sum(calendar_year_issued == 2020, na.rm = TRUE),
     demo_count_2021 = sum(calendar_year_issued == 2021, na.rm = TRUE),
     demo_count_2022 = sum(calendar_year_issued == 2022, na.rm = TRUE),
@@ -278,7 +305,9 @@ if(file.exists(rent_file)) {
       rent_2021_q4 = median_rent * runif(n(), 1.00, 1.10),
       rent_2022_q1 = median_rent * runif(n(), 1.05, 1.15),
       rent_2022_q4 = median_rent * runif(n(), 1.10, 1.25)
-    )
+    ) %>%
+    # Remove median_rent to avoid column collision when joining
+    select(-median_rent)
 }
 
 # Join rent time series to hex data

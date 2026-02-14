@@ -32,16 +32,26 @@
 # - Feature Importance: Which variables matter most (similar to t-statistics/p-values)
 # - RMSE/MAE: Prediction error metrics (similar to residual standard error)
 #
+# INPUTS:
+#   - output/clustered_features.rds: Features with cluster assignments from 03b
+#
+# OUTPUTS:
+#   - output/trained_models.rds: List of trained models (RF, XGBoost, ElasticNet)
+#   - output/model_performance.rds: Performance metrics for all models
+#   - output/feature_importance.rds: Variable importance scores
+#   - figures/model_performance_comparison.png: Visual comparison of models
+#
 ################################################################################
 
 print_header("04 - TRAINING MACHINE LEARNING MODELS")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Configuration
 OUTPUT_DIR <- here::here("output")
-set.seed(42)  # For reproducibility - ensures same random splits each time
+# Set seed for reproducibility (enables standalone execution; harmless when run via run_analysis.R)
+set.seed(42)  # Ensures same random splits each time
 
 ################################################################################
 # Step 1: Load engineered features with cluster assignments

@@ -14,11 +14,22 @@
 # We use Resolution 9 as it provides good spatial detail while maintaining
 # computational efficiency.
 #
+# INPUTS:
+#   - Austin city boundary from tigris package (downloaded automatically)
+#
+# OUTPUTS:
+#   - output/hex_grid.rds: H3 hexagonal grid as sf object
+#     Columns: hex_id (character), geometry (polygon)
+#
+# DEPENDENCIES:
+#   - sf, h3jsr, tigris packages
+#   - R/utils.R for helper functions
+#
 ################################################################################
 
 print_header("01 - CREATING HEXAGONAL GRID")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Configuration
@@ -49,13 +60,6 @@ print_progress(paste0("Austin boundary loaded. Area: ",
 ################################################################################
 
 print_progress(paste0("Creating H3 hexagonal grid at resolution ", H3_RESOLUTION, "..."))
-
-# Use polygon_to_cells to get all H3 hexagons that cover Austin
-# This approach captures all hexagons that overlap with the boundary,
-# including those partially outside, ensuring no internal gaps
-h3_indices <- polygon_to_cells(austin_boundary, res = H3_RESOLUTION, simple = FALSE)
-
-print_progress(paste0("Generated ", length(h3_indices), " H3 hexagons covering Austin"))
 
 # Use polygon_to_cells to get all H3 hexagons that cover Austin
 # This approach captures all hexagons that overlap with the boundary,
