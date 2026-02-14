@@ -45,8 +45,8 @@ CONFIG <- list(
   figures_dir = "figures",
   
   # Hexagonal grid parameters
-  # NOTE: Child scripts may override this with their own constants
-  # (e.g., 01_create_hex_grid.R uses H3_RESOLUTION <- 9)
+  # NOTE: The actual resolution is set in 01_create_hex_grid.R as H3_RESOLUTION <- 9
+  # This CONFIG value is documented here for reference but not passed to child scripts
   h3_resolution = 9,  # Resolution 9 ≈ 0.1 km² cells
   
   # Census data

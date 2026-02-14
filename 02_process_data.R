@@ -252,6 +252,8 @@ if(file.exists(demo_file)) {
 }
 
 # Aggregate demolitions to hex grid
+# NOTE: We join to hex_grid (not hex_with_census) to count demolitions per hex
+# independently before merging with other data sources
 hex_with_demos <- hex_grid %>%
   st_join(demolitions, join = st_intersects) %>%
   group_by(hex_id) %>%
