@@ -26,7 +26,6 @@
 # DEPENDENCIES:
 #   - tidyverse, sf, tidycensus packages
 #   - Census API key (optional; falls back to synthetic data if unavailable)
-#
 ################################################################################
 
 print_header("02 - PROCESSING AND AGGREGATING DATA")
@@ -56,7 +55,7 @@ hex_grid <- load_output(
 # Step 2: Process Census/ACS Data
 ################################################################################
 
-print_progress("Fetching Census ACS data for Travis County, TX...")
+print_progress("Fetching Census ACS data for Travis, Hays, and Williamson Counties, TX...")
 
 # Note: You'll need to set up a Census API key first
 # Get one free at: https://api.census.gov/data/key_signup.html
@@ -99,15 +98,17 @@ acs_vars <- c(
   median_home_value = "B25077_001"
 )
 
-# Fetch ACS data for Travis County (where Austin is located)
-# We use tracts as the base geography
+# Fetch ACS data for Travis, Hays, and Williamson Counties
+# Austin's city boundary spans all three counties, so we need tracts from each
+# to ensure complete population coverage when spatially joining to the hex grid.
+# We use tracts as the base geography.
 acs_data <- tryCatch({
   # Try to fetch from Census API
   result <- get_acs(
     geography = "tract",
     variables = acs_vars,
     state = "TX",
-    county = "Travis",
+    county = c("Travis", "Hays", "Williamson"),
     year = ACS_YEAR,
     survey = "acs5",
     geometry = TRUE,
