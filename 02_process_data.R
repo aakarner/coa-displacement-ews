@@ -149,7 +149,8 @@ acs_processed <- acs_data %>%
     pct_asian = (asian_nhE / total_popE) * 100,
     pct_hispanic = (hispanicE / total_popE) * 100,
     pct_poc = ((total_popE - white_nhE) / total_popE) * 100,
-    
+    orig_area = st_area(geometry),
+
     # Housing tenure
     pct_renter = (renter_occupiedE / total_tenureE) * 100,
     
@@ -167,6 +168,7 @@ acs_processed <- acs_data %>%
     pct_renter, pct_college, poverty_rate,
     median_rent = median_rentE,
     median_home_value = median_home_valueE,
+    orig_area,
     geometry
   )
 
@@ -178,15 +180,29 @@ print_progress("Spatially joining Census data to hexagonal grid...")
 
 # For each hexagon, calculate area-weighted average of overlapping tracts
 hex_with_census <- hex_grid %>%
-  st_join(acs_processed, join = st_intersects, left = TRUE) %>%
+  st_intersection(acs_processed) %>%
+  mutate(
+    intersection_area = st_area(geometry),
+    weight = as.numeric(intersection_area / orig_area)
+  ) %>%
+  st_drop_geometry() %>%
   group_by(hex_id, h3_index, longitude, latitude, area_km2) %>%
   summarise(
-    across(c(median_income, total_pop, pct_white, pct_black, pct_asian,
-            pct_hispanic, pct_poc, pct_renter, pct_college, poverty_rate,
-            median_rent, median_home_value),
-           ~mean(., na.rm = TRUE)),
+    # Population-weighted variables
+    across(c(pct_white, pct_black, pct_asian, pct_hispanic, pct_poc, 
+             pct_renter, pct_college, poverty_rate),
+           ~weighted.mean(., w = weight * total_pop, na.rm = TRUE)),
+    
+    # Simple weighted means for medians and totals
+    across(c(median_income, median_rent, median_home_value),
+           ~weighted.mean(., w = weight, na.rm = TRUE)),
+    
+    # Sum total population
+    total_pop = sum(total_pop * weight, na.rm = TRUE),
+    
     .groups = "drop"
-  )
+  ) %>%
+  left_join(hex_grid %>% select(hex_id, geometry), by = "hex_id")
 
 print_progress(paste0("Census data joined to ", nrow(hex_with_census), " hexagons"))
 
