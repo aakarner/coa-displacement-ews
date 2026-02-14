@@ -3,10 +3,11 @@
 ################################################################################
 #
 # This script performs comprehensive validation of the trained models using:
-# - Temporal cross-validation (train on past, test on future)
 # - Spatial cross-validation (account for spatial autocorrelation)
 # - Diagnostic plots for model performance
 # - Feature importance comparison across models
+#
+# TODO: Implement temporal cross-validation (train on past, test on future)
 #
 ################################################################################
 

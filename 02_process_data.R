@@ -287,7 +287,9 @@ if(file.exists(rent_file)) {
       rent_2021_q4 = median_rent * runif(n(), 1.00, 1.10),
       rent_2022_q1 = median_rent * runif(n(), 1.05, 1.15),
       rent_2022_q4 = median_rent * runif(n(), 1.10, 1.25)
-    )
+    ) %>%
+    # Remove median_rent to avoid column collision when joining
+    select(-median_rent)
 }
 
 # Join rent time series to hex data

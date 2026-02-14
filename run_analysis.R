@@ -45,7 +45,9 @@ CONFIG <- list(
   figures_dir = "figures",
   
   # Hexagonal grid parameters
-  h3_resolution = 8,  # Resolution 8 ≈ 0.5 km² cells
+  # NOTE: Child scripts may override this with their own constants
+  # (e.g., 01_create_hex_grid.R uses H3_RESOLUTION <- 9)
+  h3_resolution = 9,  # Resolution 9 ≈ 0.1 km² cells
   
   # Census data
   acs_year = 2021,
@@ -105,7 +107,7 @@ cat("\n")
 # Step 1: Create hexagonal grid
 cat("\n")
 cat("################################################################################\n")
-cat("# STEP 1/7: Creating hexagonal grid\n")
+cat("# STEP 1/8: Creating hexagonal grid\n")
 cat("################################################################################\n\n")
 
 tryCatch({
@@ -120,7 +122,7 @@ tryCatch({
 # Step 2: Process data
 cat("\n")
 cat("################################################################################\n")
-cat("# STEP 2/7: Processing and aggregating data\n")
+cat("# STEP 2/8: Processing and aggregating data\n")
 cat("################################################################################\n\n")
 
 tryCatch({
