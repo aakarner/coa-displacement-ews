@@ -13,7 +13,9 @@
 # ensure test sets are spatially separated from training sets, providing more
 # realistic performance estimates for deployment.
 #
-# TODO: Implement temporal cross-validation (train on past, test on future)
+# NOTE: Temporal cross-validation (training on past, testing on future) would
+# be valuable for this analysis but requires temporal ordering of the data.
+# This is planned for a future enhancement when longitudinal data becomes available.
 #
 # INPUTS:
 #   - output/trained_models.rds: Trained models from script 04
