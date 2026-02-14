@@ -85,8 +85,9 @@ acs_vars <- c(
 
 # Fetch ACS data for Travis County (where Austin is located)
 # We use tracts as the base geography
-tryCatch({
-  acs_data <- get_acs(
+acs_data <- tryCatch({
+  # Try to fetch from Census API
+  result <- get_acs(
     geography = "tract",
     variables = acs_vars,
     state = "TX",
@@ -98,7 +99,10 @@ tryCatch({
   ) %>%
     st_transform(4326)
   
-  print_progress(paste0("Retrieved ACS data for ", nrow(acs_data), " census tracts"))
+  print_progress(paste0("Retrieved ACS data for ", nrow(result), " census tracts"))
+  
+  # Return the successfully fetched data
+  result
   
 }, error = function(e) {
   print_progress("WARNING: Could not fetch Census data. You may need to set up a Census API key.")
@@ -106,8 +110,8 @@ tryCatch({
   print_progress("Then run: tidycensus::census_api_key('YOUR_KEY_HERE', install = TRUE)")
   print_progress("Creating synthetic ACS data for demonstration purposes...")
   
-  # Create synthetic data for demonstration
-  acs_data <- hex_grid %>%
+  # Create synthetic data for demonstration and return it
+  hex_grid %>%
     st_transform(4326) %>%
     mutate(
       median_incomeE = rnorm(n(), 65000, 25000),
@@ -223,15 +227,20 @@ if(file.exists(demo_file)) {
   demolitions <- read_csv(demo_file) %>%
     st_as_sf(wkt = c("location"), crs = 4326, remove = FALSE)
 } else {
-  print_progress("File not found")
+  print_progress("Demolitions file not found - creating empty fallback object...")
+  # Create empty sf object with expected schema to prevent downstream errors
+  demolitions <- st_sf(
+    calendar_year_issued = integer(),
+    geometry = st_sfc(crs = 4326)
+  )
 }
 
 # Aggregate demolitions to hex grid
-hex_with_demos <- hex_grid %>% # hex_with_census %>%
+hex_with_demos <- hex_grid %>%
   st_join(demolitions, join = st_intersects) %>%
   group_by(hex_id) %>%
   summarise(
-    demo_count_total = sum(!is.na(.)),
+    demo_count_total = sum(!is.na(calendar_year_issued)),
     demo_count_2020 = sum(calendar_year_issued == 2020, na.rm = TRUE),
     demo_count_2021 = sum(calendar_year_issued == 2021, na.rm = TRUE),
     demo_count_2022 = sum(calendar_year_issued == 2022, na.rm = TRUE),

@@ -53,13 +53,6 @@ print_progress(paste0("Creating H3 hexagonal grid at resolution ", H3_RESOLUTION
 # Use polygon_to_cells to get all H3 hexagons that cover Austin
 # This approach captures all hexagons that overlap with the boundary,
 # including those partially outside, ensuring no internal gaps
-h3_indices <- polygon_to_cells(austin_boundary, res = H3_RESOLUTION, simple = FALSE)
-
-print_progress(paste0("Generated ", length(h3_indices), " H3 hexagons covering Austin"))
-
-# Use polygon_to_cells to get all H3 hexagons that cover Austin
-# This approach captures all hexagons that overlap with the boundary,
-# including those partially outside, ensuring no internal gaps
 h3_indices_sf <- polygon_to_cells(austin_boundary, res = H3_RESOLUTION, simple = FALSE)
 
 # Extract H3 indices as a character vector

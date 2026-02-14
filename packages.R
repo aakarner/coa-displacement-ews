@@ -23,10 +23,13 @@ install_if_missing <- function(packages) {
 # Define required packages by category
 packages <- list(
   # Spatial analysis and mapping
-  spatial = c("sf", "h3jsr", "tigris", "lwgeom"),
+  spatial = c("sf", "h3jsr", "tigris", "lwgeom", "spdep"),
   
   # Machine Learning
   ml = c("caret", "randomForest", "xgboost", "glmnet"),
+  
+  # Model validation and cross-validation
+  validation = c("blockCV"),
   
   # Clustering and dimensionality reduction
   clustering = c("cluster", "factoextra", "dbscan", "Rtsne"),
@@ -35,7 +38,7 @@ packages <- list(
   data = c("tidyverse", "data.table", "lubridate"),
   
   # Visualization
-  viz = c("leaflet", "mapview", "ggplot2", "viridis", "scales", "patchwork"),
+  viz = c("leaflet", "mapview", "ggplot2", "viridis", "scales", "patchwork", "gridExtra", "htmlwidgets"),
   
   # Census data
   census = c("tidycensus"),
@@ -59,12 +62,16 @@ suppressPackageStartupMessages({
   library(h3jsr)
   library(tigris)
   library(lwgeom)
+  library(spdep)
   
   # ML
   library(caret)
   library(randomForest)
   library(xgboost)
   library(glmnet)
+  
+  # Model validation
+  library(blockCV)
   
   # Clustering
   library(cluster)
@@ -80,10 +87,11 @@ suppressPackageStartupMessages({
   # Visualization
   library(leaflet)
   library(mapview)
-  library(ggplot2)
   library(viridis)
   library(scales)
   library(patchwork)
+  library(gridExtra)
+  library(htmlwidgets)
   
   # Census
   library(tidycensus)
