@@ -37,7 +37,7 @@ source(here::here("R/utils.R"))
 # Configuration
 OUTPUT_DIR <- here::here("output")
 DATA_DIR <- here::here("data")
-ACS_YEAR <- 2021  # Most recent complete ACS 5-year estimates
+ACS_YEAR <- 2023  # Most recent complete ACS 5-year estimates
 
 # Create data directory if it doesn't exist
 dir.create(DATA_DIR, showWarnings = FALSE, recursive = TRUE)
