@@ -22,6 +22,15 @@
 # - Hierarchical: Builds cluster hierarchy, good for understanding nested patterns
 # - DBSCAN: Density-based, can identify irregular shapes and outliers
 #
+# INPUTS:
+#   - output/engineered_features.rds: Feature matrix from script 03
+#
+# OUTPUTS:
+#   - output/clustered_features.rds: Features with cluster assignments added
+#   - output/cluster_assignments.rds: Cluster membership for each hexagon
+#   - figures/cluster_*.png: Visualizations of clustering results
+#   - figures/cluster_map.png: Spatial map of cluster patterns
+#
 ################################################################################
 
 print_header("03b - CLUSTER ANALYSIS FOR DISPLACEMENT PATTERNS")

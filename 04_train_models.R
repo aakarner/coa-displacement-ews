@@ -32,6 +32,15 @@
 # - Feature Importance: Which variables matter most (similar to t-statistics/p-values)
 # - RMSE/MAE: Prediction error metrics (similar to residual standard error)
 #
+# INPUTS:
+#   - output/clustered_features.rds: Features with cluster assignments from 03b
+#
+# OUTPUTS:
+#   - output/trained_models.rds: List of trained models (RF, XGBoost, ElasticNet)
+#   - output/model_performance.rds: Performance metrics for all models
+#   - output/feature_importance.rds: Variable importance scores
+#   - figures/model_performance_comparison.png: Visual comparison of models
+#
 ################################################################################
 
 print_header("04 - TRAINING MACHINE LEARNING MODELS")

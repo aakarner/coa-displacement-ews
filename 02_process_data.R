@@ -4,12 +4,28 @@
 #
 # This script processes various data sources and aggregates them to the
 # hexagonal grid cells. It handles:
-# - Building demolitions
-# - Rent prices over time
-# - Census/ACS demographic and socioeconomic data
+# - Census/ACS demographic and socioeconomic data (fetched via tidycensus API)
+# - Building demolitions (from CSV if available, else creates empty object)
+# - Rent prices over time (synthetic time series for demonstration)
 # - Placeholder structure for future data (evictions, land value, ownership)
 #
-# All data is spatially joined to hexagonal grid for analysis.
+# WHY THIS MATTERS:
+# Aggregating diverse data sources to a common spatial unit (hexagons) enables
+# integrated analysis of displacement risk factors. The script includes robust
+# error handling to work with or without external data sources.
+#
+# INPUTS:
+#   - output/hex_grid.rds: Hexagonal grid from script 01
+#   - data/Residential_Demolitions_dataset_*.csv (optional)
+#   - Census API (via tidycensus; requires API key or uses synthetic fallback)
+#
+# OUTPUTS:
+#   - output/hex_data.rds: Hexagonal grid with aggregated data
+#     Contains: demographics, rent, demolitions, derived variables
+#
+# DEPENDENCIES:
+#   - tidyverse, sf, tidycensus packages
+#   - Census API key (optional; falls back to synthetic data if unavailable)
 #
 ################################################################################
 

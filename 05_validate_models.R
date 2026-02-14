@@ -7,7 +7,21 @@
 # - Diagnostic plots for model performance
 # - Feature importance comparison across models
 #
+# WHY SPATIAL CV MATTERS:
+# Standard k-fold CV can be misleading for spatial data because nearby areas
+# are similar (spatial autocorrelation). Spatial CV uses spatial blocking to
+# ensure test sets are spatially separated from training sets, providing more
+# realistic performance estimates for deployment.
+#
 # TODO: Implement temporal cross-validation (train on past, test on future)
+#
+# INPUTS:
+#   - output/trained_models.rds: Trained models from script 04
+#   - output/clustered_features.rds: Feature data with cluster assignments
+#
+# OUTPUTS:
+#   - output/validation_results.rds: Spatial CV performance metrics
+#   - figures/validation_*.png: Diagnostic plots and performance comparisons
 #
 ################################################################################
 

@@ -14,6 +14,17 @@
 # We use Resolution 9 as it provides good spatial detail while maintaining
 # computational efficiency.
 #
+# INPUTS:
+#   - Austin city boundary from tigris package (downloaded automatically)
+#
+# OUTPUTS:
+#   - output/hex_grid.rds: H3 hexagonal grid as sf object
+#     Columns: hex_id (character), geometry (polygon)
+#
+# DEPENDENCIES:
+#   - sf, h3jsr, tigris packages
+#   - R/utils.R for helper functions
+#
 ################################################################################
 
 print_header("01 - CREATING HEXAGONAL GRID")
