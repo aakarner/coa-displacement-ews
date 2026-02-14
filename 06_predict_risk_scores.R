@@ -13,11 +13,12 @@
 
 print_header("06 - GENERATING DISPLACEMENT RISK SCORES")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Configuration
 OUTPUT_DIR <- here::here("output")
+# Set seed for reproducibility (enables standalone execution; harmless when run via run_analysis.R)
 set.seed(42)
 
 ################################################################################

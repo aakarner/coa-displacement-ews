@@ -15,7 +15,7 @@
 
 print_header("02 - PROCESSING AND AGGREGATING DATA")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Configuration

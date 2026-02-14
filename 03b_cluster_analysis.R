@@ -26,7 +26,7 @@
 
 print_header("03b - CLUSTER ANALYSIS FOR DISPLACEMENT PATTERNS")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Load required packages for clustering
@@ -39,7 +39,8 @@ library(spdep)        # For spatial operations
 # Configuration
 OUTPUT_DIR <- here::here("output")
 FIGURES_DIR <- here::here("figures")
-set.seed(42)  # For reproducibility
+# Set seed for reproducibility (enables standalone execution; harmless when run via run_analysis.R)
+set.seed(42)
 
 ################################################################################
 # Step 1: Load engineered features

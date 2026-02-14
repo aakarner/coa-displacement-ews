@@ -108,6 +108,9 @@ options(scipen = 999)              # Avoid scientific notation
 sf_use_s2(FALSE)                   # Disable s2 for simpler spatial operations
 
 # Set seed for reproducibility
+# NOTE: This seed is set here for standalone execution of packages.R
+# When running the full pipeline via run_analysis.R, that script also sets
+# the seed, ensuring reproducibility across the entire analysis
 set.seed(42)
 
 message("\n✓ All packages loaded successfully!")

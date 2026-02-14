@@ -36,12 +36,13 @@
 
 print_header("04 - TRAINING MACHINE LEARNING MODELS")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Configuration
 OUTPUT_DIR <- here::here("output")
-set.seed(42)  # For reproducibility - ensures same random splits each time
+# Set seed for reproducibility (enables standalone execution; harmless when run via run_analysis.R)
+set.seed(42)  # Ensures same random splits each time
 
 ################################################################################
 # Step 1: Load engineered features with cluster assignments

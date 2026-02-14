@@ -15,7 +15,7 @@
 
 print_header("03 - FEATURE ENGINEERING")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Load required packages for spatial operations

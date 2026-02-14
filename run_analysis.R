@@ -66,6 +66,9 @@ CONFIG <- list(
 )
 
 # Set global seed for reproducibility
+# NOTE: This is the master seed for the entire pipeline. Individual scripts
+# may also set seed(42) for standalone execution, which is harmless when
+# running through this master script
 set.seed(CONFIG$random_seed)
 
 ################################################################################

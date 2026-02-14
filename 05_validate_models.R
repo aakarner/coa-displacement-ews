@@ -13,7 +13,7 @@
 
 print_header("05 - MODEL VALIDATION AND DIAGNOSTICS")
 
-# Source utilities
+# Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
 
 # Load required additional packages
@@ -23,6 +23,7 @@ library(blockCV)
 # Configuration
 OUTPUT_DIR <- here::here("output")
 FIGURES_DIR <- here::here("figures")
+# Set seed for reproducibility (enables standalone execution; harmless when run via run_analysis.R)
 set.seed(42)
 
 ################################################################################
