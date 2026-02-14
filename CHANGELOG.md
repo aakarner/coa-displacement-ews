@@ -5,13 +5,72 @@ All notable changes to the Displacement Early Warning System will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-02-14
+
+### Fixed
+
+Comprehensive fix for 15 issues across the R analysis pipeline ([PR #3](https://github.com/aakarner/coa-displacement-ews/pull/3)).
+
+#### Critical Bugs
+
+- **Duplicate spatial computation** (`01_create_hex_grid.R`): Removed redundant `polygon_to_cells()` call that executed twice and incorrectly used `length()` on data frame
+- **Broken demolition aggregation** (`02_process_data.R`): Fixed `sum(!is.na(.))` which counted non-NA cells across all columns instead of actual demolition records; now uses `sum(!is.na(calendar_year_issued))`
+- **Variable scoping error** (`02_process_data.R`): Fixed `tryCatch` block where error handler assigned `acs_data` in wrong scope, causing "object not found" on API failure; restructured to `acs_data <- tryCatch({...})` pattern
+- **Missing fallback object** (`02_process_data.R`): Added empty `st_sf` object when demolitions CSV is missing to prevent downstream failures
+- **Unloaded dependencies** (`packages.R`): Added `spdep`, `blockCV`, `gridExtra`, `htmlwidgets`; removed unused `calculate_spatial_lag()` requiring unloaded `nngeo`
+
+#### Data Inconsistencies
+
+- **Column name collision** (`02_process_data.R`): Prevented `median_rent.x`/`.y` suffix columns by dropping duplicate before join
+- **Configuration mismatch** (`run_analysis.R`): Corrected H3 resolution from 8 to 9 to match actual value used (~0.1 km² cells)
+- **Step numbering** (`run_analysis.R`): Fixed inconsistent step headers (1/7, 2/7, 3/8... → 1/8, 2/8, 3/8...)
+- **Misleading header** (`05_validate_models.R`): Removed claim of temporal CV implementation (only spatial CV implemented)
+
+#### Documentation & Cleanup
+
+- Added INPUTS/OUTPUTS/DEPENDENCIES sections to all 8 pipeline scripts
+- Documented `set.seed()` and `source()` calls for standalone execution pattern
+- Removed tracked `.DS_Store`, added to `.gitignore`
+- Clarified WHY THIS MATTERS sections for spatial CV and feature engineering approaches
+- 13 files modified, +201/-68 lines
+
+## [1.1.0] - 2026-02-12
+
+### Changed
+
+Replaced circular synthetic outcome variable with cluster-based classification ([PR #2](https://github.com/aakarner/coa-displacement-ews/pull/2)).
+
+#### Added
+
+- **Unsupervised Clustering Phase** (`03b_cluster_analysis.R`)
+  - K-means, hierarchical, and DBSCAN to discover displacement patterns empirically
+  - Silhouette analysis and elbow plots for optimal k selection
+  - Cluster profiling: characterize patterns by rent pressure, demolition activity, vulnerability
+  - Outputs: cluster assignments, profiles, validation metrics, visualizations
+
+- **New Dependencies**: `cluster`, `factoextra`, `dbscan`, `Rtsne`
+
+#### Modified
+
+- **Model Training** (`04_train_models.R`): Classification instead of regression — models now predict `cluster_class` (factor) instead of synthetic `displacement_risk` (numeric); metric changed from RMSE to Accuracy
+- **Model Validation** (`05_validate_models.R`): Classification metrics — confusion matrices, F1-scores, per-cluster accuracy; replaced residual diagnostics with prediction agreement analysis
+- **Risk Score Generation** (`06_predict_risk_scores.R`): Cluster probability → risk score conversion using empirical profiles; probability-weighted ensemble scoring
+- **Visualization** (`07_visualize_results.R`): Cluster visualization overlays on risk maps
+- **Documentation**: Updated `README.md` with clustering methodology; updated `WORKFLOW.md` with Step 3b
+
+#### Interpretation Shift
+
+- **Before**: "Risk score of 75/100" (arbitrary composite)
+- **After**: "75% probability of high-risk cluster (high rent growth + high vulnerability)"
+- Backward compatible: maintains 0-100 risk scores for existing visualizations
+
 ## [1.0.0] - 2026-02-11
 
 ### Added - Initial Release
 
 #### Core Functionality
 - **Hexagonal Grid System** (`01_create_hex_grid.R`)
-  - H3 spatial indexing at resolution 8 (~0.5 km² cells)
+  - H3 spatial indexing at resolution 9 (~0.1 km² cells)
   - Coverage of Austin, TX city boundaries
   - Static and interactive grid visualizations
 
@@ -159,6 +218,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for priority areas:
 
 ### Release Dates
 
+- **1.2.1** - February 14, 2026: Bug fixes, data inconsistency corrections, documentation improvements
+- **1.1.0** - February 12, 2026: Cluster-based classification replacing synthetic outcome
 - **1.0.0** - February 11, 2026: Initial release
 
 ---
