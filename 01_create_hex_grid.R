@@ -185,10 +185,10 @@ map <- mapview(
   )
 
 # Save interactive map
-mapshot(
-  map,
-  file = file.path(FIGURES_DIR, "01_hex_grid_interactive.html"),
-  remove_controls = c("zoomControl", "layersControl")
+htmlwidgets::saveWidget(
+  map@map,
+  file = file.path(normalizePath(FIGURES_DIR), "01_hex_grid_interactive.html"),
+  selfcontained = TRUE
 )
 
 print_progress("Saved interactive map")

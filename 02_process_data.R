@@ -36,7 +36,7 @@ source(here::here("R/utils.R"))
 # Configuration
 OUTPUT_DIR <- here::here("output")
 DATA_DIR <- here::here("data")
-ACS_YEAR <- 2023  # Most recent complete ACS 5-year estimates
+ACS_YEAR <- 2024  # Most recent complete ACS 5-year estimates
 
 # Create data directory if it doesn't exist
 dir.create(DATA_DIR, showWarnings = FALSE, recursive = TRUE)
@@ -112,9 +112,10 @@ acs_data <- tryCatch({
     year = ACS_YEAR,
     survey = "acs5",
     geometry = TRUE,
-    output = "wide"
+    output = "tidy"
   ) %>%
-    st_transform(4326)
+    st_transform(4326) %>%
+    mutate(orig_area = st_area(geometry))
   
   print_progress(paste0("Retrieved ACS data for ", nrow(result), " census tracts"))
   
@@ -125,106 +126,29 @@ acs_data <- tryCatch({
   print_progress("WARNING: Could not fetch Census data. You may need to set up a Census API key.")
   print_progress("Get a free key at: https://api.census.gov/data/key_signup.html")
   print_progress("Then run: tidycensus::census_api_key('YOUR_KEY_HERE', install = TRUE)")
-  print_progress("Creating synthetic ACS data for demonstration purposes...")
-  
-  # Create synthetic data for demonstration and return it
-  hex_grid %>%
-    st_transform(4326) %>%
-    mutate(
-      median_incomeE = rnorm(n(), 65000, 25000),
-      total_popE = rnorm(n(), 4000, 2000),
-      white_nhE = rnorm(n(), 2000, 1000),
-      black_nhE = rnorm(n(), 400, 300),
-      asian_nhE = rnorm(n(), 400, 300),
-      hispanicE = rnorm(n(), 1200, 600),
-      total_tenureE = rnorm(n(), 1500, 500),
-      owner_occupiedE = rnorm(n(), 750, 400),
-      renter_occupiedE = rnorm(n(), 750, 400),
-      total_eduE = rnorm(n(), 2500, 800),
-      less_than_hsE = rnorm(n(), 250, 150),
-      hs_gradE = rnorm(n(), 500, 250),
-      some_collegeE = rnorm(n(), 750, 300),
-      bachelorsE = rnorm(n(), 600, 300),
-      graduateE = rnorm(n(), 400, 200),
-      total_poverty_detE = rnorm(n(), 3800, 1900),
-      below_povertyE = rnorm(n(), 500, 300),
-      median_rentE = rnorm(n(), 1300, 400),
-      median_home_valueE = rnorm(n(), 450000, 150000)
-    ) %>%
-    # Ensure positive values
-    mutate(across(ends_with("E"), ~pmax(., 0)))
 })
 
 ################################################################################
-# Step 3: Calculate derived Census variables
-################################################################################
-
-print_progress("Calculating derived demographic variables...")
-
-acs_processed <- acs_data %>%
-  st_sf() %>%
-  mutate(
-    # Race/ethnicity percentages
-    pct_white = (white_nhE / total_popE) * 100,
-    pct_black = (black_nhE / total_popE) * 100,
-    pct_asian = (asian_nhE / total_popE) * 100,
-    pct_hispanic = (hispanicE / total_popE) * 100,
-    pct_poc = ((total_popE - white_nhE) / total_popE) * 100,
-    orig_area = st_area(geometry),
-
-    # Housing tenure
-    pct_renter = (renter_occupiedE / total_tenureE) * 100,
-    
-    # Education (bachelor's degree or higher)
-    pct_college = ((bachelorsE + graduateE) / total_eduE) * 100,
-    
-    # Poverty rate
-    poverty_rate = (below_povertyE / total_poverty_detE) * 100
-  ) %>%
-  select(
-    GEOID,
-    median_income = median_incomeE,
-    total_pop = total_popE,
-    pct_white, pct_black, pct_asian, pct_hispanic, pct_poc,
-    pct_renter, pct_college, poverty_rate,
-    median_rent = median_rentE,
-    median_home_value = median_home_valueE,
-    orig_area,
-    geometry
-  )
-
-################################################################################
-# Step 4: Spatial join Census data to hexagonal grid
+# Step 3: Spatially join Census data counts to hexagonal grid
 ################################################################################
 
 print_progress("Spatially joining Census data to hexagonal grid...")
 
-# For each hexagon, calculate area-weighted average of overlapping tracts
+foo <- head(acs_data)
+
+# Perform areal interpolation from census tracts to the hexagonal grid cells
 hex_with_census <- hex_grid %>%
-  st_intersection(acs_processed) %>%
+  st_intersection(acs_data) %>%
   mutate(
     intersection_area = st_area(geometry),
     weight = as.numeric(intersection_area / orig_area)
   ) %>%
   st_drop_geometry() %>%
-  group_by(hex_id, h3_index, longitude, latitude, area_km2) %>%
-  summarise(
-    # Population-weighted variables
-    across(c(pct_white, pct_black, pct_asian, pct_hispanic, pct_poc, 
-             pct_renter, pct_college, poverty_rate),
-           ~weighted.mean(., w = weight * total_pop, na.rm = TRUE)),
-    
-    # Simple weighted means for medians and totals
-    across(c(median_income, median_rent, median_home_value),
-           ~weighted.mean(., w = weight, na.rm = TRUE)),
-    
-    # Sum total population
-    total_pop = sum(total_pop * weight, na.rm = TRUE),
-    
-    .groups = "drop"
-  ) %>%
+  group_by(hex_id, variable) %>%
+  summarize(interpE = sum(estimate * weight), .groups = "drop") %>%
+  pivot_wider(id_cols = hex_id, names_from = variable, values_from = interpE) %>%
   left_join(hex_grid %>% select(hex_id, geometry), by = "hex_id")
-
+  
 print_progress(paste0("Census data joined to ", nrow(hex_with_census), " hexagons"))
 
 ################################################################################
