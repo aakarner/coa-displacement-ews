@@ -28,15 +28,15 @@
 #   - Census API key (optional; falls back to synthetic data if unavailable)
 ################################################################################
 
-print_header("02 - PROCESSING AND AGGREGATING DATA")
-
 # Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
+
+print_header("02 - PROCESSING AND AGGREGATING DATA")
 
 # Configuration
 OUTPUT_DIR <- here::here("output")
 DATA_DIR <- here::here("data")
-ACS_YEAR <- 2024  # Most recent complete ACS 5-year estimates
+ACS_YEAR <- 2024  # Most recent complete ACS 5-year estimates as of 4/26
 
 # Create data directory if it doesn't exist
 dir.create(DATA_DIR, showWarnings = FALSE, recursive = TRUE)
@@ -55,7 +55,7 @@ hex_grid <- load_output(
 # Step 2: Process Census/ACS Data
 ################################################################################
 
-print_progress("Fetching Census ACS data for Travis, Hays, and Williamson Counties, TX...")
+  print_progress("Fetching Census ACS data for Travis, Hays, and Williamson Counties, TX...")
 
 # Note: You'll need to set up a Census API key first
 # Get one free at: https://api.census.gov/data/key_signup.html
@@ -152,16 +152,72 @@ hex_with_census <- hex_grid %>%
 print_progress(paste0("Census data joined to ", nrow(hex_with_census), " hexagons"))
 
 ################################################################################
+# Step 4: Process census data, calculate shares, and produce visualizations
+################################################################################
+
+print_progress("Calculating derived demographic variables...")
+
+acs_processed <- hex_with_census %>%
+  st_sf() %>%
+  mutate(
+    # Race/ethnicity percentages
+    pct_white = (white_nh / total_pop) * 100,
+    pct_black = (black_nh / total_pop) * 100,
+    pct_asian = (asian_nh / total_pop) * 100,
+    pct_hispanic = (hispanic / total_pop) * 100,
+    pct_poc = ((total_pop - white_nh) / total_pop) * 100,
+
+    # Housing tenure
+    pct_renter = (renter_occupied / total_tenure) * 100,
+    
+    # Education (bachelor's degree or higher)
+    pct_college = ((bachelors + graduate) / total_edu) * 100,
+    
+    # Poverty rate
+    poverty_rate = (below_poverty / total_poverty_det) * 100
+  ) 
+  # select(
+  #   GEOID,
+  #   median_income = median_incomeE,
+  #   total_pop = total_popE,
+  #   pct_white, pct_black, pct_asian, pct_hispanic, pct_poc,
+  #   pct_renter, pct_college, poverty_rate,
+  #   median_rent = median_rentE,
+  #   median_home_value = median_home_valueE,
+  #   orig_area,
+  #   geometry
+  # )
+
+# Pull roads data for Austin for visualization
+atx_roads <- 
+  roads(state = "TX", county = "Travis County") %>%
+  filter(RTTYP %in% c("I", "S")) %>%
+  st_transform(4326)
+
+
+
+# Convert to long to faciliate mapping
+acs_toMap <- acs_processed %>%
+  select(hex_id, pct_white:poverty_rate, geometry) %>%
+  pivot_longer(cols = pct_white:poverty_rate)
+
+ggplot(acs_toMap) + 
+  geom_sf(data = acs_toMap, aes(col = value, fill = value)) + 
+  geom_sf(data = atx_roads[acs_toMap, ], color = "black") + 
+  facet_wrap(~name) + 
+  scale_fill_viridis_c(direction = -1) + 
+  scale_color_viridis_c(direction = -1) +
+  ggthemes::theme_map()
+
+################################################################################
 # Step 5: Process building demolitions (placeholder/synthetic)
 ################################################################################
 
 print_progress("Processing building demolitions data...")
 
-# NOTE: In a real implementation, you would load actual demolition permit data
-# For now, we create synthetic data to demonstrate the structure
-
 # Check if actual data exists
-demo_file <- file.path(DATA_DIR, "Residential_Demolitions_dataset_20260202.csv")
+# demo_file <- file.path(DATA_DIR, "Residential_Demolitions_dataset_20260401.csv")
+demo_file <- file.path(DATA_DIR, "Issued_Construction_Permits_20260401.csv")
 
 if(file.exists(demo_file)) {
   print_progress("Loading demolitions data from file...")
@@ -202,42 +258,101 @@ hex_data <- hex_with_census %>%
 
 print_progress("Processing rent price time series data...")
 
-# NOTE: In a real implementation, you would load actual rent data
-# For now, we create synthetic time series to demonstrate the structure
+print_progress("Loading rent price data from file...")
+rent_data <- read_csv("data/CoStarHistoric-clean.csv")
 
-# Check if actual data exists
-rent_file <- file.path(DATA_DIR, "rent_prices.csv")
+# Clean the rent_data data frame to remove the string "QTD" from the Period column
+rent_data$Period <- gsub(" QTD", "", rent_data$Period)
+rent_data$Period <- yq(rent_data$Period)
 
-if(file.exists(rent_file)) {
-  print_progress("Loading rent price data from file...")
-  rent_data <- read_csv(rent_file)
-} else {
-  print_progress("Creating synthetic rent price data for demonstration...")
-  
-  # Create time series of rent prices for each hex
-  set.seed(42)
-  
-  rent_data <- hex_data %>%
-    st_drop_geometry() %>%
-    select(hex_id, median_rent) %>%
+# Assign a unique identifier to each unique building location within rent_data such
+# that every row corresponding to the same building has the same identifier. This will
+# allow us to join the rent data to the hex grid later on without creating duplicate rows.
+rent_data <- rent_data %>%
+  group_by(`Building Address`) %>%
+  mutate(building_id = cur_group_id()) %>%
+  ungroup()
+
+# Geocode building locations using tidygeocoder
+# If the geocoding fails, use the `Building Name` column instead of the address
+
+# Get unique buildings to geocode (avoid redundant API calls)
+buildings <- rent_data %>%
+  distinct(building_id, `Building Address`, `Building Name`, `Zip Code`) %>%
+  mutate(full_address = paste(`Building Address`, "Austin", "TX", `Zip Code`, sep = ", "))
+
+# Attempt 1: Geocode using full address
+geocoded <- buildings %>%
+  geocode(full_address, method = "osm", lat = latitude, long = longitude)
+
+# Identify failures
+failed <- geocoded %>%
+  filter(is.na(latitude) | is.na(longitude))
+
+if (nrow(failed) > 0) {
+  # Attempt 2: Geocode using building name + zip code with the arcgis geocoder
+  fallback <- failed %>%
+    select(-latitude, -longitude) %>%
     mutate(
-      # Create quarterly rent observations from 2019-2022
-      rent_2019_q1 = median_rent * runif(n(), 0.85, 0.95),
-      rent_2019_q4 = median_rent * runif(n(), 0.88, 0.98),
-      rent_2020_q1 = median_rent * runif(n(), 0.90, 1.00),
-      rent_2020_q4 = median_rent * runif(n(), 0.92, 1.02),
-      rent_2021_q1 = median_rent * runif(n(), 0.95, 1.05),
-      rent_2021_q4 = median_rent * runif(n(), 1.00, 1.10),
-      rent_2022_q1 = median_rent * runif(n(), 1.05, 1.15),
-      rent_2022_q4 = median_rent * runif(n(), 1.10, 1.25)
+      fallback_address = paste(`Building Name`, `Zip Code`, "Austin, TX", sep = ", ")
     ) %>%
-    # Remove median_rent to avoid column collision when joining
-    select(-median_rent)
-}
+    geocode(fallback_address, method = "arcgis", lat = latitude, long = longitude) %>%
+    select(-fallback_address)
+  }
 
-# Join rent time series to hex data
+# Combine successful results from both attempts
+buildings <- buildings %>%
+  filter(!is.na(latitude) & !is.na(longitude)) %>%
+  bind_rows(fallback)
+
+# Join coordinates back to the full dataset
+foo <- rent_data %>%
+  left_join(
+    buildings %>% select(`Building Address`, latitude, longitude),
+    join_by(building_id)
+  )
+
+# Create a spatial data frame for the rent data, using the new latitude and longitude columns
+rent_data <- st_as_sf(rent_data, coords = c("longitude", "latitude"), crs = 4326, remove = FALSE)
+
+# Check on missing coordinate data in rent_data
+missing_coords <- rent_data %>%
+  filter(is.na(latitude) | is.na(longitude))
+
+# 
+
+# Join rent data to hex units while calculating weighted median rent per hexagon
+# as well as the rate of change in rent prices over time, considering 1- and 5-year
+# changes.
+
+hex_rent <- hex_grid %>%
+  st_join(rent_data, join = st_intersects) %>%
+  st_drop_geometry() %>%
+  group_by(hex_id, Period) %>%
+  summarise(
+    median_rent_period = median(`Asking Rent Per Unit`, na.rm = TRUE),
+    n_buildings = n_distinct(building_id, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(hex_id, Period) %>%
+  group_by(hex_id) %>%
+  mutate(
+    rent_change_1yr = (median_rent_period - lag(median_rent_period, 4)) /
+      lag(median_rent_period, 4) * 100,
+    rent_change_5yr = (median_rent_period - lag(median_rent_period, 20)) /
+      lag(median_rent_period, 20) * 100
+  ) %>%
+  ungroup()
+
+# Summarise to most recent period for hex-level join
+hex_rent_latest <- hex_rent %>%
+  group_by(hex_id) %>%
+  slice_max(Period, n = 1) %>%
+  ungroup() %>%
+  select(hex_id, median_rent_period, rent_change_1yr, rent_change_5yr, n_buildings)
+
 hex_data <- hex_data %>%
-  left_join(st_drop_geometry(rent_data), by = "hex_id")
+  left_join(hex_rent_latest, by = "hex_id")
 
 ################################################################################
 # Step 7: Add placeholders for future data sources

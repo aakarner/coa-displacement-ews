@@ -23,7 +23,7 @@ install_if_missing <- function(packages) {
 # Define required packages by category
 packages <- list(
   # Spatial analysis and mapping
-  spatial = c("sf", "h3jsr", "tigris", "lwgeom", "spdep"),
+  spatial = c("sf", "h3jsr", "tigris", "lwgeom", "spdep", "tidygeocoder"),
   
   # Machine Learning
   ml = c("caret", "randomForest", "xgboost", "glmnet"),

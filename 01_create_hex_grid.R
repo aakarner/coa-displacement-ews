@@ -129,12 +129,11 @@ p1 <- ggplot() +
   geom_sf(data = austin_boundary, fill = NA, color = "red", linewidth = 1) +
   geom_sf(data = hex_grid, fill = alpha("steelblue", 0.3), 
           color = "steelblue", linewidth = 0.3) +
-  theme_minimal() +
+  ggthemes::theme_map() +
   labs(
     title = "Hexagonal Grid for Austin, TX",
     subtitle = paste0("H3 Resolution ", H3_RESOLUTION, " (", 
-                     nrow(hex_grid), " hexagons)"),
-    caption = "Red boundary = Austin city limits"
+                     nrow(hex_grid), " hexagons)")
   ) +
   theme(
     plot.title = element_text(face = "bold", size = 14),
