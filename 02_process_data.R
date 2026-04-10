@@ -134,8 +134,6 @@ acs_data <- tryCatch({
 
 print_progress("Spatially joining Census data to hexagonal grid...")
 
-foo <- head(acs_data)
-
 # Perform areal interpolation from census tracts to the hexagonal grid cells
 hex_with_census <- hex_grid %>%
   st_intersection(acs_data) %>%
@@ -194,9 +192,7 @@ atx_roads <-
   filter(RTTYP %in% c("I", "S")) %>%
   st_transform(4326)
 
-
-
-# Convert to long to faciliate mapping
+# Convert to long format to faciliate mapping
 acs_toMap <- acs_processed %>%
   select(hex_id, pct_white:poverty_rate, geometry) %>%
   pivot_longer(cols = pct_white:poverty_rate)
@@ -219,18 +215,23 @@ print_progress("Processing building demolitions data...")
 # demo_file <- file.path(DATA_DIR, "Residential_Demolitions_dataset_20260401.csv")
 demo_file <- file.path(DATA_DIR, "Issued_Construction_Permits_20260401.csv")
 
-if(file.exists(demo_file)) {
-  print_progress("Loading demolitions data from file...")
-  demolitions <- read_csv(demo_file) %>%
-    st_as_sf(wkt = c("location"), crs = 4326, remove = FALSE)
-} else {
-  print_progress("Demolitions file not found - creating empty fallback object...")
-  # Create empty sf object with expected schema to prevent downstream errors
-  demolitions <- st_sf(
-    calendar_year_issued = integer(),
-    geometry = st_sfc(crs = 4326)
-  )
-}
+
+demolitions <- read_csv(demo_file)
+problems(demolitions)  # Check for any parsing issues
+cut_rows <- unique(problems(demolitions)$row)
+
+
+demolitions <- demolitions %>%
+  filter(!row_number() %in% cut_rows,
+         !is.na(Latitude),
+         !is.na(Longitude)) %>%
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, remove = FALSE)
+
+ggplot(demolitions) +
+  geom_sf() +
+  ggthemes::theme_map() +
+  labs(title = "Building Demolitions in Austin, TX")
+
 
 # Aggregate demolitions to hex grid
 # NOTE: We join to hex_grid (not hex_with_census) to count demolitions per hex
@@ -239,10 +240,14 @@ hex_with_demos <- hex_grid %>%
   st_join(demolitions, join = st_intersects) %>%
   group_by(hex_id) %>%
   summarise(
-    demo_count_total = sum(!is.na(calendar_year_issued)),
-    demo_count_2020 = sum(calendar_year_issued == 2020, na.rm = TRUE),
-    demo_count_2021 = sum(calendar_year_issued == 2021, na.rm = TRUE),
-    demo_count_2022 = sum(calendar_year_issued == 2022, na.rm = TRUE),
+    demo_count_total = sum(!is.na(`Calendar Year Issued`)),
+    demo_count_2020 = sum(`Calendar Year Issued` == 2020, na.rm = TRUE),
+    demo_count_2021 = sum(`Calendar Year Issued` == 2021, na.rm = TRUE),
+    demo_count_2022 = sum(`Calendar Year Issued` == 2022, na.rm = TRUE),
+    demo_count_2023 = sum(`Calendar Year Issued` == 2023, na.rm = TRUE),
+    demo_count_2024 = sum(`Calendar Year Issued` == 2024, na.rm = TRUE),
+    demo_count_2025 = sum(`Calendar Year Issued` == 2025, na.rm = TRUE),
+    demo_count_2026 = sum(`Calendar Year Issued` == 2026, na.rm = TRUE), 
     .groups = "drop"
   ) %>%
   st_drop_geometry()
@@ -319,7 +324,6 @@ rent_data <- st_as_sf(rent_data, coords = c("longitude", "latitude"), crs = 4326
 missing_coords <- rent_data %>%
   filter(is.na(latitude) | is.na(longitude))
 
-# 
 
 # Join rent data to hex units while calculating weighted median rent per hexagon
 # as well as the rate of change in rent prices over time, considering 1- and 5-year
