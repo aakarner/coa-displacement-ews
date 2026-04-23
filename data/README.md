@@ -94,18 +94,38 @@ parcel_id,latitude,longitude,assessment_date,land_value,improvement_value
 
 ---
 
-### 5. Corporate Ownership (`corporate_ownership.csv`) - COMING SOON
+### 5. TCAD Property Data (`tcad_properties.csv`)
 
-**Purpose**: Track concentration of corporate/investor ownership of rental properties.
+**Purpose**: Identify concentration of likely corporate/investor ownership of
+parcels using raw Travis Central Appraisal District (TCAD) export data.
 
-**Planned Format**:
+**Source**: Download from https://www.traviscad.org/datadownloads/
+
+**Required Columns**:
+- `prop_id`: Unique property identifier
+- `owner_name`: Name of the property owner
+- `latitude`: Latitude in decimal degrees (WGS84)
+- `longitude`: Longitude in decimal degrees (WGS84)
+
+**Optional Columns** (included in output when present):
+- `prop_type_cd`: Property type code (e.g. `R` = Real property)
+- `appraised_val`: Appraised total value in dollars
+- `land_val`: Land-only appraised value in dollars
+- `improvement_val`: Improvement (structure) appraised value in dollars
+- `legal_area`: Parcel area in square feet
+
+**Example**:
 ```csv
-property_id,latitude,longitude,owner_name,owner_type,acquisition_date,units
-1,30.267153,-97.743061,ABC Investments LLC,Corporate,2021-01-15,12
-2,30.268422,-97.744318,Individual Owner,Individual,2019-03-20,1
+prop_id,owner_name,latitude,longitude,prop_type_cd,appraised_val,land_val,improvement_val,legal_area
+100001,ABC Investments LLC,30.267153,-97.743061,R,450000,200000,250000,5000
+100002,Jane Smith,30.268422,-97.744318,R,320000,150000,170000,6000
+100003,XYZ Holdings LP,30.269134,-97.745927,R,1200000,500000,700000,12000
 ```
 
-**Integration**: Add to `02_process_data.R` Section 9
+**Integration**: Processed by the standalone `corporate_ownership.R` script,
+which filters parcels to those within the City of Austin boundaries (via
+tigris) and identifies likely corporate-owned parcels by owner name patterns
+(LLC, LP, Inc., Trust, etc.). Outputs are written to `output/corporate_parcels.*`.
 
 ---
 
