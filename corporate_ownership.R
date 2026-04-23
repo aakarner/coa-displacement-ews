@@ -124,7 +124,11 @@ print_progress("Identifying likely corporate-owned parcels...")
 # so that the patterns are case-insensitive.
 corporate_patterns <- paste(c(
   "\\bLLC\\b", "\\bL\\.L\\.C\\b",
-  "\\bLP\\b",  "\\bL\\.P\\b",
+  # Match "LP" only when it stands alone as an entity-type suffix (i.e. preceded
+  # by a space or comma and at end-of-string or followed by non-letter), so that
+  # it does not accidentally match the letter sequence inside ordinary words.
+  "(?<=\\s)LP$", "(?<=\\s)LP(?=[,\\.\\s])", "\\bL\\.P\\b",
+  "\\bLTD\\b", "\\bLIMITED PARTNERSHIP\\b",
   "\\bINC\\b", "\\bINCORPORATED\\b",
   "\\bCORP\\b", "\\bCORPORATION\\b",
   "\\bTRUST\\b", "\\bTRUSTEE\\b",
@@ -138,12 +142,10 @@ corporate_patterns <- paste(c(
   "\\bENTERPRISES\\b", "\\bENTERPRISE\\b"
 ), collapse = "|")
 
+# str_detect with perl = TRUE enables lookbehind support used in the LP pattern
 corporate_parcels <- tcad_austin %>%
-  mutate(
-    owner_name_upper  = toupper(owner_name),
-    likely_corporate  = str_detect(owner_name_upper, corporate_patterns)
-  ) %>%
-  filter(likely_corporate) %>%
+  mutate(owner_name_upper = toupper(owner_name)) %>%
+  filter(str_detect(owner_name_upper, regex(corporate_patterns, perl = TRUE))) %>%
   select(-owner_name_upper)
 
 print_progress(paste0(
