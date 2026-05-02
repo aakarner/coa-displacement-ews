@@ -38,7 +38,7 @@ packages <- list(
   data = c("tidyverse", "data.table", "lubridate"),
   
   # Visualization
-  viz = c("leaflet", "mapview", "ggplot2", "viridis", "scales", "patchwork", "gridExtra", "htmlwidgets"),
+  viz = c("leaflet", "mapview", "ggplot2", "viridis", "scales", "patchwork", "gridExtra", "htmlwidgets", "ggthemes", "classInt"),
   
   # Census data
   census = c("tidycensus"),
@@ -63,6 +63,7 @@ suppressPackageStartupMessages({
   library(tigris)
   library(lwgeom)
   library(spdep)
+  library(tidygeocoder)
   
   # ML
   library(caret)
@@ -92,6 +93,8 @@ suppressPackageStartupMessages({
   library(patchwork)
   library(gridExtra)
   library(htmlwidgets)
+  library(ggthemes)
+  library(classInt)
   
   # Census
   library(tidycensus)
