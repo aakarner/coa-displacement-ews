@@ -40,31 +40,65 @@ residential_parcel_files <- c(
   Hays = file.path(DATA_DIR, "hays_residential_parcels_for_hex.csv")
 )
 jurisdictions_file <- file.path(DATA_DIR, "BOUNDARIES_jurisdictions_20260429.geojson")
+calibrated_units_file <- file.path(OUTPUT_DIR, "residential_parcels_unit_calibrated.rds")
+targeted_units_file <- file.path(OUTPUT_DIR, "residential_parcels_unit_targeted.rds")
 
-missing_residential_files <- residential_parcel_files[!file.exists(residential_parcel_files)]
+if (file.exists(targeted_units_file)) {
+  residential_parcels_raw <- load_output(
+    targeted_units_file,
+    "targeted calibrated residential parcel unit counts"
+  ) %>%
+    mutate(
+      property_units = units_calibrated_targeted,
+      corporate_units = if_else(
+        as.logical(is_corporate_owned),
+        replace_na(units_calibrated_targeted, 0),
+        0
+      )
+    )
 
-if (length(missing_residential_files) > 0) {
-  stop(
-    "Missing required residential parcel universe file(s): ",
-    paste(missing_residential_files, collapse = ", "),
-    call. = FALSE
+  print_progress("Using targeted parcel unit counts from 02e output.")
+} else if (file.exists(calibrated_units_file)) {
+  residential_parcels_raw <- load_output(
+    calibrated_units_file,
+    "calibrated residential parcel unit counts"
+  ) %>%
+    mutate(
+      property_units = units_calibrated,
+      corporate_units = if_else(
+        as.logical(is_corporate_owned),
+        replace_na(units_calibrated, 0),
+        0
+      )
+    )
+
+  print_progress("Using calibrated parcel unit counts from 02d output.")
+} else {
+  missing_residential_files <- residential_parcel_files[!file.exists(residential_parcel_files)]
+
+  if (length(missing_residential_files) > 0) {
+    stop(
+      "Missing required residential parcel universe file(s): ",
+      paste(missing_residential_files, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  residential_parcel_schemas <- map(
+    residential_parcel_files,
+    ~names(read_csv(.x, n_max = 0, col_types = cols(.default = col_character()), show_col_types = FALSE))
+  )
+
+  if (!all(map_lgl(residential_parcel_schemas, identical, residential_parcel_schemas[[1]]))) {
+    stop("Residential parcel universe files do not have identical schemas.", call. = FALSE)
+  }
+
+  residential_parcels_raw <- imap_dfr(
+    residential_parcel_files,
+    ~read_csv(.x, col_types = cols(.default = col_character()), show_col_types = FALSE) %>%
+      mutate(source_county = .y)
   )
 }
-
-residential_parcel_schemas <- map(
-  residential_parcel_files,
-  ~names(read_csv(.x, n_max = 0, col_types = cols(.default = col_character()), show_col_types = FALSE))
-)
-
-if (!all(map_lgl(residential_parcel_schemas, identical, residential_parcel_schemas[[1]]))) {
-  stop("Residential parcel universe files do not have identical schemas.", call. = FALSE)
-}
-
-residential_parcels_raw <- imap_dfr(
-  residential_parcel_files,
-  ~read_csv(.x, col_types = cols(.default = col_character()), show_col_types = FALSE) %>%
-    mutate(source_county = .y)
-)
 
 duplicate_parcel_ids <- residential_parcels_raw %>%
   count(parcel_id, name = "row_count") %>%

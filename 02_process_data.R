@@ -80,6 +80,7 @@ acs_vars <- c(
   hispanic = "B03002_012",
   
   # Housing tenure
+  total_housing_units = "B25001_001",
   total_tenure = "B25003_001",
   owner_occupied = "B25003_002",
   renter_occupied = "B25003_003",
@@ -535,6 +536,14 @@ if (file.exists(hex_eviction_summary_file)) {
 ################################################################################
 # Step 9: Process corporate ownership data #####################################
 ################################################################################
+
+print_progress("Calibrating residential parcel unit counts via 02d_calibrate_parcel_units.R...")
+
+source(here::here("02d_calibrate_parcel_units.R"))
+
+print_progress("Validating calibrated parcel unit counts against ACS tracts via 02e_validate_unit_counts.R...")
+
+source(here::here("02e_validate_unit_counts.R"))
 
 print_progress("Processing corporate ownership data via 02c_process_corporate_parcels.R...")
 

@@ -66,6 +66,7 @@ data/*.csv
 data/*.xlsx
 data/*.shp
 data/*.geojson
+data/raw_parcels/
 
 # Keep directory structure
 !output/.gitkeep
