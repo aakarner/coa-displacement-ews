@@ -31,15 +31,23 @@
 #   - Census API key (optional; falls back to synthetic data if unavailable)
 ################################################################################
 
+project_path <- function(...) {
+  if (requireNamespace("here", quietly = TRUE)) {
+    here::here(...)
+  } else {
+    file.path(getwd(), ...)
+  }
+}
+
 # Source utilities (enables standalone execution; also sourced by run_analysis.R)
-source(here::here("R/utils.R"))
+source(project_path("R", "utils.R"))
 
 print_header("02 - PROCESSING AND AGGREGATING DATA")
 
 # Configuration
-OUTPUT_DIR <- here::here("output")
-DATA_DIR <- here::here("data")
-FIGURES_DIR <- here::here("figures")
+OUTPUT_DIR <- project_path("output")
+DATA_DIR <- project_path("data")
+FIGURES_DIR <- project_path("figures")
 ACS_YEAR <- 2024  # Most recent complete ACS 5-year estimates as of 4/26
 
 # Create data directory if it doesn't exist
@@ -60,156 +68,14 @@ hex_grid <- load_output(
 # Step 2: Process Census/ACS data #########################################
 ################################################################################
 
-  print_progress("Fetching Census ACS data for Travis, Hays, and Williamson Counties, TX...")
+print_progress("Processing ACS demographic data via 02f_process_acs_demographics.R...")
 
-# Note: You'll need to set up a Census API key first
-# Get one free at: https://api.census.gov/data/key_signup.html
-# Then run: census_api_key("YOUR_KEY_HERE", install = TRUE)
+source(project_path("02f_process_acs_demographics.R"))
 
-# Define variables to retrieve from ACS
-# Using 5-year estimates for more reliable data at tract level
-acs_vars <- c(
-  # Income
-  median_income = "B19013_001",
-  
-  # Race/Ethnicity
-  total_pop = "B03002_001",
-  white_nh = "B03002_003",
-  black_nh = "B03002_004",
-  asian_nh = "B03002_006",
-  hispanic = "B03002_012",
-  
-  # Housing tenure
-  total_housing_units = "B25001_001",
-  total_tenure = "B25003_001",
-  owner_occupied = "B25003_002",
-  renter_occupied = "B25003_003",
-  
-  # Educational attainment (25+ years)
-  total_edu = "B15003_001",
-  less_than_hs = "B15003_002",
-  hs_grad = "B15003_017",
-  some_college = "B15003_019",
-  bachelors = "B15003_022",
-  graduate = "B15003_023",
-  
-  # Poverty
-  total_poverty_det = "B17001_001",
-  below_poverty = "B17001_002",
-  
-  # Median rent
-  median_rent = "B25064_001",
-  
-  # Median home value
-  median_home_value = "B25077_001"
+hex_with_census <- load_output(
+  file.path(OUTPUT_DIR, "acs_demographics_by_hex.rds"),
+  "ACS demographic hex summary"
 )
-
-# Fetch ACS data for Travis, Hays, and Williamson Counties
-# Austin's city boundary spans all three counties, so we need tracts from each
-# to ensure complete population coverage when spatially joining to the hex grid.
-# We use tracts as the base geography.
-acs_data <- tryCatch({
-  # Try to fetch from Census API
-  result <- get_acs(
-    geography = "tract",
-    variables = acs_vars,
-    state = "TX",
-    county = c("Travis", "Hays", "Williamson"),
-    year = ACS_YEAR,
-    survey = "acs5",
-    geometry = TRUE,
-    output = "tidy"
-  ) %>%
-    st_transform(4326) %>%
-    mutate(orig_area = st_area(geometry))
-  
-  print_progress(paste0("Retrieved ACS data for ", nrow(result), " census tracts"))
-  
-  # Return the successfully fetched data
-  result
-  
-}, error = function(e) {
-  print_progress("WARNING: Could not fetch Census data. You may need to set up a Census API key.")
-  print_progress("Get a free key at: https://api.census.gov/data/key_signup.html")
-  print_progress("Then run: tidycensus::census_api_key('YOUR_KEY_HERE', install = TRUE)")
-})
-
-################################################################################
-# Step 3: Spatially join Census data counts to hexagonal grid #############
-################################################################################
-
-print_progress("Spatially joining Census data to hexagonal grid...")
-
-# Perform areal interpolation from census tracts to the hexagonal grid cells
-hex_with_census <- hex_grid %>%
-  st_intersection(acs_data) %>%
-  mutate(
-    intersection_area = st_area(geometry),
-    weight = as.numeric(intersection_area / orig_area)
-  ) %>%
-  st_drop_geometry() %>%
-  group_by(hex_id, variable) %>%
-  summarize(interpE = sum(estimate * weight), .groups = "drop") %>%
-  pivot_wider(id_cols = hex_id, names_from = variable, values_from = interpE) %>%
-  left_join(hex_grid %>% select(hex_id, geometry), by = "hex_id")
-  
-print_progress(paste0("Census data joined to ", nrow(hex_with_census), " hexagons"))
-
-################################################################################
-# Step 4: Process census data and visualize demographic shares ############
-################################################################################
-
-print_progress("Calculating derived demographic variables...")
-
-acs_processed <- hex_with_census %>%
-  st_sf() %>%
-  mutate(
-    # Race/ethnicity percentages
-    pct_white = (white_nh / total_pop) * 100,
-    pct_black = (black_nh / total_pop) * 100,
-    pct_asian = (asian_nh / total_pop) * 100,
-    pct_hispanic = (hispanic / total_pop) * 100,
-    pct_poc = ((total_pop - white_nh) / total_pop) * 100,
-
-    # Housing tenure
-    pct_renter = (renter_occupied / total_tenure) * 100,
-    
-    # Education (bachelor's degree or higher)
-    pct_college = ((bachelors + graduate) / total_edu) * 100,
-    
-    # Poverty rate
-    poverty_rate = (below_poverty / total_poverty_det) * 100
-  ) 
-  # select(
-  #   GEOID,
-  #   median_income = median_incomeE,
-  #   total_pop = total_popE,
-  #   pct_white, pct_black, pct_asian, pct_hispanic, pct_poc,
-  #   pct_renter, pct_college, poverty_rate,
-  #   median_rent = median_rentE,
-  #   median_home_value = median_home_valueE,
-  #   orig_area,
-  #   geometry
-  # )
-
-# Pull roads data for Austin for visualization
-atx_roads <- 
-  roads(state = "TX", county = "Travis County") %>%
-  filter(RTTYP %in% c("I", "S")) %>%
-  st_transform(4326)
-
-# Convert to long format to faciliate mapping
-acs_toMap <- acs_processed %>%
-  select(hex_id, pct_white:poverty_rate, geometry) %>%
-  pivot_longer(cols = pct_white:poverty_rate)
-
-ggplot(acs_toMap) + 
-  geom_sf(data = acs_toMap, aes(col = value, fill = value)) + 
-  geom_sf(data = atx_roads[acs_toMap, ], color = "black") + 
-  facet_wrap(~name) + 
-  scale_fill_viridis_c(direction = -1) + 
-  scale_color_viridis_c(direction = -1) +
-  ggthemes::theme_map()
 
 ################################################################################
 # Step 5: Process building demolitions data ###############################
@@ -480,24 +346,46 @@ hex_data <- hex_data %>%
 
 print_progress("Processing 311 data...")
 
-atx_311_file <- file.path(DATA_DIR, "Austin_311_Public_Data_20260202.csv")
+hex_311_summary_file <- file.path(OUTPUT_DIR, "311_requests_by_hex_summary.rds")
 
-if (file.exists(atx_311_file)) {
-  atx_311 <- read.csv(atx_311_file)
-  
-  # Generate list of unique 311 service request calls organized from greatest to least
-  SR_calls <- atx_311 %>%
-      group_by(SR.Description) %>%
-      summarise(Count = n(), .groups = "drop") %>%
-      arrange(desc(Count))
-  
-  write.csv(SR_calls, file.path(OUTPUT_DIR, "311_service_request_counts.csv"), row.names = FALSE)
-  
-  # Identify service request descriptions that may relate to tenant harassment or lockouts
-  harassment_calls <- atx_311 %>%
-    filter(grepl("harassment|lockout|eviction|tenant", SR.Description, ignore.case = TRUE))
+if (Sys.getenv("AUSTIN_DATA_API_KEY") != "" && Sys.getenv("AUSTIN_DATA_API_SECRET") != "") {
+  source(project_path("02g_process_311_requests.R"))
 } else {
-  print_progress("WARNING: 311 data file not found; skipping 311 processing.")
+  print_progress("Austin data API credentials not set; using existing 311 output if available.")
+}
+
+if (file.exists(hex_311_summary_file)) {
+  hex_311_summary <- load_output(hex_311_summary_file, "311 request hex summary")
+
+  hex_data <- hex_data %>%
+    left_join(
+      hex_311_summary %>%
+        st_drop_geometry() %>%
+        select(
+          hex_id,
+          starts_with("sr_311_")
+        ),
+      by = "hex_id"
+    ) %>%
+    mutate(
+      across(
+        c(
+          sr_311_total,
+          sr_311_code_related_total,
+          sr_311_housing_condition_total,
+          sr_311_tenant_distress_total,
+          sr_311_smoke_signal_total,
+          sr_311_nuisance_or_disorder_total,
+          sr_311_latest_12mo,
+          sr_311_previous_12mo,
+          sr_311_smoke_signal_latest_12mo,
+          sr_311_smoke_signal_previous_12mo
+        ),
+        ~replace_na(.x, 0)
+      )
+    )
+} else {
+  print_progress("WARNING: 311 hex summary not found; skipping 311 join.")
 }
 
 
@@ -507,7 +395,7 @@ if (file.exists(atx_311_file)) {
 
 print_progress("Processing eviction filing data via 02b_process_evictions.R...")
 
-source(here::here("02b_process_evictions.R"))
+source(project_path("02b_process_evictions.R"))
 
 hex_eviction_summary_file <- file.path(OUTPUT_DIR, "eviction_filings_by_hex_summary.rds")
 if (file.exists(hex_eviction_summary_file)) {
@@ -539,15 +427,15 @@ if (file.exists(hex_eviction_summary_file)) {
 
 print_progress("Calibrating residential parcel unit counts via 02d_calibrate_parcel_units.R...")
 
-source(here::here("02d_calibrate_parcel_units.R"))
+source(project_path("02d_calibrate_parcel_units.R"))
 
 print_progress("Validating calibrated parcel unit counts against ACS tracts via 02e_validate_unit_counts.R...")
 
-source(here::here("02e_validate_unit_counts.R"))
+source(project_path("02e_validate_unit_counts.R"))
 
 print_progress("Processing corporate ownership data via 02c_process_corporate_parcels.R...")
 
-source(here::here("02c_process_corporate_parcels.R"))
+source(project_path("02c_process_corporate_parcels.R"))
 
 hex_corporate_file <- file.path(OUTPUT_DIR, "corporate_ownership_by_hex.rds")
 if (file.exists(hex_corporate_file)) {

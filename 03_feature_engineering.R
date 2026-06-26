@@ -1,393 +1,665 @@
 ################################################################################
-# 03 - Feature Engineering for Displacement Risk Prediction
+# 03 - Feature Engineering for Displacement Risk Pattern Discovery
 ################################################################################
 #
-# This script creates features from the processed data for use in machine
-# learning models. Features include:
-# - Temporal features: rent change rates, acceleration, volatility
-# - Spatial lag features: neighborhood effects using k-nearest neighbors
-# - Interaction terms: combined effects of multiple variables
-# - Derived risk indicators: composite measures of displacement pressure
-#
-# WHY THIS MATTERS:
-# Raw data rarely captures complex displacement dynamics. Engineered features
-# help models detect patterns like rapidly gentrifying neighborhoods (high rent
-# acceleration + low income) or spatial contagion effects (displacement
-# spreading from one area to adjacent areas).
-#
-# INPUTS:
-#   - output/hex_data.rds: Processed hexagonal data from script 02
-#
-# OUTPUTS:
-#   - output/engineered_features.rds: Feature matrix ready for ML models
-#     Contains: all input variables + engineered temporal/spatial features
-#
-# DEPENDENCIES:
-#   - spdep for spatial operations (k-nearest neighbors)
-#   - tidyverse for data manipulation
+# This script creates the hex-level feature table used by cluster analysis. It
+# supports two paths:
+#   1. If output/hex_data_processed.rds exists, use the integrated pipeline data.
+#   2. Otherwise, assemble a current local feature table from the saved stream
+#      outputs: CoStar rents, demolition permits, eviction summaries, corporate
+#      ownership, calibrated parcel units, and the hex grid.
 #
 ################################################################################
+
+project_path <- function(...) {
+  if (requireNamespace("here", quietly = TRUE)) {
+    here::here(...)
+  } else {
+    file.path(getwd(), ...)
+  }
+}
+
+source(project_path("R", "utils.R"))
+
+suppressPackageStartupMessages({
+  library(sf)
+  library(dplyr)
+  library(tidyr)
+  library(readr)
+  library(lubridate)
+  library(stringr)
+})
 
 print_header("03 - FEATURE ENGINEERING")
 
-# Source utilities (enables standalone execution; also sourced by run_analysis.R)
-source(here::here("R/utils.R"))
+OUTPUT_DIR <- project_path("output")
+DATA_DIR <- project_path("data")
 
-# Load required packages for spatial operations
-library(spdep)
+safe_pct_change <- function(current, baseline) {
+  ifelse(!is.na(current) & !is.na(baseline) & baseline > 0,
+         100 * (current / baseline - 1),
+         NA_real_)
+}
 
-# Configuration
-OUTPUT_DIR <- here::here("output")
+weighted_mean_or_na <- function(x, w) {
+  ok <- !is.na(x) & !is.na(w) & w > 0
+  if (!any(ok)) return(NA_real_)
+  weighted.mean(x[ok], w[ok])
+}
+
+parse_number_flexible <- function(x) {
+  if (is.numeric(x)) return(as.numeric(x))
+  readr::parse_number(as.character(x), na = c("", "NA", "-", "\u2014"))
+}
+
+first_non_missing <- function(x) {
+  x <- x[!is.na(x)]
+  if (length(x) == 0) NA_real_ else x[[1]]
+}
+
+last_non_missing <- function(x) {
+  x <- x[!is.na(x)]
+  if (length(x) == 0) NA_real_ else x[[length(x)]]
+}
+
+recent_cv <- function(x, n = 8) {
+  x <- tail(x[!is.na(x)], n)
+  if (length(x) < 3 || mean(x) <= 0) return(NA_real_)
+  sd(x) / mean(x)
+}
+
+recent_mean_delta <- function(x, n = 4) {
+  x <- x[!is.na(x)]
+  if (length(x) >= n * 2) {
+    mean(tail(x, n)) - mean(tail(head(x, -n), n))
+  } else if (length(x) >= 2) {
+    x[[length(x)]] - x[[length(x) - 1]]
+  } else {
+    NA_real_
+  }
+}
+
+cap_upper_quantile <- function(x, q = 0.99) {
+  if (all(is.na(x))) return(x)
+  cap <- as.numeric(quantile(x, q, na.rm = TRUE, names = FALSE))
+  pmin(x, cap)
+}
+
+load_sf_output <- function(path, description) {
+  load_output(path, description) %>%
+    st_transform(4326)
+}
 
 ################################################################################
-# Step 1: Load processed data
+# Current local stream assembly
 ################################################################################
 
-print_progress("Loading processed data...")
-hex_data <- load_output(
-  file.path(OUTPUT_DIR, "hex_data_processed.rds"),
-  "processed hexagonal data"
+build_current_stream_features <- function() {
+  print_progress("Assembling current feature table from saved local stream outputs...")
+
+  hex_grid <- load_sf_output(file.path(OUTPUT_DIR, "hex_grid.rds"), "hexagonal grid")
+
+  hex_features <- hex_grid %>%
+    select(hex_id, h3_index, longitude, latitude, area_km2, geometry)
+
+  ##############################################################################
+  # Rent features from CoStar time series
+  ##############################################################################
+
+  rent_file <- file.path(DATA_DIR, "CoStarHistoric-clean.csv")
+  geocoded_buildings_file <- file.path(DATA_DIR, "geocoded_buildings.csv")
+
+  if (file.exists(rent_file) && file.exists(geocoded_buildings_file)) {
+    print_progress("Creating current rent features from CoStar time series...")
+
+    rent_data <- read_csv(rent_file, show_col_types = FALSE) %>%
+      mutate(
+        Period = yq(str_remove(Period, " QTD$")),
+        ask_rent_unit_num = parse_number_flexible(askRent_PerUnit),
+        ask_rent_psf_num = parse_number_flexible(askRent_PerSF),
+        vacancy_units_num = parse_number_flexible(vacancy_Units),
+        vacancy_pct_num = parse_number_flexible(vacancy_Percent) / 100,
+        inventory_units_num = parse_number_flexible(inventory_Units)
+      )
+
+    building_coords <- read_csv(geocoded_buildings_file, show_col_types = FALSE) %>%
+      distinct(`Building Address`, `Building Name`, `Zip Code`, .keep_all = TRUE) %>%
+      select(`Building Address`, `Building Name`, `Zip Code`, latitude, longitude)
+
+    rent_pts <- rent_data %>%
+      left_join(building_coords, by = c("Building Address", "Building Name", "Zip Code")) %>%
+      filter(!is.na(latitude), !is.na(longitude), !is.na(Period)) %>%
+      st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = FALSE) %>%
+      st_transform(st_crs(hex_grid))
+
+    rent_hex <- rent_pts %>%
+      st_join(hex_grid %>% select(hex_id), join = st_within, left = FALSE)
+
+    rent_hex_quarter <- rent_hex %>%
+      st_drop_geometry() %>%
+      group_by(hex_id, Period) %>%
+      summarise(
+        n_rent_records = n(),
+        n_buildings_current = n_distinct(`Building Address`, na.rm = TRUE),
+        rent_units_current = sum(inventory_units_num, na.rm = TRUE),
+        rent_unit_mean_w = weighted_mean_or_na(ask_rent_unit_num, inventory_units_num),
+        rent_psf_mean_w = weighted_mean_or_na(ask_rent_psf_num, inventory_units_num),
+        vacancy_pct_w = weighted_mean_or_na(vacancy_pct_num, inventory_units_num),
+        vacancy_units_total = sum(vacancy_units_num, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      arrange(hex_id, Period) %>%
+      group_by(hex_id) %>%
+      mutate(
+        rent_change_qoq = safe_pct_change(rent_unit_mean_w, lag(rent_unit_mean_w, 1)),
+        rent_change_recent = safe_pct_change(rent_unit_mean_w, lag(rent_unit_mean_w, 4)),
+        rent_change_5yr = safe_pct_change(rent_unit_mean_w, lag(rent_unit_mean_w, 20))
+      ) %>%
+      ungroup()
+
+    rent_features <- rent_hex_quarter %>%
+      group_by(hex_id) %>%
+      arrange(Period, .by_group = TRUE) %>%
+      summarise(
+        costar_present = 1,
+        rent_first_period = min(Period, na.rm = TRUE),
+        rent_latest_period = max(Period, na.rm = TRUE),
+        rent_current = last_non_missing(rent_unit_mean_w),
+        rent_psf_current = last_non_missing(rent_psf_mean_w),
+        vacancy_pct_current = last_non_missing(vacancy_pct_w),
+        rent_units_current = last_non_missing(rent_units_current),
+        n_buildings_current = last_non_missing(n_buildings_current),
+        rent_change_recent = last_non_missing(rent_change_recent),
+        rent_change_total = {
+          five_year <- last_non_missing(rent_change_5yr)
+          ifelse(is.na(five_year),
+                 safe_pct_change(last_non_missing(rent_unit_mean_w),
+                                 first_non_missing(rent_unit_mean_w)),
+                 five_year)
+        },
+        rent_acceleration = recent_mean_delta(rent_change_recent),
+        rent_volatility = recent_cv(rent_unit_mean_w),
+        .groups = "drop"
+      )
+
+    hex_features <- hex_features %>%
+      left_join(rent_features, by = "hex_id")
+  } else {
+    print_progress("WARNING: CoStar rent file or geocoded building file missing; skipping rent features.")
+  }
+
+  ##############################################################################
+  # Demolition permit features
+  ##############################################################################
+
+  permits_file <- file.path(DATA_DIR, "Issued_Construction_Permits_20260401.csv")
+  if (file.exists(permits_file)) {
+    print_progress("Creating demolition features from issued permit data...")
+
+    demolitions <- read_csv(permits_file, show_col_types = FALSE) %>%
+      filter(!is.na(Latitude), !is.na(Longitude), !is.na(`Calendar Year Issued`)) %>%
+      mutate(
+        issued_year = as.integer(`Calendar Year Issued`),
+        is_residential_demo = str_detect(`Permit Class Mapped`, regex("Residential", ignore_case = TRUE))
+      ) %>%
+      st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, remove = FALSE) %>%
+      st_transform(st_crs(hex_grid))
+
+    demo_hex <- demolitions %>%
+      st_join(hex_grid %>% select(hex_id), join = st_within, left = FALSE) %>%
+      st_drop_geometry() %>%
+      group_by(hex_id) %>%
+      summarise(
+        demo_count_total = n(),
+        demo_count_2020 = sum(issued_year == 2020, na.rm = TRUE),
+        demo_count_2021 = sum(issued_year == 2021, na.rm = TRUE),
+        demo_count_2022 = sum(issued_year == 2022, na.rm = TRUE),
+        demo_count_2023 = sum(issued_year == 2023, na.rm = TRUE),
+        demo_count_2024 = sum(issued_year == 2024, na.rm = TRUE),
+        demo_count_2025 = sum(issued_year == 2025, na.rm = TRUE),
+        demo_count_2026 = sum(issued_year == 2026, na.rm = TRUE),
+        demo_residential_total = sum(is_residential_demo, na.rm = TRUE),
+        .groups = "drop"
+      )
+
+    hex_features <- hex_features %>%
+      left_join(demo_hex, by = "hex_id")
+  } else {
+    print_progress("WARNING: Demolition permit file missing; skipping demolition features.")
+  }
+
+  ##############################################################################
+  # Eviction and corporate ownership summaries
+  ##############################################################################
+
+  eviction_file <- file.path(OUTPUT_DIR, "eviction_filings_by_hex_summary.rds")
+  if (file.exists(eviction_file)) {
+    print_progress("Joining eviction filing summary features...")
+
+    eviction_features <- load_output(eviction_file, "eviction filing hex summary")
+
+    hex_features <- hex_features %>%
+      left_join(eviction_features, by = "hex_id")
+  } else {
+    print_progress("WARNING: Eviction hex summary missing; skipping eviction features.")
+  }
+
+  requests_311_file <- file.path(OUTPUT_DIR, "311_requests_by_hex_summary.rds")
+  if (file.exists(requests_311_file)) {
+    print_progress("Joining 311 request summary features...")
+
+    requests_311_features <- load_output(requests_311_file, "311 request hex summary") %>%
+      st_drop_geometry() %>%
+      select(hex_id, starts_with("sr_311_"))
+
+    hex_features <- hex_features %>%
+      left_join(requests_311_features, by = "hex_id")
+  } else {
+    print_progress("WARNING: 311 request hex summary missing; skipping 311 features.")
+  }
+
+  corporate_file <- file.path(OUTPUT_DIR, "corporate_ownership_by_hex.rds")
+  if (file.exists(corporate_file)) {
+    print_progress("Joining corporate ownership summary features...")
+
+    corporate_features <- load_output(corporate_file, "corporate ownership hex summary") %>%
+      st_drop_geometry() %>%
+      select(
+        hex_id,
+        residential_parcels,
+        residential_units,
+        residential_improvement_sqft,
+        residential_land_sqft,
+        corporate_owned_parcels,
+        corporate_owned_units,
+        corporate_owned_imprv_sqft,
+        corporate_owner_count,
+        financialized_owner_parcels,
+        geocoded_parcels,
+        pct_corporate_parcels,
+        pct_corporate_units,
+        pct_corporate_improvement_sqft,
+        pct_financialized_owner_parcels,
+        corporate_unit_share_city,
+        corporate_parcel_share_city,
+        corporate_owned_units_per_km2,
+        corporate_owned_parcels_per_km2,
+        residential_units_per_km2,
+        residential_parcels_per_km2,
+        investor_owned_units,
+        pct_corporate_owned
+      )
+
+    hex_features <- hex_features %>%
+      left_join(corporate_features, by = "hex_id")
+  } else {
+    print_progress("WARNING: Corporate ownership summary missing; skipping ownership features.")
+  }
+
+  hex_features
+}
+
+################################################################################
+# Load processed pipeline data if present, otherwise assemble current streams
+################################################################################
+
+processed_file <- file.path(OUTPUT_DIR, "hex_data_processed.rds")
+
+if (file.exists(processed_file)) {
+  print_progress("Loading existing integrated processed hex data...")
+  hex_features <- load_output(processed_file, "processed hexagonal data")
+} else {
+  hex_features <- build_current_stream_features()
+}
+
+acs_demographics_file <- file.path(OUTPUT_DIR, "acs_demographics_by_hex.rds")
+if (file.exists(acs_demographics_file)) {
+  print_progress("Joining ACS demographic backbone features...")
+
+  acs_demographics <- load_output(
+    acs_demographics_file,
+    "ACS demographic hex summary"
+  ) %>%
+    st_drop_geometry()
+
+  demographic_cols <- setdiff(names(acs_demographics), "hex_id")
+  demographic_cols_to_join <- setdiff(demographic_cols, names(st_drop_geometry(hex_features)))
+
+  if (length(demographic_cols_to_join) > 0) {
+    hex_features <- hex_features %>%
+      left_join(
+        acs_demographics %>%
+          select(hex_id, all_of(demographic_cols_to_join)),
+        by = "hex_id"
+      )
+  } else {
+    print_progress("ACS demographic fields already present; skipping duplicate join.")
+  }
+} else {
+  print_progress("WARNING: ACS demographic hex summary missing; run 02f_process_acs_demographics.R to add demographics.")
+}
+
+required_demographic_cols <- c(
+  "median_income", "median_rent", "median_home_value", "total_pop",
+  "pct_renter", "poverty_rate", "pct_college", "pct_rent_burden_30plus",
+  "rent_burden_proxy", "vulnerability_index", "pct_poc", "pct_black",
+  "pct_hispanic"
 )
 
+for (col in setdiff(required_demographic_cols, names(hex_features))) {
+  hex_features[[col]] <- NA_real_
+}
+
 ################################################################################
-# Step 2: Create temporal features from rent data
+# Derived features
 ################################################################################
 
-print_header("TEMPORAL RENT FEATURES")
-print_progress("Creating temporal features from rent price time series...")
+print_progress("Creating derived pressure, ownership, and rate features...")
 
-# WHY THIS MATTERS: Rapid rent increases are a key indicator of displacement
-# pressure. Areas with accelerating rent growth may be experiencing gentrification
-# and increased housing cost burden for existing residents.
+numeric_zero_cols <- c(
+  "demo_count_total", "demo_count_2020", "demo_count_2021", "demo_count_2022",
+  "demo_count_2023", "demo_count_2024", "demo_count_2025", "demo_count_2026",
+  "demo_residential_total",
+  "eviction_defendant_rows_total", "eviction_cases_total", "eviction_cases_2020",
+  "eviction_cases_2021", "eviction_cases_2022", "eviction_cases_2023",
+  "eviction_cases_2024", "eviction_cases_2025", "eviction_cases_2026",
+  "eviction_cases_latest_12mo", "eviction_cases_previous_12mo",
+  "eviction_final_status_cases_total", "eviction_dismissed_cases_total",
+  "sr_311_total", "sr_311_code_related_total", "sr_311_housing_condition_total",
+  "sr_311_tenant_distress_total", "sr_311_smoke_signal_total",
+  "sr_311_nuisance_or_disorder_total", "sr_311_latest_12mo",
+  "sr_311_previous_12mo", "sr_311_smoke_signal_latest_12mo",
+  "sr_311_smoke_signal_previous_12mo",
+  "residential_parcels", "residential_units", "corporate_owned_parcels",
+  "corporate_owned_units", "corporate_owner_count", "financialized_owner_parcels",
+  "investor_owned_units"
+)
 
-hex_features <- hex_data %>%
+for (col in intersect(numeric_zero_cols, names(hex_features))) {
+  hex_features[[col]] <- replace_na(hex_features[[col]], 0)
+}
+
+if (!"costar_present" %in% names(hex_features)) hex_features$costar_present <- 0
+if (!"rent_units_current" %in% names(hex_features)) hex_features$rent_units_current <- 0
+
+required_311_cols <- c(
+  "sr_311_total", "sr_311_code_related_total", "sr_311_housing_condition_total",
+  "sr_311_tenant_distress_total", "sr_311_smoke_signal_total",
+  "sr_311_nuisance_or_disorder_total", "sr_311_latest_12mo",
+  "sr_311_previous_12mo", "sr_311_smoke_signal_latest_12mo",
+  "sr_311_smoke_signal_previous_12mo",
+  "sr_311_latest_12mo_change_pct",
+  "sr_311_smoke_signal_latest_12mo_change_pct"
+)
+
+for (col in setdiff(required_311_cols, names(hex_features))) {
+  hex_features[[col]] <- NA_real_
+}
+
+hex_features <- hex_features %>%
   mutate(
-    # 1. Overall rate of rent increase (2019 Q1 to 2022 Q4)
-    # Percentage change over the entire period
-    rent_change_total = if_else(
-      !is.na(rent_2019_q1) & !is.na(rent_2022_q4) & rent_2019_q1 > 0,
-      ((rent_2022_q4 - rent_2019_q1) / rent_2019_q1) * 100,
+    costar_present = replace_na(costar_present, 0),
+    costar_units_current = replace_na(rent_units_current, 0),
+    demo_recent = demo_count_2025 + demo_count_2026,
+    demo_previous = demo_count_2023 + demo_count_2024,
+    demo_density = if_else(area_km2 > 0, demo_count_total / area_km2, NA_real_),
+    demo_recent_density = if_else(area_km2 > 0, demo_recent / area_km2, NA_real_),
+    demo_trend = if_else(demo_previous > 0,
+                         100 * (demo_recent / demo_previous - 1),
+                         NA_real_),
+    has_recent_demos = if_else(demo_recent > 0, 1, 0),
+
+    # Very small unit denominators create unstable rates, so rates are only
+    # calculated where the parcel-derived unit count is large enough to support
+    # interpretation.
+    eviction_rate_units_denominator = if_else(residential_units >= 20, residential_units, NA_real_),
+    eviction_cases_per_100_units = if_else(!is.na(eviction_rate_units_denominator),
+                                           100 * eviction_cases_total / eviction_rate_units_denominator,
+                                           NA_real_),
+    eviction_latest_12mo_per_100_units = if_else(!is.na(eviction_rate_units_denominator),
+                                                 100 * eviction_cases_latest_12mo / eviction_rate_units_denominator,
+                                                 NA_real_),
+    eviction_cases_total_density = if_else(area_km2 > 0, eviction_cases_total / area_km2, NA_real_),
+    eviction_cases_latest_12mo_density = if_else(area_km2 > 0, eviction_cases_latest_12mo / area_km2, NA_real_),
+    eviction_recent_share = if_else(eviction_cases_total > 0,
+                                    eviction_cases_latest_12mo / eviction_cases_total,
+                                    NA_real_),
+    sr_311_per_100_units = if_else(
+      !is.na(eviction_rate_units_denominator),
+      100 * sr_311_total / eviction_rate_units_denominator,
       NA_real_
     ),
-    
-    # 2. Recent rent change (2021 Q4 to 2022 Q4)
-    # More recent changes may better predict near-term displacement risk
-    rent_change_recent = if_else(
-      !is.na(rent_2021_q4) & !is.na(rent_2022_q4) & rent_2021_q4 > 0,
-      ((rent_2022_q4 - rent_2021_q4) / rent_2021_q4) * 100,
+    sr_311_smoke_signal_per_100_units = if_else(
+      !is.na(eviction_rate_units_denominator),
+      100 * sr_311_smoke_signal_total / eviction_rate_units_denominator,
       NA_real_
     ),
-    
-    # 3. Acceleration in rent increases
-    # Calculate if rent increases are speeding up or slowing down
-    rent_acceleration = {
-      early_change <- (rent_2020_q4 - rent_2019_q1) / 4  # Avg quarterly change early
-      late_change <- (rent_2022_q4 - rent_2021_q1) / 4   # Avg quarterly change late
-      if_else(
-        !is.na(early_change) & !is.na(late_change) & early_change > 0,
-        ((late_change - early_change) / early_change) * 100,
-        NA_real_
-      )
-    },
-    
-    # 4. Rent volatility (coefficient of variation)
-    # High volatility may indicate market instability
-    rent_volatility = {
-      rent_values <- select(., starts_with("rent_20")) %>% 
-        st_drop_geometry() %>%
-        as.matrix()
-      apply(rent_values, 1, function(x) {
-        x <- x[!is.na(x)]
-        if(length(x) >= 3 && mean(x) > 0) {
-          sd(x) / mean(x)
-        } else {
-          NA_real_
-        }
-      })
-    },
-    
-    # 5. Current rent level relative to median
-    # Higher than median rents may indicate already-gentrified areas
-    rent_current = rent_2022_q4,
-    rent_level_ratio = if_else(
-      !is.na(median_rent) & median_rent > 0,
-      rent_2022_q4 / median_rent,
+    sr_311_latest_12mo_per_100_units = if_else(
+      !is.na(eviction_rate_units_denominator),
+      100 * sr_311_latest_12mo / eviction_rate_units_denominator,
       NA_real_
+    ),
+    sr_311_smoke_signal_latest_12mo_per_100_units = if_else(
+      !is.na(eviction_rate_units_denominator),
+      100 * sr_311_smoke_signal_latest_12mo / eviction_rate_units_denominator,
+      NA_real_
+    ),
+    sr_311_latest_12mo_density = if_else(area_km2 > 0, sr_311_latest_12mo / area_km2, NA_real_),
+    sr_311_smoke_signal_latest_12mo_density = if_else(
+      area_km2 > 0,
+      sr_311_smoke_signal_latest_12mo / area_km2,
+      NA_real_
+    ),
+    sr_311_smoke_signal_share = if_else(
+      sr_311_total > 0,
+      sr_311_smoke_signal_total / sr_311_total,
+      NA_real_
+    ),
+
+    pct_corporate_units = coalesce(pct_corporate_units, pct_corporate_owned, 0),
+    pct_corporate_parcels = replace_na(pct_corporate_parcels, 0),
+    pct_financialized_owner_parcels = replace_na(pct_financialized_owner_parcels, 0),
+    corporate_owned_units_per_km2 = replace_na(corporate_owned_units_per_km2, 0),
+    residential_units_per_km2 = replace_na(residential_units_per_km2, 0),
+
+    rent_level_ratio = NA_real_,
+    rent_pressure_index = rowMeans(
+      cbind(
+        normalize_to_100(rent_current),
+        normalize_to_100(rent_change_recent),
+        normalize_to_100(rent_change_total),
+        normalize_to_100(rent_acceleration)
+      ),
+      na.rm = TRUE
+    ),
+    eviction_pressure_index = rowMeans(
+      cbind(
+        normalize_to_100(eviction_latest_12mo_per_100_units),
+        normalize_to_100(eviction_cases_latest_12mo_change_pct),
+        normalize_to_100(eviction_recent_share)
+      ),
+      na.rm = TRUE
+    ),
+    ownership_pressure_index = rowMeans(
+      cbind(
+        normalize_to_100(pct_corporate_units),
+        normalize_to_100(corporate_owned_units_per_km2),
+        normalize_to_100(pct_financialized_owner_parcels)
+      ),
+      na.rm = TRUE
+    ),
+    demolition_pressure_index = rowMeans(
+      cbind(
+        normalize_to_100(demo_recent_density),
+        normalize_to_100(demo_trend),
+        normalize_to_100(demo_density)
+      ),
+      na.rm = TRUE
+    ),
+    demographic_vulnerability_index = rowMeans(
+      cbind(
+        normalize_to_100(-median_income),
+        normalize_to_100(pct_renter),
+        normalize_to_100(poverty_rate),
+        normalize_to_100(pct_rent_burden_30plus)
+      ),
+      na.rm = TRUE
+    ),
+    sr_311_pressure_index = rowMeans(
+      cbind(
+        normalize_to_100(sr_311_latest_12mo_per_100_units),
+        normalize_to_100(sr_311_smoke_signal_latest_12mo_per_100_units),
+        normalize_to_100(sr_311_latest_12mo_density),
+        normalize_to_100(sr_311_smoke_signal_latest_12mo_density),
+        normalize_to_100(sr_311_smoke_signal_latest_12mo_change_pct)
+      ),
+      na.rm = TRUE
+    )
+  ) %>%
+  mutate(
+    eviction_cases_per_100_units = cap_upper_quantile(eviction_cases_per_100_units, 0.99),
+    eviction_latest_12mo_per_100_units = cap_upper_quantile(eviction_latest_12mo_per_100_units, 0.99),
+    sr_311_per_100_units = cap_upper_quantile(sr_311_per_100_units, 0.99),
+    sr_311_smoke_signal_per_100_units = cap_upper_quantile(sr_311_smoke_signal_per_100_units, 0.99),
+    sr_311_latest_12mo_per_100_units = cap_upper_quantile(sr_311_latest_12mo_per_100_units, 0.99),
+    sr_311_smoke_signal_latest_12mo_per_100_units = cap_upper_quantile(sr_311_smoke_signal_latest_12mo_per_100_units, 0.99)
+  ) %>%
+  mutate(
+    across(
+      c(rent_pressure_index, eviction_pressure_index,
+        ownership_pressure_index, demolition_pressure_index,
+        demographic_vulnerability_index, sr_311_pressure_index),
+      ~if_else(is.nan(.x), NA_real_, .x)
     )
   )
 
-print_progress("Created temporal rent features:")
-cat("  - rent_change_total: Overall % change 2019-2022\n")
-cat("  - rent_change_recent: Recent % change 2021-2022\n")
-cat("  - rent_acceleration: Acceleration of rent increases\n")
-cat("  - rent_volatility: Coefficient of variation in rents\n")
-cat("  - rent_level_ratio: Current rent vs. area median\n")
-
 ################################################################################
-# Step 3: Create demolition-based features
+# Spatial lag features
 ################################################################################
 
-print_header("DEMOLITION FEATURES")
-print_progress("Creating features from building demolitions...")
-
-# WHY THIS MATTERS: Building demolitions, especially of affordable housing,
-# directly displace residents and can signal neighborhood change.
-
-hex_features <- hex_features %>%
-  mutate(
-    # 1. Demolition density (per km²)
-    demo_density = demo_count_total / area_km2,
-    
-    # 2. Recent demolition activity (2021-2022)
-    demo_recent = demo_count_2021 + demo_count_2022,
-    
-    # 3. Trend in demolitions (is it increasing?)
-    demo_trend = if_else(
-      demo_count_2020 > 0,
-      ((demo_count_2021 + demo_count_2022) / 2 - demo_count_2020) / demo_count_2020,
-      NA_real_
-    ),
-    
-    # 4. Binary indicator for any recent demolitions
-    has_recent_demos = if_else(demo_recent > 0, 1, 0)
-  )
-
-print_progress("Created demolition features:")
-cat("  - demo_density: Demolitions per km²\n")
-cat("  - demo_recent: Count of recent demolitions\n")
-cat("  - demo_trend: Trend in demolition activity\n")
-cat("  - has_recent_demos: Binary indicator\n")
-
-################################################################################
-# Step 4: Create vulnerability features
-################################################################################
-
-print_header("VULNERABILITY FEATURES")
-print_progress("Creating socioeconomic vulnerability features...")
-
-# WHY THIS MATTERS: Communities with lower incomes, higher renter percentages,
-# and higher poverty rates are more vulnerable to displacement when faced with
-# rising housing costs.
-
-hex_features <- hex_features %>%
-  mutate(
-    # 1. Rent burden proxy (rent to income ratio)
-    # Higher values = less affordable
-    rent_burden_proxy = if_else(
-      !is.na(median_income) & median_income > 0,
-      (median_rent * 12) / median_income,
-      NA_real_
-    ),
-    
-    # 2. Composite vulnerability index
-    # Standardize and combine multiple vulnerability indicators
-    vuln_low_income = normalize_to_100(-median_income),  # Lower income = higher vulnerability
-    vuln_high_rent = normalize_to_100(pct_renter),       # More renters = higher vulnerability
-    vuln_poverty = normalize_to_100(poverty_rate),       # Higher poverty = higher vulnerability
-    vuln_low_edu = normalize_to_100(-pct_college),       # Lower education = higher vulnerability
-    
-    vulnerability_index = (vuln_low_income + vuln_high_rent + 
-                          vuln_poverty + vuln_low_edu) / 4,
-    
-    # 3. Demographic change potential (proxy)
-    # Areas with more people of color may be more susceptible to gentrification
-    # in some contexts - this is a sensitive metric that requires careful interpretation
-    pct_poc_vulnerable = pct_poc
-  )
-
-print_progress("Created vulnerability features:")
-cat("  - rent_burden_proxy: Annual rent / median income\n")
-cat("  - vulnerability_index: Composite of income, rent, poverty, education\n")
-cat("  - Component scores: vuln_low_income, vuln_high_rent, vuln_poverty, vuln_low_edu\n")
-
-################################################################################
-# Step 5: Create spatial lag features (neighborhood effects)
-################################################################################
-
-print_header("SPATIAL LAG FEATURES")
-print_progress("Creating spatial lag features for neighborhood effects...")
-
-# WHY THIS MATTERS: Displacement risk in one area affects neighboring areas.
-# Spatial lags capture spillover effects and broader neighborhood trends.
-
-# Function to calculate spatial lag safely
 safe_spatial_lag <- function(data, var_name, k = 6) {
+  if (!var_name %in% names(data)) return(rep(NA_real_, nrow(data)))
+
+  values <- data[[var_name]]
+  if (all(is.na(values))) return(rep(NA_real_, nrow(data)))
+
+  if (!requireNamespace("spdep", quietly = TRUE)) {
+    print_progress("Package 'spdep' not installed; skipping spatial lag features for this run.")
+    return(rep(NA_real_, nrow(data)))
+  }
+
   tryCatch({
-    # Get centroids
-    centroids <- st_centroid(data)
-    
-    # Create spatial weights using k-nearest neighbors
+    centroids <- st_point_on_surface(data)
     coords <- st_coordinates(centroids)
-    knn <- knearneigh(coords, k = k)
-    nb <- knn2nb(knn)
-    weights <- nb2listw(nb, style = "W", zero.policy = TRUE)
-    
-    # Calculate spatial lag
-    values <- data[[var_name]]
-    lag_values <- lag.listw(weights, values, zero.policy = TRUE)
-    
-    return(lag_values)
+    knn <- spdep::knearneigh(coords, k = k)
+    nb <- spdep::knn2nb(knn)
+    weights <- spdep::nb2listw(nb, style = "W", zero.policy = TRUE)
+    spdep::lag.listw(weights, values, zero.policy = TRUE)
   }, error = function(e) {
     warning(paste("Error calculating spatial lag for", var_name, ":", e$message))
-    return(rep(NA_real_, nrow(data)))
+    rep(NA_real_, nrow(data))
   })
 }
 
-# Calculate spatial lags for key variables
-print_progress("Calculating spatial lags (this may take a moment)...")
+print_progress("Calculating spatial lag features...")
 
 hex_features <- hex_features %>%
   mutate(
-    # Spatial lag of rent change
     rent_change_total_lag = safe_spatial_lag(., "rent_change_total"),
-    
-    # Spatial lag of demolitions
+    rent_pressure_index_lag = safe_spatial_lag(., "rent_pressure_index"),
     demo_density_lag = safe_spatial_lag(., "demo_density"),
-    
-    # Spatial lag of median income
-    median_income_lag = safe_spatial_lag(., "median_income"),
-    
-    # Spatial lag of vulnerability
-    vulnerability_index_lag = safe_spatial_lag(., "vulnerability_index")
+    eviction_latest_12mo_per_100_units_lag = safe_spatial_lag(., "eviction_latest_12mo_per_100_units"),
+    ownership_pressure_index_lag = safe_spatial_lag(., "ownership_pressure_index")
   )
 
-print_progress("Created spatial lag features:")
-cat("  - rent_change_total_lag: Average rent change in neighboring cells\n")
-cat("  - demo_density_lag: Average demolition density in neighboring cells\n")
-cat("  - median_income_lag: Average median income in neighboring cells\n")
-cat("  - vulnerability_index_lag: Average vulnerability in neighboring cells\n")
-
 ################################################################################
-# Step 6: Create interaction terms
+# Interactions and data sufficiency
 ################################################################################
-
-print_header("INTERACTION FEATURES")
-print_progress("Creating interaction terms between key predictors...")
-
-# WHY THIS MATTERS: Displacement risk often emerges from combinations of factors.
-# For example, rapid rent increases in vulnerable communities create higher
-# displacement risk than either factor alone.
 
 hex_features <- hex_features %>%
   mutate(
-    # 1. Rent increase × Vulnerability
-    # Rapid rent growth is more concerning in vulnerable communities
-    rent_vuln_interaction = rent_change_total * vulnerability_index,
-    
-    # 2. Demolitions × High rent areas
-    # Demolitions in expensive areas may signal new development
-    demo_rent_interaction = demo_density * rent_level_ratio,
-    
-    # 3. Low income × High rent burden
-    # Income-rent mismatch
-    income_burden_interaction = vuln_low_income * rent_burden_proxy,
-    
-    # 4. Neighborhood rent pressure
-    # Combine local and neighboring rent changes
-    neighborhood_rent_pressure = (rent_change_total + rent_change_total_lag) / 2
+    neighborhood_rent_pressure = rowMeans(
+      cbind(rent_change_total, rent_change_total_lag),
+      na.rm = TRUE
+    ),
+    rent_eviction_interaction = rent_pressure_index * eviction_pressure_index,
+    rent_ownership_interaction = rent_pressure_index * ownership_pressure_index,
+    demo_ownership_interaction = demolition_pressure_index * ownership_pressure_index
+  ) %>%
+  mutate(
+    neighborhood_rent_pressure = if_else(is.nan(neighborhood_rent_pressure), NA_real_, neighborhood_rent_pressure)
   )
 
-print_progress("Created interaction features:")
-cat("  - rent_vuln_interaction: Rent change × Vulnerability\n")
-cat("  - demo_rent_interaction: Demolitions × Rent level\n")
-cat("  - income_burden_interaction: Low income × Rent burden\n")
-cat("  - neighborhood_rent_pressure: Combined local and neighbor rent changes\n")
-
-################################################################################
-# Step 7: Handle missing data
-################################################################################
-
-print_header("MISSING DATA HANDLING")
-print_progress("Analyzing and handling missing data...")
-
-# Count missing values in key features
 feature_cols <- hex_features %>%
   st_drop_geometry() %>%
   select(
-    starts_with("rent_"),
-    starts_with("demo_"),
-    starts_with("vuln_"),
-    starts_with("pct_"),
-    vulnerability_index,
-    median_income,
-    poverty_rate,
-    ends_with("_lag"),
-    ends_with("_interaction")
+    any_of(c(
+      "rent_current", "rent_psf_current", "vacancy_pct_current",
+      "rent_change_recent", "rent_change_total", "rent_acceleration",
+      "rent_volatility", "rent_pressure_index", "costar_present",
+      "median_income", "median_rent", "median_home_value", "total_pop",
+      "pct_renter", "poverty_rate", "pct_college", "pct_rent_burden_30plus",
+      "rent_burden_proxy", "vulnerability_index", "demographic_vulnerability_index",
+      "pct_poc", "pct_black", "pct_hispanic",
+      "demo_density", "demo_recent", "demo_recent_density", "demo_trend",
+      "demolition_pressure_index",
+      "eviction_cases_per_100_units", "eviction_latest_12mo_per_100_units",
+      "eviction_cases_total_density", "eviction_cases_latest_12mo_density",
+      "eviction_cases_latest_12mo_change_pct", "eviction_pressure_index",
+      "sr_311_total", "sr_311_smoke_signal_total", "sr_311_latest_12mo",
+      "sr_311_smoke_signal_latest_12mo", "sr_311_latest_12mo_change_pct",
+      "sr_311_smoke_signal_latest_12mo_change_pct", "sr_311_per_100_units",
+      "sr_311_smoke_signal_per_100_units", "sr_311_latest_12mo_per_100_units",
+      "sr_311_smoke_signal_latest_12mo_per_100_units",
+      "sr_311_latest_12mo_density", "sr_311_smoke_signal_latest_12mo_density",
+      "sr_311_smoke_signal_share", "sr_311_pressure_index",
+      "pct_corporate_units", "pct_corporate_parcels",
+      "pct_financialized_owner_parcels", "corporate_owned_units_per_km2",
+      "residential_units_per_km2", "ownership_pressure_index",
+      "rent_change_total_lag", "rent_pressure_index_lag", "demo_density_lag",
+      "eviction_latest_12mo_per_100_units_lag", "ownership_pressure_index_lag",
+      "neighborhood_rent_pressure", "rent_eviction_interaction",
+      "rent_ownership_interaction", "demo_ownership_interaction"
+    ))
   ) %>%
   names()
 
-missing_counts <- hex_features %>%
+hex_features <- hex_features %>%
+  mutate(
+    missing_feature_count = rowSums(is.na(st_drop_geometry(select(., all_of(feature_cols))))),
+    missing_feature_pct = 100 * missing_feature_count / length(feature_cols),
+    sufficient_data = missing_feature_pct < 50,
+    primary_cluster_eligible = residential_units >= 20
+  )
+
+print_header("FEATURE SUMMARY")
+cat(paste0("Feature columns: ", length(feature_cols), "\n"))
+cat(paste0("Hexagons with sufficient data: ", sum(hex_features$sufficient_data, na.rm = TRUE), " / ", nrow(hex_features), "\n\n"))
+
+missing_summary <- hex_features %>%
   st_drop_geometry() %>%
   select(all_of(feature_cols)) %>%
   summarise(across(everything(), ~sum(is.na(.)))) %>%
   pivot_longer(everything(), names_to = "feature", values_to = "missing_count") %>%
-  mutate(missing_pct = (missing_count / nrow(hex_features)) * 100) %>%
+  mutate(missing_pct = 100 * missing_count / nrow(hex_features)) %>%
   arrange(desc(missing_pct))
 
-cat("\nTop 10 features with missing data:\n")
-print(head(missing_counts, 10))
-
-# Strategy: For now, keep NAs - they will be handled during model training
-# Different models handle missing data differently:
-# - Random Forest: can use surrogate splits
-# - XGBoost: has built-in handling
-# - Elastic Net: we'll need to impute or exclude
-
-# Flag observations with excessive missing data
-hex_features <- hex_features %>%
-  mutate(
-    missing_feature_count = rowSums(is.na(select(., all_of(feature_cols)))),
-    missing_feature_pct = (missing_feature_count / length(feature_cols)) * 100,
-    sufficient_data = missing_feature_pct < 50  # Flag if less than 50% missing
-  )
-
-print_progress(paste0("Flagged ", sum(!hex_features$sufficient_data), 
-                     " hexagons with >50% missing features"))
-
-################################################################################
-# Step 8: Create summary of engineered features
-################################################################################
-
-print_header("FEATURE SUMMARY")
-
-cat("\nFeature categories created:\n")
-cat("  1. Temporal rent features: 6 features\n")
-cat("  2. Demolition features: 4 features\n")
-cat("  3. Vulnerability features: 6 features\n")
-cat("  4. Spatial lag features: 4 features\n")
-cat("  5. Interaction features: 4 features\n")
-cat("  TOTAL: ~24 engineered features\n\n")
-
-# Quick summary statistics of key features
-summary_features <- c(
-  "rent_change_total", "rent_change_recent", "demo_density",
-  "vulnerability_index", "rent_burden_proxy", "neighborhood_rent_pressure"
-)
-
-cat("Summary statistics for key features:\n")
-print(
-  hex_features %>%
-    st_drop_geometry() %>%
-    select(all_of(summary_features)) %>%
-    summary()
-)
-
-################################################################################
-# Step 9: Save engineered features
-################################################################################
+cat("Top feature missingness:\n")
+print(head(missing_summary, 15))
 
 output_file <- file.path(OUTPUT_DIR, "hex_features.rds")
-save_output(hex_features, output_file, "engineered features")
+save_output(hex_features, output_file, "engineered current-stream features")
 
-# Also save feature list for reference
-feature_list <- data.frame(
+feature_list <- tibble(
   feature_name = feature_cols,
   category = case_when(
-    str_starts(feature_cols, "rent_") & !str_ends(feature_cols, "_lag") ~ "Temporal Rent",
-    str_starts(feature_cols, "demo_") & !str_ends(feature_cols, "_lag") ~ "Demolitions",
-    str_starts(feature_cols, "vuln_") | feature_cols == "vulnerability_index" ~ "Vulnerability",
-    str_ends(feature_cols, "_lag") ~ "Spatial Lag",
-    str_ends(feature_cols, "_interaction") ~ "Interactions",
+    str_detect(feature_name, "rent") | str_detect(feature_name, "vacancy") ~ "Rent",
+    str_detect(feature_name, "demo") ~ "Demolitions",
+    str_detect(feature_name, "eviction") ~ "Evictions",
+    str_detect(feature_name, "sr_311") ~ "311",
+    str_detect(feature_name, "corporate|financialized|ownership|residential") ~ "Ownership",
+    str_detect(feature_name, "_lag") ~ "Spatial Lag",
+    str_detect(feature_name, "interaction") ~ "Interactions",
     TRUE ~ "Other"
   )
 )
@@ -395,15 +667,5 @@ feature_list <- data.frame(
 write_csv(feature_list, file.path(OUTPUT_DIR, "feature_list.csv"))
 print_progress("Saved feature list to: output/feature_list.csv")
 
-################################################################################
-# Summary
-################################################################################
-
 print_header("STEP 03 COMPLETE")
-cat("✓ Temporal features from rent data created\n")
-cat("✓ Demolition features created\n")
-cat("✓ Vulnerability indices calculated\n")
-cat("✓ Spatial lag features computed\n")
-cat("✓ Interaction terms generated\n")
-cat("✓ Missing data analyzed\n")
-cat(paste0("✓ Features saved to: ", output_file, "\n"))
+cat(paste0("Features saved to: ", output_file, "\n"))

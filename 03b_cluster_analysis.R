@@ -33,21 +33,33 @@
 #
 ################################################################################
 
-print_header("03b - CLUSTER ANALYSIS FOR DISPLACEMENT PATTERNS")
+project_path <- function(...) {
+  if (requireNamespace("here", quietly = TRUE)) {
+    here::here(...)
+  } else {
+    file.path(getwd(), ...)
+  }
+}
 
 # Source utilities (enables standalone execution; also sourced by run_analysis.R)
-source(here::here("R/utils.R"))
+source(project_path("R", "utils.R"))
+
+print_header("03b - CLUSTER ANALYSIS FOR DISPLACEMENT PATTERNS")
 
 # Load required packages for clustering
-library(cluster)      # For clustering algorithms
-library(factoextra)   # For cluster visualization
-library(dbscan)       # For DBSCAN algorithm
-library(Rtsne)        # For t-SNE dimensionality reduction
-library(spdep)        # For spatial operations
+suppressPackageStartupMessages({
+  library(sf)
+  library(dplyr)
+  library(tidyr)
+  library(readr)
+  library(ggplot2)
+  library(viridis)
+  library(cluster)      # For clustering algorithms
+})
 
 # Configuration
-OUTPUT_DIR <- here::here("output")
-FIGURES_DIR <- here::here("figures")
+OUTPUT_DIR <- project_path("output")
+FIGURES_DIR <- project_path("figures")
 # Set seed for reproducibility (enables standalone execution; harmless when run via run_analysis.R)
 set.seed(42)
 
@@ -70,29 +82,55 @@ print_header("PREPARING CLUSTERING VARIABLES")
 # Select key displacement indicators based on domain knowledge
 # These are the features that define displacement risk patterns
 clustering_vars <- c(
-  # Rent pressure indicators
-  "rent_change_total",        # Overall rent increase
-  "rent_change_recent",       # Recent rent increase
-  "rent_acceleration",        # Acceleration in rent growth
-  "neighborhood_rent_pressure", # Interaction term
+  # CoStar coverage signal. CoStar rent dynamics are descriptive/enrichment
+  # variables, not required first-stage clustering inputs.
+  "costar_present",
   
   # Demolition indicators
+  "demolition_pressure_index",
   "demo_density",             # Demolitions per km²
+  "demo_recent_density",
   "demo_recent",              # Recent demolition count
-  "demo_trend",               # Trend in demolitions
+
+  # Eviction indicators
+  "eviction_pressure_index",
+  "eviction_cases_per_100_units",
+  "eviction_latest_12mo_per_100_units",
+  "eviction_cases_total_density",
+  "eviction_cases_latest_12mo_density",
+
+  # 311 smoke-signal indicators
+  "sr_311_pressure_index",
+  "sr_311_latest_12mo_per_100_units",
+  "sr_311_smoke_signal_latest_12mo_per_100_units",
+  "sr_311_latest_12mo_density",
+  "sr_311_smoke_signal_latest_12mo_density",
+  "sr_311_smoke_signal_share",
+
+  # Ownership indicators
+  "ownership_pressure_index",
+  "pct_corporate_units",
+  "pct_corporate_parcels",
+  "pct_financialized_owner_parcels",
+  "corporate_owned_units_per_km2",
+  "residential_units_per_km2",
+  "residential_parcels_per_km2",
   
-  # Vulnerability indicators
+  # Legacy vulnerability indicators, used when available
+  "demographic_vulnerability_index",
   "vulnerability_index",      # Composite vulnerability
   "rent_burden_proxy",        # Rent to income ratio
+  "pct_rent_burden_30plus",
   "median_income",            # Median household income
   "poverty_rate",             # Poverty rate
   "pct_renter",              # Percentage of renters
+  "pct_college",
   
-  # Spatial context
-  "rent_change_total_lag",    # Neighborhood rent change
-  "demo_density_lag",         # Neighborhood demolition density
-  "vulnerability_index_lag"   # Neighborhood vulnerability
+  # Combined pressure indicators
+  "demo_ownership_interaction"
 )
+
+clustering_vars <- intersect(clustering_vars, names(hex_features))
 
 print_progress(paste0("Selected ", length(clustering_vars), " variables for clustering"))
 cat("Variables:\n")
@@ -100,12 +138,22 @@ for(var in clustering_vars) {
   cat(paste0("  - ", var, "\n"))
 }
 
-# Prepare clustering dataset
-# Only use hexagons with sufficient data (<50% missing)
+# Prepare clustering dataset. The first-stage citywide cluster should not require
+# CoStar rent data, so use the residential eligibility flag when available.
+eligibility_col <- if ("primary_cluster_eligible" %in% names(hex_features)) {
+  "primary_cluster_eligible"
+} else {
+  "sufficient_data"
+}
+
 cluster_data <- hex_features %>%
   st_drop_geometry() %>%
-  filter(sufficient_data) %>%
+  filter(.data[[eligibility_col]]) %>%
   select(hex_id, all_of(clustering_vars))
+
+if (length(clustering_vars) < 2) {
+  stop("Fewer than two clustering variables are available. Run 03_feature_engineering.R first and check output/feature_list.csv.")
+}
 
 # Check missing data in clustering variables
 missing_by_var <- cluster_data %>%
@@ -132,6 +180,10 @@ clustering_vars <- vars_to_keep
 cluster_data_complete <- cluster_data %>%
   select(hex_id, all_of(clustering_vars)) %>%
   drop_na()
+
+if (nrow(cluster_data_complete) < 20) {
+  stop("Too few complete observations for clustering after missing-data filtering.")
+}
 
 print_progress(paste0("Clustering dataset: ", nrow(cluster_data_complete), " observations"))
 print_progress(paste0("Removed ", nrow(cluster_data) - nrow(cluster_data_complete), 
@@ -291,30 +343,16 @@ cat("\nHierarchical clustering results:\n")
 cat("Cluster sizes:\n")
 print(table(hc_clusters))
 
-# Create dendrogram (plot first 100 observations for readability)
-if(nrow(cluster_data_complete) <= 100) {
-  p_dendrogram <- fviz_dend(hc_result, k = optimal_k, 
-                           rect = TRUE, 
-                           main = "Hierarchical Clustering Dendrogram",
-                           xlab = "Observations",
-                           ylab = "Height")
-} else {
-  # For large datasets, just show the tree structure
-  print_progress("Dataset too large for detailed dendrogram. Creating summary plot...")
-  p_dendrogram <- fviz_dend(hc_result, k = optimal_k, 
-                           rect = TRUE, 
-                           k_colors = "jco",
-                           main = paste0("Hierarchical Clustering (", nrow(cluster_data_complete), " observations)"),
-                           show_labels = FALSE)
-}
-
-ggsave(
-  filename = file.path(FIGURES_DIR, "03b_dendrogram.png"),
-  plot = p_dendrogram,
-  width = 12,
-  height = 8,
-  dpi = 300
+png(file.path(FIGURES_DIR, "03b_dendrogram.png"), width = 1800, height = 1200, res = 150)
+plot(
+  hc_result,
+  labels = FALSE,
+  main = paste0("Hierarchical Clustering (", nrow(cluster_data_complete), " observations)"),
+  xlab = "Hexagons",
+  ylab = "Height"
 )
+rect.hclust(hc_result, k = optimal_k, border = 2:(optimal_k + 1))
+dev.off()
 
 print_progress("Saved dendrogram")
 
@@ -324,23 +362,27 @@ print_progress("Saved dendrogram")
 
 print_header("DBSCAN CLUSTERING")
 
-print_progress("Running DBSCAN (density-based clustering)...")
+if (requireNamespace("dbscan", quietly = TRUE)) {
+  print_progress("Running DBSCAN (density-based clustering)...")
 
-# Determine epsilon using k-nearest neighbor distance
-knn_dist <- kNNdist(cluster_matrix, k = 5)
-epsilon <- quantile(knn_dist, 0.90)  # Use 90th percentile as epsilon
+  knn_dist <- dbscan::kNNdist(cluster_matrix, k = 5)
+  epsilon <- quantile(knn_dist, 0.90)
 
-print_progress(paste0("Using epsilon = ", round(epsilon, 3), " and minPts = 5"))
+  print_progress(paste0("Using epsilon = ", round(epsilon, 3), " and minPts = 5"))
 
-dbscan_result <- dbscan(cluster_matrix, eps = epsilon, minPts = 5)
+  dbscan_result <- dbscan::dbscan(cluster_matrix, eps = epsilon, minPts = 5)
 
-cat("\nDBSCAN clustering results:\n")
-cat(paste0("  - Number of clusters: ", max(dbscan_result$cluster), "\n"))
-cat(paste0("  - Number of noise points: ", sum(dbscan_result$cluster == 0), "\n"))
+  cat("\nDBSCAN clustering results:\n")
+  cat(paste0("  - Number of clusters: ", max(dbscan_result$cluster), "\n"))
+  cat(paste0("  - Number of noise points: ", sum(dbscan_result$cluster == 0), "\n"))
 
-if(max(dbscan_result$cluster) > 0) {
-  cat("\nCluster sizes (excluding noise):\n")
-  print(table(dbscan_result$cluster[dbscan_result$cluster > 0]))
+  if(max(dbscan_result$cluster) > 0) {
+    cat("\nCluster sizes (excluding noise):\n")
+    print(table(dbscan_result$cluster[dbscan_result$cluster > 0]))
+  }
+} else {
+  print_progress("Package 'dbscan' not installed; skipping DBSCAN comparison.")
+  dbscan_result <- list(cluster = rep(NA_integer_, nrow(cluster_data_complete)), skipped = TRUE)
 }
 
 ################################################################################
@@ -381,29 +423,31 @@ cluster_profiles <- cluster_data_complete %>%
   left_join(cluster_assignments, by = "hex_id") %>%
   select(hex_id, cluster, all_of(clustering_vars))
 
-# Calculate summary statistics for each cluster
+# Calculate summary statistics for each cluster. Keep a dynamic full profile and
+# a few legacy aliases used by downstream risk-score code.
 profile_summary <- cluster_profiles %>%
   group_by(cluster) %>%
   summarise(
     n = n(),
-    
-    # Rent indicators
-    mean_rent_change_total = mean(rent_change_total, na.rm = TRUE),
-    mean_rent_change_recent = mean(rent_change_recent, na.rm = TRUE),
-    
-    # Demolition indicators
-    mean_demo_density = mean(demo_density, na.rm = TRUE),
-    mean_demo_recent = mean(demo_recent, na.rm = TRUE),
-    
-    # Vulnerability indicators
-    mean_vulnerability = mean(vulnerability_index, na.rm = TRUE),
-    mean_median_income = mean(median_income, na.rm = TRUE),
-    mean_poverty_rate = mean(poverty_rate, na.rm = TRUE),
-    mean_pct_renter = mean(pct_renter, na.rm = TRUE),
-    
+    across(all_of(clustering_vars), ~mean(.x, na.rm = TRUE), .names = "mean_{.col}"),
     .groups = "drop"
   ) %>%
   arrange(cluster)
+
+if (!"mean_rent_change_total" %in% names(profile_summary)) profile_summary$mean_rent_change_total <- NA_real_
+if (!"mean_rent_change_recent" %in% names(profile_summary)) profile_summary$mean_rent_change_recent <- NA_real_
+if (!"mean_demo_density" %in% names(profile_summary)) profile_summary$mean_demo_density <- NA_real_
+if (!"mean_demo_recent" %in% names(profile_summary)) profile_summary$mean_demo_recent <- NA_real_
+if (!"mean_vulnerability" %in% names(profile_summary)) {
+  profile_summary$mean_vulnerability <- if ("mean_eviction_pressure_index" %in% names(profile_summary)) {
+    profile_summary$mean_eviction_pressure_index
+  } else {
+    NA_real_
+  }
+}
+if (!"mean_median_income" %in% names(profile_summary)) profile_summary$mean_median_income <- NA_real_
+if (!"mean_poverty_rate" %in% names(profile_summary)) profile_summary$mean_poverty_rate <- NA_real_
+if (!"mean_pct_renter" %in% names(profile_summary)) profile_summary$mean_pct_renter <- NA_real_
 
 cat("\nCluster Profile Summary:\n")
 print(profile_summary)
@@ -417,23 +461,35 @@ print_progress("Creating detailed cluster characterizations...")
 
 characterize_cluster <- function(cluster_num, data) {
   cluster_data <- data %>% filter(cluster == cluster_num)
-  
-  # Calculate percentiles for key variables
-  rent_growth_pct <- ecdf(data$rent_change_total)(median(cluster_data$rent_change_total, na.rm = TRUE))
-  demo_pct <- ecdf(data$demo_density)(median(cluster_data$demo_density, na.rm = TRUE))
-  vuln_pct <- ecdf(data$vulnerability_index)(median(cluster_data$vulnerability_index, na.rm = TRUE))
-  
-  # Characterize based on percentiles
-  rent_label <- ifelse(rent_growth_pct > 0.66, "High", ifelse(rent_growth_pct > 0.33, "Moderate", "Low"))
-  demo_label <- ifelse(demo_pct > 0.66, "High", ifelse(demo_pct > 0.33, "Moderate", "Low"))
-  vuln_label <- ifelse(vuln_pct > 0.66, "High", ifelse(vuln_pct > 0.33, "Moderate", "Low"))
-  
-  # Create label
+
+  mean_or_na <- function(candidates) {
+    metric <- candidates[candidates %in% names(cluster_data)][1]
+    if (is.na(metric)) return(NA_real_)
+    mean(cluster_data[[metric]], na.rm = TRUE)
+  }
+
+  threshold_label <- function(value, low_cut, high_cut) {
+    if (is.na(value) || is.nan(value)) return("Unmeasured")
+    if (value < low_cut) return("Low")
+    if (value < high_cut) return("Moderate")
+    "High"
+  }
+
+  costar_label <- threshold_label(mean_or_na(c("costar_present")), 0.20, 0.40)
+  demo_label <- threshold_label(mean_or_na(c("demo_density")), 25, 75)
+  eviction_label <- threshold_label(mean_or_na(c("eviction_latest_12mo_per_100_units")), 1, 5)
+  calls_311_label <- threshold_label(mean_or_na(c("sr_311_pressure_index")), 25, 50)
+  ownership_label <- threshold_label(mean_or_na(c("pct_corporate_units")), 20, 50)
+  vulnerability_label <- threshold_label(mean_or_na(c("demographic_vulnerability_index", "vulnerability_index")), 25, 50)
+
   label <- paste0(
     "Cluster ", cluster_num, ": ",
-    rent_label, " Rent Growth, ",
-    demo_label, " Demolitions, ",
-    vuln_label, " Vulnerability"
+    costar_label, " CoStar Coverage, ",
+    demo_label, " Demolition, ",
+    eviction_label, " Eviction, ",
+    calls_311_label, " 311 Smoke Signals, ",
+    ownership_label, " Ownership, ",
+    vulnerability_label, " Demographic Vulnerability"
   )
   
   return(label)
@@ -661,11 +717,29 @@ for(i in 1:optimal_k) {
   cat(paste0("\n", cluster_labels[i], "\n"))
   profile <- profile_summary %>% filter(cluster == i)
   cat(paste0("  - Hexagons: ", profile$n, "\n"))
-  cat(paste0("  - Avg rent change: ", round(profile$mean_rent_change_total, 1), "%\n"))
-  cat(paste0("  - Avg demo density: ", round(profile$mean_demo_density, 2), "/km²\n"))
-  cat(paste0("  - Avg vulnerability: ", round(profile$mean_vulnerability, 1), "/100\n"))
-  cat(paste0("  - Avg median income: $", format(round(profile$mean_median_income, 0), 
-                                                 big.mark = ","), "\n"))
+  if ("mean_costar_present" %in% names(profile)) {
+    cat(paste0("  - CoStar-covered share: ", round(profile$mean_costar_present * 100, 1), "%\n"))
+  }
+  cat(paste0("  - Avg demo density: ", round(profile$mean_demo_density, 2), "/km2\n"))
+  if ("mean_eviction_latest_12mo_per_100_units" %in% names(profile)) {
+    cat(paste0("  - Avg latest-12mo evictions: ",
+               round(profile$mean_eviction_latest_12mo_per_100_units, 2),
+               " cases per 100 units\n"))
+  }
+  if ("mean_pct_corporate_units" %in% names(profile)) {
+    cat(paste0("  - Avg corporate unit share: ", round(profile$mean_pct_corporate_units, 1), "%\n"))
+  }
+  if ("mean_sr_311_pressure_index" %in% names(profile)) {
+    cat(paste0("  - Avg 311 smoke-signal pressure: ",
+               round(profile$mean_sr_311_pressure_index, 1), "/100\n"))
+  }
+  if ("mean_demographic_vulnerability_index" %in% names(profile)) {
+    cat(paste0("  - Avg demographic vulnerability: ",
+               round(profile$mean_demographic_vulnerability_index, 1), "/100\n"))
+  } else if ("mean_vulnerability_index" %in% names(profile)) {
+    cat(paste0("  - Avg demographic vulnerability: ",
+               round(profile$mean_vulnerability_index, 1), "/100\n"))
+  }
 }
 
 cat("\n")
@@ -687,7 +761,7 @@ cat(paste0("✓ Optimal number of clusters determined: k = ", optimal_k, "\n"))
 cat("✓ Three clustering algorithms tested:\n")
 cat("  - K-means (primary)\n")
 cat("  - Hierarchical\n")
-cat("  - DBSCAN\n")
+cat("  - DBSCAN (if dbscan package is installed)\n")
 cat("✓ Cluster profiles and characterizations created\n")
 cat("✓ Visualizations generated:\n")
 cat("  - Elbow plot\n")
