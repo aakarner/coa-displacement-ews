@@ -56,7 +56,28 @@ print_progress <- function(text) {
 #' @return Normalized vector
 normalize_to_100 <- function(x) {
   if(all(is.na(x))) return(x)
-  (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE)) * 100
+  observed_range <- range(x, na.rm = TRUE)
+  if (!all(is.finite(observed_range)) || diff(observed_range) == 0) {
+    return(ifelse(is.na(x), NA_real_, 0))
+  }
+  (x - observed_range[[1]]) / diff(observed_range) * 100
+}
+
+#' Robustly normalize values to a 0-100 scale
+#' @param x Numeric vector
+#' @param lower Lower clipping quantile
+#' @param upper Upper clipping quantile
+#' @return Quantile-clipped normalized vector
+normalize_robust_to_100 <- function(x, lower = 0.01, upper = 0.99) {
+  if (all(is.na(x))) return(x)
+  bounds <- as.numeric(
+    quantile(x, probs = c(lower, upper), na.rm = TRUE, names = FALSE)
+  )
+  if (!all(is.finite(bounds)) || diff(bounds) == 0) {
+    return(ifelse(is.na(x), NA_real_, 0))
+  }
+  clipped <- pmin(pmax(x, bounds[[1]]), bounds[[2]])
+  (clipped - bounds[[1]]) / diff(bounds) * 100
 }
 
 #' Categorize risk scores into levels

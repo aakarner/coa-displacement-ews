@@ -79,18 +79,44 @@ eviction_id,latitude,longitude,filing_date,case_type,outcome
 
 ---
 
-### 4. Land Values (`land_values.csv`) - COMING SOON
+### 4. County Appraisal Values
 
 **Purpose**: Track changes in land values that may signal gentrification pressure.
 
-**Planned Format**:
-```csv
-parcel_id,latitude,longitude,assessment_date,land_value,improvement_value
-1,30.267153,-97.743061,2021-01-01,250000,350000
-1,30.267153,-97.743061,2022-01-01,280000,350000
-```
+Run `02i_process_appraisal_history.R` after the calibrated residential parcel
+universe has been built. The source inventory is versioned in
+`config/appraisal_sources.csv`; downloaded archives and matched county-year
+extracts are cached under `data/raw_parcels/appraisal_history/`.
 
-**Integration**: Add to `02_process_data.R` Section 8
+The script creates:
+
+- `output/appraisal_values_by_parcel_year.rds/.csv`
+- `output/appraisal_values_by_hex_year.rds/.csv`
+- `output/appraisal_value_trends_by_hex.rds/.csv`
+- `output/appraisal_panel_source_qa.csv`
+- `output/appraisal_panel_spatial_qa.csv`
+- `output/appraisal_county_land_values_by_account_year.rds`
+
+Dollar values are expressed in 2025 CPI-U dollars for trend calculations.
+Missing source years remain missing rather than being backfilled with zero.
+The Hays 2022 production source is the local certified fixed-width roll; the
+later post-certification export is retained only for an explicit source
+comparison. Other Hays archives can be placed at
+`data/raw_parcels/appraisal_history/hays/<year>/hays_<year>.zip` before rerunning.
+
+Then run `02j_process_appraisal_adjusted_trends.R`. It estimates each annual
+county shift from stable improved real-property accounts, subtracts that shift
+from target parcel changes, and creates:
+
+- `output/appraisal_county_year_baselines.csv`
+- `output/appraisal_adjusted_parcel_trends.rds`
+- `output/appraisal_adjusted_trends_by_hex.rds/.csv`
+- `output/appraisal_adjustment_qa.csv`
+- `output/appraisal_land_area_fallback_qa.csv`
+
+For the current level denominator, calibrated parcel land area is preferred.
+Where Williamson acreage is absent, projected parcel-polygon area is used and
+reconciled against the reported-acre subset in the QA output.
 
 ---
 

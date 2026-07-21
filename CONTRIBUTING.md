@@ -140,7 +140,7 @@ Improve documentation:
 ## Development Setup
 
 1. Fork and clone the repository
-2. Install dependencies: `source("packages.R")`
+2. Install dependencies: `source("00_requirements.R")`
 3. Set up Census API key
 4. Run the full pipeline once to understand the workflow
 5. Make your changes

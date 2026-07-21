@@ -24,6 +24,9 @@
 # RStudio files
 .Rproj.user/
 
+# Version-specific project R package library
+.r-library/
+
 # produced vignettes
 vignettes/*.html
 vignettes/*.pdf

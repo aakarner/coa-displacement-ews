@@ -22,25 +22,32 @@ The original displacement early warning system suffered from **circular reasonin
 **Key Features**:
 ```r
 clustering_vars <- c(
-  # Rent pressure
-  "rent_change_total", "rent_change_recent", "rent_acceleration",
-  "neighborhood_rent_pressure",
-  
-  # Demolition activity
-  "demo_density", "demo_recent", "demo_trend",
-  
-  # Socioeconomic vulnerability
-  "vulnerability_index", "rent_burden_proxy", "median_income",
-  "poverty_rate", "pct_renter",
-  
-  # Spatial context
-  "rent_change_total_lag", "demo_density_lag", "vulnerability_index_lag"
+  "rent_pressure_citywide_index",
+  "demolition_pressure_index",
+  "eviction_pressure_index",
+  "sr_311_pressure_index",
+  "ownership_pressure_index",
+  "demographic_vulnerability_index"
 )
 ```
+
+The default matrix uses one score per available substantive domain. CoStar
+coverage, residential density, race/ethnicity, and detailed raw components are
+retained for profiling and sensitivity analysis rather than repeated as
+equal-weight cluster inputs. `config/feature_dictionary.csv` is the
+machine-readable source of truth for these roles.
+
+Historical features are calculated only from observations available by the
+fixed date in `R/analysis_config.R`. The county-adjusted
+`land_value_pressure_index` is available as a sensitivity input before a
+decision about default inclusion. Remaining planned additions are property
+transactions, ownership change, and amenity change.
 
 **Validation**:
 - Elbow plots for optimal k selection
 - Silhouette scores for cluster quality (target: >0.3)
+- Gap statistic as a secondary diagnostic
+- Equal-domain and equal-family weighting sensitivity
 - PCA visualization for cluster separation
 - Geographic coherence checking
 
@@ -183,9 +190,11 @@ library(Rtsne)        # t-SNE dimensionality reduction
 
 ```r
 # Run full pipeline
+source("00_requirements.R")
 source("run_analysis.R")
 
 # Or step-by-step
+source("00_requirements.R")
 source("packages.R")
 source("01_create_hex_grid.R")
 source("02_process_data.R")

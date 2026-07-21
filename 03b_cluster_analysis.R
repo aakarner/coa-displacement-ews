@@ -79,58 +79,45 @@ hex_features <- load_output(
 
 print_header("PREPARING CLUSTERING VARIABLES")
 
-# Select key displacement indicators based on domain knowledge
-# These are the features that define displacement risk patterns
+# Use one default input per currently available substantive domain. Detailed
+# components and data-coverage fields are retained for profiling, not repeated
+# in the clustering matrix.
 clustering_vars <- c(
-  # CoStar coverage signal. CoStar rent dynamics are descriptive/enrichment
-  # variables, not required first-stage clustering inputs.
-  "costar_present",
-  
-  # Demolition indicators
+  "rent_pressure_citywide_index",
   "demolition_pressure_index",
-  "demo_density",             # Demolitions per km²
-  "demo_recent_density",
-  "demo_recent",              # Recent demolition count
-
-  # Eviction indicators
   "eviction_pressure_index",
-  "eviction_cases_per_100_units",
-  "eviction_latest_12mo_per_100_units",
-  "eviction_cases_total_density",
-  "eviction_cases_latest_12mo_density",
-
-  # 311 smoke-signal indicators
   "sr_311_pressure_index",
-  "sr_311_latest_12mo_per_100_units",
-  "sr_311_smoke_signal_latest_12mo_per_100_units",
-  "sr_311_latest_12mo_density",
-  "sr_311_smoke_signal_latest_12mo_density",
-  "sr_311_smoke_signal_share",
-
-  # Ownership indicators
   "ownership_pressure_index",
+  "demographic_vulnerability_index"
+)
+
+profile_vars <- c(
+  clustering_vars,
+  "costar_present",
+  "costar_rent_pressure_index",
+  "acs_rent_current_real",
+  "acs_rent_growth_recent_annualized_pct",
+  "acs_rent_acceleration_pp",
+  "demo_density",
+  "demo_recent_density",
+  "demo_total_recent_density",
+  "eviction_latest_12mo_per_100_units",
+  "sr_311_smoke_signal_latest_12mo_per_100_units",
   "pct_corporate_units",
   "pct_corporate_parcels",
   "pct_financialized_owner_parcels",
-  "corporate_owned_units_per_km2",
   "residential_units_per_km2",
-  "residential_parcels_per_km2",
-  
-  # Legacy vulnerability indicators, used when available
-  "demographic_vulnerability_index",
-  "vulnerability_index",      # Composite vulnerability
-  "rent_burden_proxy",        # Rent to income ratio
+  "median_income",
+  "poverty_rate",
+  "pct_renter",
   "pct_rent_burden_30plus",
-  "median_income",            # Median household income
-  "poverty_rate",             # Poverty rate
-  "pct_renter",              # Percentage of renters
   "pct_college",
-  
-  # Combined pressure indicators
-  "demo_ownership_interaction"
+  "pct_poc",
+  "demographic_vulnerability_equity_index"
 )
 
 clustering_vars <- intersect(clustering_vars, names(hex_features))
+profile_vars <- intersect(profile_vars, names(hex_features))
 
 print_progress(paste0("Selected ", length(clustering_vars), " variables for clustering"))
 cat("Variables:\n")
@@ -420,8 +407,15 @@ print_progress("Calculating cluster profiles...")
 
 # Join back with original (unscaled) data for interpretation
 cluster_profiles <- cluster_data_complete %>%
+  select(hex_id) %>%
   left_join(cluster_assignments, by = "hex_id") %>%
-  select(hex_id, cluster, all_of(clustering_vars))
+  left_join(
+    hex_features %>%
+      st_drop_geometry() %>%
+      select(hex_id, all_of(profile_vars)),
+    by = "hex_id"
+  ) %>%
+  select(hex_id, cluster, all_of(profile_vars))
 
 # Calculate summary statistics for each cluster. Keep a dynamic full profile and
 # a few legacy aliases used by downstream risk-score code.
@@ -429,7 +423,7 @@ profile_summary <- cluster_profiles %>%
   group_by(cluster) %>%
   summarise(
     n = n(),
-    across(all_of(clustering_vars), ~mean(.x, na.rm = TRUE), .names = "mean_{.col}"),
+    across(all_of(profile_vars), ~mean(.x, na.rm = TRUE), .names = "mean_{.col}"),
     .groups = "drop"
   ) %>%
   arrange(cluster)
@@ -475,16 +469,16 @@ characterize_cluster <- function(cluster_num, data) {
     "High"
   }
 
-  costar_label <- threshold_label(mean_or_na(c("costar_present")), 0.20, 0.40)
-  demo_label <- threshold_label(mean_or_na(c("demo_density")), 25, 75)
-  eviction_label <- threshold_label(mean_or_na(c("eviction_latest_12mo_per_100_units")), 1, 5)
+  rent_label <- threshold_label(mean_or_na(c("rent_pressure_citywide_index")), 25, 50)
+  demo_label <- threshold_label(mean_or_na(c("demolition_pressure_index")), 25, 50)
+  eviction_label <- threshold_label(mean_or_na(c("eviction_pressure_index")), 25, 50)
   calls_311_label <- threshold_label(mean_or_na(c("sr_311_pressure_index")), 25, 50)
-  ownership_label <- threshold_label(mean_or_na(c("pct_corporate_units")), 20, 50)
+  ownership_label <- threshold_label(mean_or_na(c("ownership_pressure_index")), 25, 50)
   vulnerability_label <- threshold_label(mean_or_na(c("demographic_vulnerability_index", "vulnerability_index")), 25, 50)
 
   label <- paste0(
     "Cluster ", cluster_num, ": ",
-    costar_label, " CoStar Coverage, ",
+    rent_label, " Rent, ",
     demo_label, " Demolition, ",
     eviction_label, " Eviction, ",
     calls_311_label, " 311 Smoke Signals, ",

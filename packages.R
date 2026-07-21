@@ -2,57 +2,16 @@
 # Package Installation and Loading for Displacement Early Warning System
 ################################################################################
 # 
-# This script installs and loads all required packages for the displacement
-# early warning system. Run this once before running the analysis pipeline.
+# This script verifies and loads all required packages for the displacement
+# early warning system. Package installation is handled by 00_requirements.R.
 #
 # Author: COA Displacement EWS Team
 # Date: 2026-02-11
 ################################################################################
 
-# Function to install packages if not already installed
-install_if_missing <- function(packages) {
-  new_packages <- packages[!(packages %in% installed.packages()[,"Package"])]
-  if(length(new_packages) > 0) {
-    message("Installing missing packages: ", paste(new_packages, collapse = ", "))
-    install.packages(new_packages, dependencies = TRUE, repos = "https://cran.rstudio.com/")
-  } else {
-    message("All required packages are already installed.")
-  }
+if (!exists("EWS_REQUIRED_PACKAGES", inherits = FALSE)) {
+  source(file.path(getwd(), "00_requirements.R"), local = FALSE)
 }
-
-# Define required packages by category
-packages <- list(
-  # Spatial analysis and mapping
-  spatial = c("sf", "h3jsr", "tigris", "lwgeom", "spdep", "tidygeocoder", "arcgisgeocode", "arcgisutils"),
-  
-  # Machine Learning
-  ml = c("caret", "randomForest", "xgboost", "glmnet"),
-  
-  # Model validation and cross-validation
-  validation = c("blockCV"),
-  
-  # Clustering and dimensionality reduction
-  clustering = c("cluster", "factoextra", "dbscan", "Rtsne"),
-  
-  # Data manipulation and processing
-  data = c("tidyverse", "data.table", "lubridate", "readxl"),
-  
-  # Visualization
-  viz = c("leaflet", "mapview", "ggplot2", "viridis", "scales", "patchwork", "gridExtra", "htmlwidgets", "ggthemes", "classInt", "ggspatial", "rosm"),
-  
-  # Census data
-  census = c("tidycensus"),
-  
-  # Additional utilities
-  utils = c("here", "janitor", "tictoc")
-)
-
-# Flatten the list
-all_packages <- unlist(packages, use.names = FALSE)
-
-# Install missing packages
-message("Checking and installing required packages...")
-install_if_missing(all_packages)
 
 # Load all packages
 message("\nLoading packages...")

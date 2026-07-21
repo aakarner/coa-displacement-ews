@@ -27,6 +27,14 @@
 │  ├─ Process rent prices (optional)                             │
 │  ├─ Spatial join to hexagons                                   │
 │  └─ Output: hex_data_processed.rds                             │
+│  02i_process_appraisal_history.R                                │
+│  ├─ Normalize 2021-2025 county certified appraisal values      │
+│  ├─ Preserve explicit missing parcel-years and source QA       │
+│  └─ Output: parcel-year, hex-year, and hex trend panels         │
+│  02j_process_appraisal_adjusted_trends.R                        │
+│  ├─ Estimate full-county annual appraisal baselines             │
+│  ├─ Remove common county-year shifts from parcel changes        │
+│  └─ Output: adjusted parcel/hex trends and sensitivity QA       │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -125,45 +133,62 @@ Rent data ───┘                                                         �
 ## File Dependencies
 
 ```
-packages.R (load first)
+00_requirements.R (install missing packages first)
     │
-    └─► run_analysis.R
+    └─► packages.R
             │
-            ├─► 01_create_hex_grid.R
-            │       └─► output/hex_grid.rds
-            │
-            ├─► 02_process_data.R
-            │       ├─ requires: hex_grid.rds
-            │       └─► output/hex_data_processed.rds
-            │
-            ├─► 03_feature_engineering.R
-            │       ├─ requires: hex_data_processed.rds
-            │       └─► output/hex_features.rds
-            │
-            ├─► 03b_cluster_analysis.R (NEW)
-            │       ├─ requires: hex_features.rds
-            │       └─► output/hex_features_with_clusters.rds
-            │       └─► output/cluster_analysis_results.rds
-            │       └─► output/cluster_profiles.csv
-            │       └─► figures/03b_*.png
-            │
-            ├─► 04_train_models.R
-            │       ├─ requires: hex_features_with_clusters.rds
-            │       ├─ requires: cluster_analysis_results.rds
-            │       └─► output/trained_models.rds
-            │
-            ├─► 05_validate_models.R
-            │       ├─ requires: trained_models.rds, hex_features_with_clusters.rds
-            │       └─► output/validation_results.rds + figures/
-            │
-            ├─► 06_predict_risk_scores.R
-            │       ├─ requires: trained_models.rds, hex_features_with_clusters.rds
-            │       ├─ requires: cluster_analysis_results.rds
-            │       └─► output/displacement_risk_scores.rds/.csv
-            │
-            └─► 07_visualize_results.R
-                    ├─ requires: displacement_risk_scores.rds, validation_results.rds
-                    └─► figures/*.png, figures/*.html
+            └─► run_analysis.R
+                    │
+                    ├─► 01_create_hex_grid.R
+                    │       └─► output/hex_grid.rds
+                    │
+                    ├─► 02_process_data.R
+                    │       ├─ requires: hex_grid.rds
+                    │       └─► output/hex_data_processed.rds
+                    │
+                    ├─► 02i_process_appraisal_history.R
+                    │       ├─ requires: calibrated residential parcels, hex_grid.rds
+                    │       ├─► output/appraisal_values_by_parcel_year.rds
+                    │       ├─► output/appraisal_values_by_hex_year.rds
+                    │       └─► output/appraisal_value_trends_by_hex.rds
+                    │
+                    ├─► 02j_process_appraisal_adjusted_trends.R
+                    │       ├─ requires: county and target appraisal panels
+                    │       ├─► output/appraisal_county_year_baselines.csv
+                    │       └─► output/appraisal_adjusted_trends_by_hex.rds
+                    │
+                    ├─► 03_feature_engineering.R
+                    │       ├─ requires: hex_data_processed.rds
+                    │       └─► output/hex_features.rds
+                    │
+                    ├─► 03a_feature_audit.R
+                    │       ├─ requires: hex_features.rds
+                    │       └─► output/feature_coverage_audit.csv
+                    │
+                    ├─► 03b_cluster_analysis.R (NEW)
+                    │       ├─ requires: hex_features.rds
+                    │       ├─► output/hex_features_with_clusters.rds
+                    │       ├─► output/cluster_analysis_results.rds
+                    │       ├─► output/cluster_profiles.csv
+                    │       └─► figures/03b_*.png
+                    │
+                    ├─► 04_train_models.R
+                    │       ├─ requires: hex_features_with_clusters.rds
+                    │       ├─ requires: cluster_analysis_results.rds
+                    │       └─► output/trained_models.rds
+                    │
+                    ├─► 05_validate_models.R
+                    │       ├─ requires: trained_models.rds, hex_features_with_clusters.rds
+                    │       └─► output/validation_results.rds + figures/
+                    │
+                    ├─► 06_predict_risk_scores.R
+                    │       ├─ requires: trained_models.rds, hex_features_with_clusters.rds
+                    │       ├─ requires: cluster_analysis_results.rds
+                    │       └─► output/displacement_risk_scores.rds/.csv
+                    │
+                    └─► 07_visualize_results.R
+                            ├─ requires: displacement_risk_scores.rds, validation_results.rds
+                            └─► figures/*.png, figures/*.html
 ```
 
 ## Key Outputs
@@ -183,6 +208,11 @@ packages.R (load first)
 - **trained_models.rds** - All 3 trained ML models
 - **validation_results.rds** - Model performance metrics
 - **hex_grid.rds** - Hexagonal grid geometry
+- **appraisal_values_by_parcel_year.rds** - Complete current parcel universe by tax year
+- **appraisal_values_by_hex_year.rds** - Inflation-adjusted annual appraisal values and coverage
+- **appraisal_value_trends_by_hex.rds** - Land/total value levels, growth, acceleration, and reliability
+- **appraisal_adjusted_trends_by_hex.rds** - County-relative land-value level, growth, acceleration, and reliability
+- **appraisal_county_year_baselines.csv** - Full-county annual appraisal shifts used for adjustment
 - **figures/*.png** - All static visualizations
 
 ## Runtime Estimates

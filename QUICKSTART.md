@@ -22,10 +22,12 @@ cd coa-displacement-ews
 Open R or RStudio and run:
 
 ```r
-source("packages.R")
+source("00_requirements.R")
 ```
 
-This will install all required packages. **Time**: ~5-10 minutes
+This installs missing packages into a version-specific `.r-library` directory
+inside the project. The project `.Rprofile` activates that library automatically
+for later R sessions. **Time**: ~5-10 minutes on the first run.
 
 ## Step 3: Set Up Census API Key
 
@@ -48,11 +50,11 @@ source("run_analysis.R")
 The script will:
 1. ✓ Create hexagonal grid for Austin
 2. ✓ Download and process Census data
-3. ✓ Engineer features
-4. ✓ Train three ML models
-5. ✓ Validate models
-6. ✓ Generate risk scores
-7. ✓ Create visualizations
+3. ✓ Build the 2021-2025 county appraisal panels
+4. ✓ Engineer features
+5. ✓ Train three ML models
+6. ✓ Validate models
+7. ✓ Generate risk scores and visualizations
 
 ## Running Individual Scripts
 
@@ -65,12 +67,18 @@ source("R/utils.R")
 Then you can run individual scripts:
 
 ```r
-source("R/01_create_hex_grid.R")
-source("R/02_process_data.R")
+source("01_create_hex_grid.R")
+source("02_process_data.R")
+source("02i_process_appraisal_history.R")
+source("02j_process_appraisal_adjusted_trends.R")
 # etc.
 ```
 
 **Note**: The utility functions in `utils.R` (like `print_header()` and `print_progress()`) are used throughout the analysis scripts.
+The first appraisal run downloads and caches large certified archives under
+`data/raw_parcels/appraisal_history/`; later runs use the normalized caches.
+Run `02j_process_appraisal_adjusted_trends.R` after `02i` to remove county-wide
+appraisal-year shifts before using land-value trends in feature engineering.
 
 ## Step 5: View Results
 
@@ -121,6 +129,7 @@ output/displacement_risk_scores.csv
 ## What's Happening Behind the Scenes
 
 ```
+00_requirements.R   → Install missing packages in the project library
 packages.R          → Load all required R packages
 01_create_hex_grid → Create H3 hexagonal grid over Austin
 02_process_data    → Download Census data, aggregate to hexagons

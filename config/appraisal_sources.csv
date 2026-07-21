@@ -1,0 +1,16 @@
+county,tax_year,source_type,url,local_path,comparison_path,required,notes
+Travis,2021,travis_ears_nested_zip,https://traviscad.org/wp-content/largefiles/2021EARS092521.zip,,,TRUE,Certified EARS archive
+Travis,2022,travis_ears_nested_zip,https://traviscad.org/wp-content/largefiles/227EARS092822%20%282%29.zip,,,TRUE,Certified EARS archive
+Travis,2023,travis_ears_nested_zip,https://traviscad.org/wp-content/largefiles/227EARS082923%20%282%29.zip,,,TRUE,Certified EARS archive
+Travis,2024,travis_ears_nested_zip,https://traviscad.org/wp-content/largefiles/227EARS082824%20%282%29.zip,,,TRUE,Certified EARS archive
+Travis,2025,travis_ears_nested_zip,https://traviscad.org/wp-content/largefiles/227EARS090425.zip,,,TRUE,Certified EARS archive
+Hays,2021,hays_property_export_zip,https://hayscad.com/wp-content/uploads/2021/07/2021-CERTIFIED-PROPERTY-DATA-EXPORT-7-20-21-2.zip,,,FALSE,Certified property export; optional because host may block automated downloads
+Hays,2022,hays_certified_fixed_zip,,data/raw_parcels/appraisal_history/hays/2022/2022-Certified-Appraisal-Export-files.zip,data/raw_parcels/appraisal_history/hays/2022/hays_2022.zip,TRUE,Certified fixed-width appraisal roll; later post-certification property export retained for sensitivity comparison
+Hays,2023,hays_property_export_zip,https://hayscad.com/wp-content/uploads/2023/08/2023-Certified-Property-Data-Export.zip,,,FALSE,Certified property export; optional because host may block automated downloads
+Hays,2024,hays_property_export_zip,https://hayscad.com/wp-content/uploads/2024/07/2024-Certified-Data-Export.zip,,,FALSE,Certified property export; optional because host may block automated downloads
+Hays,2025,hays_property_export_zip,https://hayscad.com/wp-content/uploads/2025/07/2025-Certified-Data-Export.zip,,,FALSE,Certified property export; optional because host may block automated downloads
+Williamson,2021,williamson_certified_report_zip,https://www.wcad.org/wp-content/uploads/2023/12/Certification-Report-2021.zip,,,TRUE,Certified parcel report
+Williamson,2022,williamson_certified_report_zip,https://www.wcad.org/wp-content/uploads/2023/12/Certification-Report-2022.zip,,,TRUE,Certified parcel report
+Williamson,2023,williamson_certified_report_zip,https://www.wcad.org/wp-content/uploads/2024/07/Certification-Report-2023.zip,,,TRUE,Certified parcel report
+Williamson,2024,williamson_certified_report_zip,https://www.wcad.org/wp-content/uploads/2025/08/Certification-Report-2024.zip,,,TRUE,Certified parcel report
+Williamson,2025,williamson_current_csv,,data/raw_parcels/williamson/wcad_property_certified.csv,,TRUE,Local certified export dated 2026-04-01

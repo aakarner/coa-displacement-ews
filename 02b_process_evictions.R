@@ -23,6 +23,7 @@ suppressPackageStartupMessages({
 })
 
 source(here::here("R/utils.R"))
+source(here::here("R/analysis_config.R"))
 
 print_header("02b - PROCESS EVICTION FILINGS")
 
@@ -54,6 +55,10 @@ eviction_filings_raw <- read_csv(eviction_filings_file, show_col_types = FALSE) 
     file_date = as.Date(file_date),
     filing_year = year(file_date),
     filing_month = floor_date(file_date, "month")
+  ) %>%
+  filter(
+    !is.na(file_date),
+    file_date <= EWS_CONFIG$analysis_as_of_date
   )
 
 eviction_geocoded <- read_csv(
@@ -154,7 +159,7 @@ eviction_annual_hex <- eviction_filings_hex %>%
 write_csv(eviction_annual_hex, file.path(OUTPUT_DIR, "eviction_filings_by_hex_year.csv"))
 
 max_eviction_date <- max(eviction_filings_hex$file_date, na.rm = TRUE)
-latest_12mo_start <- max_eviction_date %m-% years(1) + days(1)
+latest_12mo_start <- EWS_CONFIG$analysis_as_of_date %m-% years(1) + days(1)
 previous_12mo_start <- latest_12mo_start %m-% years(1)
 
 hex_eviction_summary <- eviction_filings_hex %>%
@@ -170,7 +175,12 @@ hex_eviction_summary <- eviction_filings_hex %>%
     eviction_cases_2024 = n_distinct(case_number[filing_year == 2024]),
     eviction_cases_2025 = n_distinct(case_number[filing_year == 2025]),
     eviction_cases_2026 = n_distinct(case_number[filing_year == 2026]),
-    eviction_cases_latest_12mo = n_distinct(case_number[file_date >= latest_12mo_start]),
+    eviction_cases_latest_12mo = n_distinct(
+      case_number[
+        file_date >= latest_12mo_start &
+          file_date <= EWS_CONFIG$analysis_as_of_date
+      ]
+    ),
     eviction_cases_previous_12mo = n_distinct(
       case_number[file_date >= previous_12mo_start & file_date < latest_12mo_start]
     ),
@@ -186,7 +196,10 @@ hex_eviction_summary <- eviction_filings_hex %>%
       eviction_cases_previous_12mo > 0,
       100 * (eviction_cases_latest_12mo / eviction_cases_previous_12mo - 1),
       NA_real_
-    )
+    ),
+    eviction_analysis_as_of = EWS_CONFIG$analysis_as_of_date,
+    eviction_latest_12mo_start = latest_12mo_start,
+    eviction_previous_12mo_start = previous_12mo_start
   )
 
 save_output(
@@ -297,7 +310,11 @@ hex_evictions_map <- hex_grid %>%
   mutate(eviction_cases_total = replace_na(eviction_cases_total, 0))
 
 eviction_map_context <- list()
-if (requireNamespace("ggspatial", quietly = TRUE) && requireNamespace("rosm", quietly = TRUE)) {
+if (
+  requireNamespace("ggspatial", quietly = TRUE) &&
+    requireNamespace("rosm", quietly = TRUE) &&
+    requireNamespace("prettymapr", quietly = TRUE)
+) {
   eviction_map_context <- c(
     eviction_map_context,
     list(ggspatial::annotation_map_tile(type = "cartolight", zoomin = -1, alpha = 0.75))

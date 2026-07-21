@@ -12,7 +12,7 @@
 #   Rscript run_analysis.R
 #
 # REQUIREMENTS:
-#   - Run packages.R first to install required packages
+#   - Run 00_requirements.R first to install required packages
 #   - Census API key configured (see README for instructions)
 #   - At least 8GB RAM recommended
 #   - Estimated runtime: 30-60 minutes depending on hardware
@@ -37,6 +37,8 @@ cat("\n")
 # CONFIGURATION SECTION
 ################################################################################
 
+source(file.path(getwd(), "R", "analysis_config.R"), local = FALSE)
+
 # File paths (relative to project root)
 CONFIG <- list(
   # Directories
@@ -51,7 +53,9 @@ CONFIG <- list(
   h3_resolution = 9,  # Resolution 9 ≈ 0.1 km² cells
   
   # Census data
-  acs_year = 2021,
+  acs_year = EWS_CONFIG$acs_current_year,
+  acs_years = EWS_CONFIG$acs_years,
+  analysis_as_of_date = EWS_CONFIG$analysis_as_of_date,
   
   # Model training parameters
   train_test_split = 0.7,  # 70% training, 30% testing
@@ -78,21 +82,7 @@ set.seed(CONFIG$random_seed)
 
 cat("Checking prerequisites...\n")
 
-# Check if packages are loaded
-if(!require(here, quietly = TRUE)) {
-  stop("Package 'here' not found. Please run packages.R first.")
-}
-
-# Check if packages.R has been run
-required_packages <- c("tidyverse", "sf", "h3jsr", "caret", "randomForest", "xgboost")
-missing_packages <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
-
-if(length(missing_packages) > 0) {
-  cat("\nERROR: Missing required packages.\n")
-  cat("Please run packages.R first to install all dependencies:\n")
-  cat("  source('packages.R')\n\n")
-  stop("Missing packages: ", paste(missing_packages, collapse = ", "))
-}
+source(file.path(getwd(), "00_requirements.R"), local = FALSE)
 
 cat("✓ All required packages available\n\n")
 
@@ -131,6 +121,8 @@ cat("###########################################################################
 
 tryCatch({
   source(here::here("02_process_data.R"))
+  source(here::here("02i_process_appraisal_history.R"))
+  source(here::here("02j_process_appraisal_adjusted_trends.R"))
   cat("\n✓ Step 2 completed successfully\n")
 }, error = function(e) {
   cat("\n✗ ERROR in Step 2:\n")
@@ -146,6 +138,7 @@ cat("###########################################################################
 
 tryCatch({
   source(here::here("03_feature_engineering.R"))
+  source(here::here("03a_feature_audit.R"))
   cat("\n✓ Step 3 completed successfully\n")
 }, error = function(e) {
   cat("\n✗ ERROR in Step 3:\n")
@@ -248,6 +241,7 @@ cat(paste0("  - Runtime:  ", round(elapsed_time, 1), " minutes\n\n"))
 cat("Output Files:\n")
 cat("  - Hexagonal grid:        output/hex_grid.rds\n")
 cat("  - Processed data:        output/hex_data_processed.rds\n")
+cat("  - Appraisal trends:      output/appraisal_value_trends_by_hex.rds\n")
 cat("  - Engineered features:   output/hex_features.rds\n")
 cat("  - Cluster analysis:      output/cluster_analysis_results.rds\n")
 cat("  - Features w/ clusters:  output/hex_features_with_clusters.rds\n")

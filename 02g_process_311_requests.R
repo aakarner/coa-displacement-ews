@@ -33,6 +33,7 @@ project_path <- function(...) {
 }
 
 source(project_path("R", "utils.R"))
+source(project_path("R", "analysis_config.R"))
 
 suppressPackageStartupMessages({
   library(sf)
@@ -83,12 +84,14 @@ selected_fields <- c(
 )
 
 fetch_311_page <- function(offset, limit) {
+  end_date_exclusive <- EWS_CONFIG$analysis_as_of_date + days(1)
   query <- paste0(
     "SELECT ", paste(selected_fields, collapse = ", "), " ",
     "WHERE sr_created_date >= '", start_date, "T00:00:00' ",
+    "AND sr_created_date < '", end_date_exclusive, "T00:00:00' ",
     "AND sr_location_lat IS NOT NULL ",
     "AND sr_location_long IS NOT NULL ",
-    "ORDER BY sr_created_date ",
+    "ORDER BY sr_created_date, sr_number ",
     "LIMIT ", limit, " OFFSET ", offset
   )
 
@@ -173,6 +176,7 @@ requests_clean <- requests_raw %>%
   ) %>%
   filter(
     !is.na(sr_created_date),
+    sr_created_date <= EWS_CONFIG$analysis_as_of_date,
     !is.na(sr_location_lat),
     !is.na(sr_location_long),
     between(sr_location_lat, 29.8, 30.7),
@@ -245,7 +249,7 @@ annual_by_hex <- requests_hex %>%
 write_csv(annual_by_hex, file.path(OUTPUT_DIR, "311_requests_by_hex_year.csv"))
 
 max_request_date <- max(requests_hex$sr_created_date, na.rm = TRUE)
-latest_12mo_start <- max_request_date %m-% years(1) + days(1)
+latest_12mo_start <- EWS_CONFIG$analysis_as_of_date %m-% years(1) + days(1)
 previous_12mo_start <- latest_12mo_start %m-% years(1)
 
 summary_by_hex <- requests_hex %>%
@@ -258,13 +262,19 @@ summary_by_hex <- requests_hex %>%
     sr_311_tenant_distress_total = sum(is_tenant_distress, na.rm = TRUE),
     sr_311_smoke_signal_total = sum(is_311_smoke_signal, na.rm = TRUE),
     sr_311_nuisance_or_disorder_total = sum(is_nuisance_or_disorder, na.rm = TRUE),
-    sr_311_latest_12mo = sum(sr_created_date >= latest_12mo_start, na.rm = TRUE),
+    sr_311_latest_12mo = sum(
+      sr_created_date >= latest_12mo_start &
+        sr_created_date <= EWS_CONFIG$analysis_as_of_date,
+      na.rm = TRUE
+    ),
     sr_311_previous_12mo = sum(
       sr_created_date >= previous_12mo_start & sr_created_date < latest_12mo_start,
       na.rm = TRUE
     ),
     sr_311_smoke_signal_latest_12mo = sum(
-      is_311_smoke_signal & sr_created_date >= latest_12mo_start,
+      is_311_smoke_signal &
+        sr_created_date >= latest_12mo_start &
+        sr_created_date <= EWS_CONFIG$analysis_as_of_date,
       na.rm = TRUE
     ),
     sr_311_smoke_signal_previous_12mo = sum(
@@ -317,7 +327,10 @@ summary_full <- hex_grid %>%
       NA_real_
     ),
     sr_311_data_start = min(requests_hex$sr_created_date, na.rm = TRUE),
-    sr_311_data_end = max_request_date
+    sr_311_data_end = max_request_date,
+    sr_311_analysis_as_of = EWS_CONFIG$analysis_as_of_date,
+    sr_311_latest_12mo_start = latest_12mo_start,
+    sr_311_previous_12mo_start = previous_12mo_start
   )
 
 save_output(

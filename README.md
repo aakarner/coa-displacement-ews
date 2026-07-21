@@ -51,13 +51,21 @@ We then train models to predict which cluster (displacement pattern) a neighborh
 ```
 coa-displacement-ews/
 ├── README.md                     # This file
-├── packages.R                    # Package installation and loading
+├── 00_requirements.R             # Install missing packages locally
+├── packages.R                    # Load required packages
 ├── run_analysis.R               # Master pipeline script
 │
 ├── 01_create_hex_grid.R         # Create hexagonal grid
 ├── 02_process_data.R            # Process and aggregate data
+├── 02f_process_acs_demographics.R # Current ACS vulnerability backbone
+├── 02g_process_311_requests.R   # Fixed-vintage 311 smoke signals
+├── 02h_process_acs_rent_history.R # Historical citywide ACS rent trends
+├── 02i_process_appraisal_history.R # County appraisal parcel/hex panels
+├── 02j_process_appraisal_adjusted_trends.R # County-adjusted land-value trends
 ├── 03_feature_engineering.R     # Engineer features for ML
+├── 03a_feature_audit.R          # Verify feature roles and coverage
 ├── 03b_cluster_analysis.R       # **NEW: Unsupervised clustering**
+├── 03c_cluster_sensitivity_analysis.R # Compare balanced clustering methods
 ├── 04_train_models.R            # Train ML models (cluster-based)
 ├── 05_validate_models.R         # Validate and diagnose models
 ├── 06_predict_risk_scores.R     # Generate risk scores
@@ -74,6 +82,7 @@ coa-displacement-ews/
 ├── output/                      # Generated data files
 │   ├── hex_grid.rds             # Hexagonal grid
 │   ├── hex_data_processed.rds   # Processed data
+│   ├── appraisal_value_trends_by_hex.rds # 2021-2025 value trends
 │   ├── hex_features.rds         # Engineered features
 │   ├── cluster_analysis_results.rds  # **NEW: Clustering results**
 │   ├── hex_features_with_clusters.rds # **NEW: Features + clusters**
@@ -125,10 +134,12 @@ cd coa-displacement-ews
 
 2. Open R or RStudio and install required packages:
 ```r
-source("packages.R")
+source("00_requirements.R")
 ```
 
-This will automatically install all required packages including:
+This installs missing packages into a version-specific project library under
+`.r-library/`. The project `.Rprofile` activates that library automatically.
+Required packages include:
 - Spatial: `sf`, `h3jsr`, `tigris`, `lwgeom`
 - ML: `caret`, `randomForest`, `xgboost`, `glmnet`
 - Clustering: `cluster`, `factoextra`, `dbscan`, `Rtsne`
@@ -173,13 +184,20 @@ This will:
 You can also run individual steps:
 
 ```r
-# Load packages first
+# Install missing packages, then load them
+source("00_requirements.R")
 source("packages.R")
 
 # Then run steps individually
 source("01_create_hex_grid.R")
 source("02_process_data.R")
+source("02f_process_acs_demographics.R")
+source("02g_process_311_requests.R")
+source("02h_process_acs_rent_history.R")
+source("02i_process_appraisal_history.R")
+source("02j_process_appraisal_adjusted_trends.R")
 source("03_feature_engineering.R")
+source("03a_feature_audit.R")
 source("03b_cluster_analysis.R")    # NEW: Clustering step
 source("04_train_models.R")
 source("05_validate_models.R")
