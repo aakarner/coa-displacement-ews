@@ -17,20 +17,31 @@ cluster assignments.
 `output/residential_unit_source_records.rds` and stores parcel relationships
 separately in `output/residential_unit_source_parcel_links.rds`.
 
-The evidence classes are:
+The evidence classes, in selection order, are:
 
 1. Completed City affordable-housing project totals, high-confidence CoStar
    project totals, and plausible TCAD `imprvUnits` on B1 properties. These can
    supply strict model labels.
-2. Appraisal-account rules: one unit for A1-A4, two for B2, three for B3, and
-   four for B4. These are deterministic counts, not floor-area model labels.
-3. City Universal Recycling Ordinance multifamily counts. The City calls these
+2. Deterministic appraisal-account evidence. TCAD uses one unit for A1-A4,
+   two for B2, three for B3, and four for B4. Hays uses the corresponding
+   A/B2/B3/B4 state-code rules. WCAD contributes explicit residential
+   condominium/unit accounts and duplex/triplex/fourplex legal descriptions.
+   These counts are not floor-area model labels.
+3. A one-unit WCAD rule for positive-area residential accounts that contain no
+   condominium, small-multifamily, or apartment signal. This is retained as a
+   separate rule-based tier rather than treated as direct evidence.
+4. City Universal Recycling Ordinance multifamily counts. The City calls these
    estimated counts, so they are retained as sensitivity labels.
-4. Future floor-area model predictions for projects still unresolved after the
+5. Future floor-area model predictions for projects still unresolved after the
    preceding sources.
 
 No lower-tier source overwrites a higher-tier source. Source conflicts remain
 unclassified pending review.
+
+WCAD records explicitly marked `REFERENCE ONLY` are condominium common-interest
+or master accounts, not additional dwellings. They remain visible in the audit
+tables but are excluded from the number of unit-bearing parcels that an account
+enumeration must cover.
 
 ## Project construction
 
@@ -48,21 +59,53 @@ Direct sources must agree within 20 percent. A complete account enumeration is
 also used as a conflict check. The script does not average sources that fail
 this test.
 
+Three apartment properties at the Travis-Williamson boundary have parcel
+records in both appraisal districts. They remain unified when a shared,
+high-confidence project source establishes that they are the same physical
+property. Outputs include `project_counties` and `project_cross_county`; county
+QA counts these projects once in each involved county, while regional project
+and unit totals count them only once.
+
 ## Current shadow results
 
-The first run produced:
+The repaired source hierarchy produces:
 
-- 237,161 parcel rows grouped into 206,116 residential projects;
-- 867 strict, model-eligible multifamily projects;
-- 833 unresolved multifamily model candidates representing about 180,000
-  current floor-area-estimated units; and
+- 237,161 parcel rows grouped into 206,162 residential projects;
+- 869 strict, model-eligible multifamily projects;
+- 855 unique unresolved multifamily model candidates; and
 - 140 direct-source or direct-versus-account conflicts held out for review.
+
+The mutually exclusive selected hierarchy currently contains:
+
+- 116,418 units from 891 strict direct project totals;
+- 230,486 units from 188,468 deterministic appraisal-account projects; and
+- 10,381 units from 10,381 WCAD single-unit-rule projects.
+
+Together these shadow selections account for 357,285 units. Only the first
+116,418 are direct reported project totals; the appraisal and single-unit
+tiers must remain separately identified in reporting.
 
 All current model-eligible projects are in Travis County. The first model must
 therefore use a common regional form without an estimated county effect.
 County remains a validation and out-of-domain flag. A county effect should be
 considered only after obtaining defensible project labels in Hays and
 Williamson.
+
+Current county handling is:
+
+- Hays: all 298 currently linked residential parcels receive deterministic
+  one-unit appraisal-code counts. No Hays multifamily model candidate is
+  present in the current extract.
+- Williamson: 2,712 explicit residential unit accounts supply 2,712 units;
+  96 small-multifamily legal descriptions supply 194 units; and 10,381
+  ordinary residential accounts receive the separate one-unit rule.
+- Williamson has 25 apartment model candidates. Nineteen have URO sensitivity
+  counts and six currently have no external project total. Two of the 25 are
+  cross-county projects also represented in TCAD.
+- Fifty-five WCAD reference-only common-interest accounts are excluded from
+  unit-bearing parcel coverage. Another 213 records remain flagged for source
+  review, primarily commercial condominiums carried into the upstream
+  residential extract.
 
 Affordable Housing Inventory records require special care. Some completed
 records describe a subsidized subset within a larger condominium property.
@@ -99,6 +142,7 @@ validation data; they do not calibrate parcel predictions.
 - `output/residential_unit_source_records.rds/.csv`;
 - `output/residential_unit_source_parcel_links.rds/.csv`;
 - `output/residential_unit_source_qa.csv`;
+- `output/residential_unit_county_classification_qa.csv`;
 - `output/residential_unit_source_manifest.csv`; and
 - `output/residential_unit_unmatched_source_records.csv`.
 
@@ -109,5 +153,6 @@ validation data; they do not calibrate parcel predictions.
 - `output/residential_unit_training_table.rds/.csv`;
 - `output/residential_unit_model_candidates.rds/.csv`;
 - `output/residential_unit_project_source_comparison.csv`;
-- `output/residential_unit_source_conflicts.csv`; and
+- `output/residential_unit_source_conflicts.csv`;
+- `output/residential_unit_cross_county_projects.csv`; and
 - `output/residential_unit_project_qa.csv`.

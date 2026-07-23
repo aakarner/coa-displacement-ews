@@ -32,6 +32,42 @@ normalize_unit_address <- function(x) {
     dplyr::na_if("")
 }
 
+strip_unit_address_locality <- function(address, city = NA_character_) {
+  address_upper <- stringr::str_to_upper(address)
+  address_upper <- stringr::str_replace(
+    address_upper,
+    "[,\\s]+(TX|TEXAS)\\s+\\d{5}(-\\d{4})?\\s*$",
+    ""
+  ) %>%
+    stringr::str_replace("[,\\s]+$", "")
+  city_upper <- stringr::str_squish(stringr::str_to_upper(city))
+
+  mapply(
+    function(address_value, city_value) {
+      if (is.na(address_value)) {
+        return(NA_character_)
+      }
+      if (
+        !is.na(city_value) &&
+          nzchar(city_value) &&
+          stringr::str_ends(address_value, stringr::fixed(city_value))
+      ) {
+        return(
+          stringr::str_sub(
+            address_value,
+            end = nchar(address_value) - nchar(city_value)
+          ) %>%
+            stringr::str_replace("[,\\s]+$", "")
+        )
+      }
+      address_value
+    },
+    address_upper,
+    city_upper,
+    USE.NAMES = FALSE
+  )
+}
+
 unit_zip5 <- function(x) {
   stringr::str_extract(as.character(x), "\\d{5}")
 }

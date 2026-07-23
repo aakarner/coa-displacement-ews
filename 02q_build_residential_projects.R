@@ -63,7 +63,8 @@ parcels <- readRDS(PARCEL_FILE) %>%
     ),
     mf_project_signal = is_multifamily_like |
       appraisal_state_code %in% c("A4", "B1", "B2", "B3", "B4") |
-      has_mf_zoning
+      has_mf_zoning |
+      replace_na(county_model_candidate_signal, FALSE)
   )
 
 source_records <- readRDS(SOURCE_RECORD_FILE)
@@ -144,8 +145,22 @@ project_parcels <- parcels %>%
 projects <- project_parcels %>%
   group_by(project_id) %>%
   summarise(
+    project_counties = str_c(
+      sort(unique(na.omit(source_county))),
+      collapse = " | "
+    ),
+    project_county_count = n_distinct(source_county, na.rm = TRUE),
+    project_cross_county = project_county_count > 1L,
     source_county = unit_mode(source_county),
     project_parcel_count = n_distinct(parcel_id),
+    project_excluded_unit_parcel_count = sum(
+      county_unit_exclude_from_unit_universe,
+      na.rm = TRUE
+    ),
+    project_required_unit_parcel_count = sum(
+      !county_unit_exclude_from_unit_universe,
+      na.rm = TRUE
+    ),
     project_address_count = n_distinct(parcel_address_key, na.rm = TRUE),
     project_grouping_methods = first(project_grouping_methods),
     project_link_group_count = first(project_link_group_count),
@@ -192,6 +207,27 @@ projects <- project_parcels %>%
       na.rm = TRUE
     ),
     project_is_multifamily_like = any(mf_project_signal, na.rm = TRUE),
+    project_county_model_candidate = any(
+      county_model_candidate_signal,
+      na.rm = TRUE
+    ),
+    project_county_review = any(
+      !is.na(county_unit_review_reason),
+      na.rm = TRUE
+    ),
+    project_county_review_reasons = str_c(
+      sort(unique(na.omit(county_unit_review_reason))),
+      collapse = " | "
+    ),
+    project_county_evidence_classes = str_c(
+      sort(unique(na.omit(county_unit_evidence_class))),
+      collapse = " | "
+    ),
+    project_wcad_property_type = unit_mode(wcad_property_type),
+    project_wcad_apartment_signal = any(
+      wcad_apartment_signal,
+      na.rm = TRUE
+    ),
     project_condo_account_count = sum(
       appraisal_state_code == "A4",
       na.rm = TRUE
@@ -223,6 +259,9 @@ projects <- project_parcels %>%
     project_land_sqft = na_if(project_land_sqft, 0)
   )
 
+project_county_membership <- project_parcels %>%
+  distinct(project_id, source_county)
+
 project_source_links <- source_links %>%
   inner_join(
     project_membership %>% select(parcel_id, project_id),
@@ -239,6 +278,7 @@ project_source_links <- source_links %>%
     source_consistent = first(source_consistent),
     use_as_strict_model_label = first(use_as_strict_model_label),
     use_as_deterministic_count = first(use_as_deterministic_count),
+    use_as_rule_based_count = first(use_as_rule_based_count),
     use_as_sensitivity_label = first(use_as_sensitivity_label),
     linked_project_parcels = n_distinct(parcel_id),
     best_match_confidence = if_else(
@@ -272,6 +312,8 @@ project_source_estimates <- project_source_links %>%
       !is.na(source_project_units),
     use_as_deterministic_count = all(use_as_deterministic_count) &
       source_matches_high_confidence,
+    use_as_rule_based_count = all(use_as_rule_based_count) &
+      source_matches_high_confidence,
     use_as_sensitivity_label = all(use_as_sensitivity_label) &
       source_matches_high_confidence,
     .groups = "drop"
@@ -283,6 +325,23 @@ deterministic_counts <- project_source_estimates %>%
   summarise(
     deterministic_record_count = sum(source_record_count),
     deterministic_units = sum(source_project_units),
+    deterministic_source_names = str_c(
+      sort(unique(source_name)),
+      collapse = " | "
+    ),
+    .groups = "drop"
+  )
+
+rule_based_counts <- project_source_estimates %>%
+  filter(use_as_rule_based_count, source_project_units > 0) %>%
+  group_by(project_id) %>%
+  summarise(
+    rule_based_record_count = sum(source_record_count),
+    rule_based_units = sum(source_project_units),
+    rule_based_source_names = str_c(
+      sort(unique(source_name)),
+      collapse = " | "
+    ),
     .groups = "drop"
   )
 
@@ -306,13 +365,14 @@ strict_comparison <- project_source_estimates %>%
   ) %>%
   left_join(deterministic_counts, by = "project_id") %>%
   left_join(
-    projects %>% select(project_id, project_parcel_count),
+    projects %>%
+      select(project_id, project_required_unit_parcel_count),
     by = "project_id"
   ) %>%
   mutate(
     deterministic_count_covers_project = !is.na(
       deterministic_record_count
-    ) & deterministic_record_count == project_parcel_count,
+    ) & deterministic_record_count == project_required_unit_parcel_count,
     strict_deterministic_relative_difference = if_else(
       deterministic_count_covers_project,
       abs(preferred_strict_units - deterministic_units) /
@@ -341,7 +401,8 @@ strict_comparison <- project_source_estimates %>%
   select(
     -deterministic_record_count,
     -deterministic_units,
-    -project_parcel_count,
+    -deterministic_source_names,
+    -project_required_unit_parcel_count,
     -deterministic_count_covers_project
   )
 
@@ -357,6 +418,7 @@ uro_sensitivity <- project_source_estimates %>%
 projects <- projects %>%
   left_join(strict_comparison, by = "project_id") %>%
   left_join(deterministic_counts, by = "project_id") %>%
+  left_join(rule_based_counts, by = "project_id") %>%
   left_join(uro_sensitivity, by = "project_id") %>%
   mutate(
     strict_source_count = replace_na(strict_source_count, 0L),
@@ -369,9 +431,12 @@ projects <- projects %>%
       deterministic_record_count,
       0L
     ),
+    rule_based_record_count = replace_na(rule_based_record_count, 0L),
     uro_source_record_count = replace_na(uro_source_record_count, 0L),
     deterministic_count_covers_project = deterministic_record_count ==
-      project_parcel_count,
+      project_required_unit_parcel_count,
+    rule_based_count_covers_project = rule_based_record_count ==
+      project_required_unit_parcel_count,
     selected_deterministic_units = if_else(
       deterministic_count_covers_project &
         (
@@ -384,19 +449,30 @@ projects <- projects %>%
       deterministic_units,
       NA_real_
     ),
+    selected_rule_based_units = if_else(
+      rule_based_count_covers_project &
+        deterministic_record_count == 0L &
+        strict_source_count == 0L,
+      rule_based_units,
+      NA_real_
+    ),
     selected_observed_units = coalesce(
       selected_deterministic_units,
-      selected_strict_units
+      selected_strict_units,
+      selected_rule_based_units
     ),
     selected_observed_source = case_when(
-      !is.na(selected_deterministic_units) ~ "tcad_account_rule_sum",
+      !is.na(selected_deterministic_units) ~ deterministic_source_names,
       !is.na(selected_strict_units) ~ selected_strict_source,
+      !is.na(selected_rule_based_units) ~ rule_based_source_names,
       TRUE ~ NA_character_
     ),
     selected_observed_tier = case_when(
       !is.na(selected_deterministic_units) ~
         "deterministic_appraisal_accounts",
       !is.na(selected_strict_units) ~ "strict_direct_project_total",
+      !is.na(selected_rule_based_units) ~
+        "rule_based_single_unit_assumption",
       TRUE ~ NA_character_
     ),
     strict_label_sqft_per_unit = if_else(
@@ -415,7 +491,11 @@ projects <- projects %>%
     model_candidate = project_is_multifamily_like &
       project_improvement_sqft > 0 &
       is.na(selected_observed_units) &
-      (current_needs_multifamily_estimate | current_floor_area_estimate),
+      (
+        current_needs_multifamily_estimate |
+          current_floor_area_estimate |
+          project_county_model_candidate
+      ),
     source_conflict_requires_review = strict_source_count > 0L &
       !strict_sources_agree
   )
@@ -429,6 +509,8 @@ training_table <- projects %>%
     label_source_count = strict_source_count,
     label_relative_spread = strict_source_relative_spread,
     source_county,
+    project_counties,
+    project_cross_county,
     project_improvement_sqft,
     project_main_area,
     project_land_sqft,
@@ -462,7 +544,11 @@ source_conflicts <- projects %>%
   select(
     project_id,
     source_county,
+    project_counties,
+    project_cross_county,
     project_parcel_count,
+    project_required_unit_parcel_count,
+    project_excluded_unit_parcel_count,
     project_grouping_methods,
     strict_source_names,
     strict_source_min_units,
@@ -470,16 +556,22 @@ source_conflicts <- projects %>%
     strict_source_relative_spread,
     preferred_strict_source,
     preferred_strict_units,
+    deterministic_source_names,
     deterministic_units,
     strict_deterministic_relative_difference,
+    project_county_evidence_classes,
+    project_county_review_reasons,
     project_improvement_sqft,
     current_primary_units
   )
 
-training_county_qa <- projects %>%
+training_county_qa <- parcels %>%
   distinct(source_county) %>%
   left_join(
-    training_table %>% count(source_county, name = "value"),
+    training_table %>%
+      select(project_id) %>%
+      inner_join(project_county_membership, by = "project_id") %>%
+      count(source_county, name = "value"),
     by = "source_county"
   ) %>%
   transmute(
@@ -500,18 +592,25 @@ project_qa <- bind_rows(
       "parcel_rows",
       "projects",
       "multi_parcel_projects",
+      "cross_county_projects",
+      "excluded_non_unit_reference_parcels",
       "multifamily_like_projects",
       "strict_labeled_projects",
       "training_eligible_projects",
       "source_conflict_projects",
       "deterministic_only_projects",
+      "rule_based_only_projects",
       "uro_sensitivity_projects",
+      "county_model_candidate_projects",
+      "county_source_review_projects",
       "unresolved_model_candidates"
     ),
     value = c(
       nrow(project_membership),
       nrow(projects),
       sum(projects$project_parcel_count > 1L),
+      sum(projects$project_cross_county),
+      sum(projects$project_excluded_unit_parcel_count),
       sum(projects$project_is_multifamily_like),
       sum(!is.na(projects$selected_strict_units)),
       nrow(training_table),
@@ -520,7 +619,10 @@ project_qa <- bind_rows(
         is.na(projects$selected_strict_units) &
           !is.na(projects$selected_deterministic_units)
       ),
+      sum(!is.na(projects$selected_rule_based_units)),
       sum(!is.na(projects$uro_sensitivity_units)),
+      sum(projects$project_county_model_candidate),
+      sum(projects$project_county_review),
       nrow(model_candidates)
     ),
     note = NA_character_
@@ -534,6 +636,16 @@ project_qa <- bind_rows(
       note = NA_character_
     ),
   training_county_qa,
+  model_candidates %>%
+    select(project_id) %>%
+    inner_join(project_county_membership, by = "project_id") %>%
+    count(source_county, name = "value") %>%
+    transmute(
+      qa_section = "model_candidates_by_county",
+      metric = source_county,
+      value,
+      note = "Counts county involvement; cross-county projects appear once per county."
+    ),
   projects %>%
     filter(source_conflict_requires_review) %>%
     transmute(
@@ -550,8 +662,32 @@ project_qa <- bind_rows(
         ),
         sep = "; "
       )
-    )
+  )
 )
+
+if (
+  nrow(project_membership) != nrow(parcels) ||
+    n_distinct(project_membership$parcel_id) != nrow(parcels)
+) {
+  stop("Project membership must contain each parcel exactly once.", call. = FALSE)
+}
+if (
+  any(
+    projects$project_required_unit_parcel_count +
+      projects$project_excluded_unit_parcel_count !=
+      projects$project_parcel_count
+  )
+) {
+  stop("Project unit-bearing and excluded parcel counts do not balance.", call. = FALSE)
+}
+if (
+  any(
+    is.na(projects$selected_observed_tier) !=
+      is.na(projects$selected_observed_units)
+  )
+) {
+  stop("Selected unit counts and hierarchy tiers are inconsistent.", call. = FALSE)
+}
 
 save_output(
   project_membership,
@@ -597,6 +733,10 @@ write_csv(
 write_csv(
   source_conflicts,
   file.path(OUTPUT_DIR, "residential_unit_source_conflicts.csv")
+)
+write_csv(
+  projects %>% filter(project_cross_county),
+  file.path(OUTPUT_DIR, "residential_unit_cross_county_projects.csv")
 )
 write_csv(
   project_qa,

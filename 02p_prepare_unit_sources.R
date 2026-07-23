@@ -66,6 +66,34 @@ tcad_compact_file <- file.path(
   UNIT_SOURCE_DIR,
   "tcad_property_profile_unit_fields.csv"
 )
+wcad_property_file <- here::here(
+  "data",
+  "raw_parcels",
+  "williamson",
+  "wcad_property_certified.csv"
+)
+wcad_parcel_file <- here::here(
+  "data",
+  "raw_parcels",
+  "williamson",
+  "wcad_parcels_flat.csv"
+)
+wcad_compact_file <- file.path(
+  UNIT_SOURCE_DIR,
+  "wcad_property_unit_fields.csv"
+)
+
+missing_county_files <- c(
+  wcad_property_file,
+  wcad_parcel_file
+)[!file.exists(c(wcad_property_file, wcad_parcel_file))]
+if (length(missing_county_files) > 0L) {
+  stop(
+    "Missing Williamson appraisal source file(s): ",
+    paste(missing_county_files, collapse = ", "),
+    call. = FALSE
+  )
+}
 
 uro_cache_file <- file.path(UNIT_SOURCE_DIR, "austin_uro_units.csv")
 ahi_cache_file <- file.path(
@@ -137,9 +165,8 @@ parcels <- readRDS(PARCEL_FILE) %>%
   mutate(
     parcel_id = as.character(parcel_id),
     source_county = as.character(source_county),
-    parcel_address_key = coalesce(
-      as.character(parcel_address_key),
-      normalize_unit_address(situs_address)
+    parcel_address_key = normalize_unit_address(
+      strip_unit_address_locality(situs_address, situs_city)
     ),
     parcel_zip5 = coalesce(
       unit_zip5(parcel_zip5),
@@ -226,8 +253,143 @@ tcad <- read_csv(
   ) %>%
   distinct(parcel_id, .keep_all = TRUE)
 
+wcad_property_fields <- c(
+  "PropertyID",
+  "QuickRefID",
+  "PropertyTypeDesc",
+  "TotalSqFtLivingArea",
+  "LegalDescription",
+  "PropertyComment",
+  "DBA",
+  "SubUnit",
+  "PropertyLegalType",
+  "UnitTypeKey",
+  "UnitNumber",
+  "CondoBuilding",
+  "CondoPercentage",
+  "CondoUnit"
+)
+wcad_parcel_fields <- c(
+  "propertyid",
+  "parcelid",
+  "unit",
+  "building",
+  "usedscrp"
+)
+
+if (!file.exists(wcad_compact_file) || REFRESH) {
+  print_progress("Extracting compact Williamson unit and legal fields...")
+  wcad_property_header <- names(
+    data.table::fread(wcad_property_file, nrows = 0L, showProgress = FALSE)
+  )
+  wcad_parcel_header <- names(
+    data.table::fread(wcad_parcel_file, nrows = 0L, showProgress = FALSE)
+  )
+  missing_wcad_fields <- c(
+    setdiff(wcad_property_fields, wcad_property_header),
+    setdiff(wcad_parcel_fields, wcad_parcel_header)
+  )
+  if (length(missing_wcad_fields) > 0L) {
+    stop(
+      "Williamson sources are missing fields: ",
+      paste(unique(missing_wcad_fields), collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  wcad_property_extract <- data.table::fread(
+    wcad_property_file,
+    select = wcad_property_fields,
+    colClasses = "character",
+    showProgress = FALSE
+  ) %>%
+    as_tibble() %>%
+    distinct(PropertyID, .keep_all = TRUE)
+
+  wcad_parcel_extract <- data.table::fread(
+    wcad_parcel_file,
+    select = wcad_parcel_fields,
+    colClasses = "character",
+    showProgress = FALSE
+  ) %>%
+    as_tibble() %>%
+    group_by(propertyid) %>%
+    summarise(
+      wcad_parcel_id = as.character(
+        first_non_missing_unit_value(parcelid)
+      ),
+      wcad_parcel_unit = as.character(
+        first_non_missing_unit_value(unit)
+      ),
+      wcad_parcel_building = as.character(
+        first_non_missing_unit_value(building)
+      ),
+      wcad_use_description = as.character(
+        first_non_missing_unit_value(usedscrp)
+      ),
+      .groups = "drop"
+    )
+
+  wcad_compact <- wcad_property_extract %>%
+    left_join(
+      wcad_parcel_extract,
+      by = c("PropertyID" = "propertyid"),
+      relationship = "one-to-one"
+    ) %>%
+    mutate(
+      wcad_match_id = coalesce(wcad_parcel_id, QuickRefID),
+      parcel_id = paste0("WILLIAMSON:", wcad_match_id)
+    ) %>%
+    filter(parcel_id %in% parcels$parcel_id) %>%
+    select(parcel_id, everything(), -wcad_match_id)
+
+  if (n_distinct(wcad_compact$parcel_id) != sum(
+    parcels$source_county == "Williamson"
+  )) {
+    stop(
+      "Williamson compact extract does not cover the full EWS parcel subset.",
+      call. = FALSE
+    )
+  }
+
+  write_csv(wcad_compact, wcad_compact_file)
+  rm(
+    wcad_property_extract,
+    wcad_parcel_extract,
+    wcad_compact
+  )
+  invisible(gc())
+}
+
+wcad <- read_csv(
+  wcad_compact_file,
+  col_types = cols(.default = col_character()),
+  show_col_types = FALSE
+) %>%
+  transmute(
+    parcel_id = as.character(parcel_id),
+    wcad_property_id = as.character(PropertyID),
+    wcad_property_type = na_if(PropertyTypeDesc, ""),
+    wcad_living_area = unit_numeric(TotalSqFtLivingArea),
+    wcad_legal_description = na_if(LegalDescription, ""),
+    wcad_property_comment = na_if(PropertyComment, ""),
+    wcad_dba = na_if(DBA, ""),
+    wcad_subunit = na_if(SubUnit, ""),
+    wcad_legal_type = na_if(PropertyLegalType, ""),
+    wcad_unit_type = na_if(UnitTypeKey, ""),
+    wcad_unit_number = na_if(UnitNumber, ""),
+    wcad_condo_building = na_if(CondoBuilding, ""),
+    wcad_condo_percentage = unit_numeric(CondoPercentage),
+    wcad_condo_unit = na_if(CondoUnit, ""),
+    wcad_parcel_unit = na_if(wcad_parcel_unit, ""),
+    wcad_parcel_building = na_if(wcad_parcel_building, ""),
+    wcad_use_description = na_if(wcad_use_description, "")
+  ) %>%
+  distinct(parcel_id, .keep_all = TRUE)
+
 parcels_enhanced <- parcels %>%
   left_join(tcad, by = "parcel_id") %>%
+  left_join(wcad, by = "parcel_id") %>%
   mutate(
     appraisal_state_code = coalesce(
       tcad_imprv_state_code,
@@ -263,6 +425,156 @@ parcels_enhanced <- parcels %>%
       source_county == "Travis" & appraisal_state_code == "B3" ~ 3,
       source_county == "Travis" & appraisal_state_code == "B4" ~ 4,
       TRUE ~ NA_real_
+    ),
+    hays_improvement_code = if_else(
+      source_county == "Hays",
+      as.character(propertyProf_imprvStateCd),
+      NA_character_
+    ),
+    hays_land_code = if_else(
+      source_county == "Hays",
+      as.character(propertyProf_landStateCd),
+      NA_character_
+    ),
+    hays_deterministic_units = case_when(
+      source_county == "Hays" &
+        (
+          str_detect(coalesce(hays_improvement_code, ""), "^A") |
+            str_detect(coalesce(hays_land_code, ""), "^A")
+        ) ~ 1,
+      source_county == "Hays" &
+        (
+          hays_improvement_code == "B2" |
+            hays_land_code == "B2"
+        ) ~ 2,
+      source_county == "Hays" &
+        (
+          hays_improvement_code == "B3" |
+            hays_land_code == "B3"
+        ) ~ 3,
+      source_county == "Hays" &
+        (
+          hays_improvement_code == "B4" |
+            hays_land_code == "B4"
+        ) ~ 4,
+      TRUE ~ NA_real_
+    ),
+    hays_multifamily_model_candidate = source_county == "Hays" &
+      (
+        hays_improvement_code == "B1" |
+          hays_land_code == "B1"
+      ) &
+      model_improvement_sqft > 0,
+    wcad_evidence_text = str_to_upper(
+      str_c(
+        coalesce(wcad_legal_description, ""),
+        coalesce(wcad_property_comment, ""),
+        coalesce(wcad_dba, ""),
+        coalesce(wcad_use_description, ""),
+        sep = " | "
+      )
+    ),
+    wcad_apartment_signal = source_county == "Williamson" &
+      str_detect(
+        wcad_evidence_text,
+        paste0(
+          "APARTMENT|(^|[^A-Z])APTS?([^A-Z]|$)|",
+          "MULTI[- ]?FAMILY"
+        )
+      ),
+    wcad_small_multifamily_units = case_when(
+      source_county == "Williamson" &
+        str_detect(wcad_evidence_text, "FOURPLEX|4-PLEX") ~ 4,
+      source_county == "Williamson" &
+        str_detect(wcad_evidence_text, "TRIPLEX") ~ 3,
+      source_county == "Williamson" &
+        str_detect(wcad_evidence_text, "DUPLEX") ~ 2,
+      TRUE ~ NA_real_
+    ),
+    wcad_residential_type = source_county == "Williamson" &
+      wcad_property_type %in% c(
+        "Residential",
+        "Manufactured Home",
+        "LTRR-Land Transitional Residential"
+      ),
+    wcad_condo_signal = source_county == "Williamson" &
+      (
+        wcad_legal_type == "C" |
+          !is.na(wcad_condo_unit) |
+          !is.na(wcad_condo_building) |
+          str_detect(
+            wcad_evidence_text,
+            "CONDOMINIUM|(^|[^A-Z])CONDO([^A-Z]|$)"
+          )
+      ),
+    wcad_non_unit_reference_account = source_county == "Williamson" &
+      wcad_condo_signal &
+      str_detect(wcad_evidence_text, "REFERENCE ONLY"),
+    wcad_explicit_residential_unit_account = wcad_residential_type &
+      wcad_condo_signal &
+      !wcad_non_unit_reference_account &
+      model_improvement_sqft > 0,
+    wcad_apartment_model_candidate = source_county == "Williamson" &
+      wcad_property_type %in% c("C3", "C5") &
+      wcad_apartment_signal &
+      !wcad_non_unit_reference_account &
+      model_improvement_sqft > 0,
+    wcad_single_unit_rule_units = if_else(
+      wcad_residential_type &
+        model_improvement_sqft > 0 &
+        !wcad_explicit_residential_unit_account &
+        is.na(wcad_small_multifamily_units) &
+        !wcad_apartment_signal,
+      1,
+      NA_real_
+    ),
+    county_model_candidate_signal = hays_multifamily_model_candidate |
+      wcad_apartment_model_candidate,
+    county_unit_exclude_from_unit_universe =
+      wcad_non_unit_reference_account,
+    county_unit_review_reason = case_when(
+      source_county == "Williamson" &
+        !wcad_non_unit_reference_account &
+        (is.na(model_improvement_sqft) | model_improvement_sqft <= 0) ~
+        "williamson_zero_or_missing_residential_floor_area",
+      source_county == "Williamson" &
+        !wcad_non_unit_reference_account &
+        !wcad_residential_type &
+        wcad_condo_signal &
+        !wcad_apartment_model_candidate ~
+        "williamson_commercial_condominium_in_residential_extract",
+      source_county == "Williamson" &
+        !wcad_non_unit_reference_account &
+        !wcad_residential_type &
+        !wcad_apartment_model_candidate ~
+        "williamson_nonresidential_type_in_residential_extract",
+      source_county == "Williamson" &
+        !wcad_non_unit_reference_account &
+        wcad_residential_type &
+        wcad_apartment_signal &
+        is.na(wcad_small_multifamily_units) &
+        !wcad_explicit_residential_unit_account ~
+        "williamson_ambiguous_residential_apartment_text",
+      TRUE ~ NA_character_
+    ),
+    county_unit_evidence_class = case_when(
+      !is.na(hays_deterministic_units) ~
+        "hays_deterministic_appraisal_account",
+      hays_multifamily_model_candidate ~
+        "hays_multifamily_model_candidate",
+      wcad_explicit_residential_unit_account ~
+        "wcad_explicit_residential_unit_account",
+      !is.na(wcad_small_multifamily_units) ~
+        "wcad_small_multifamily_legal_description",
+      wcad_apartment_model_candidate ~
+        "wcad_apartment_model_candidate",
+      !is.na(wcad_single_unit_rule_units) ~
+        "williamson_single_unit_rule",
+      wcad_non_unit_reference_account ~
+        "wcad_non_unit_reference_account",
+      !is.na(county_unit_review_reason) ~
+        "county_source_review",
+      TRUE ~ NA_character_
     )
   )
 
@@ -283,6 +595,7 @@ record_template <- tibble(
   source_consistent = logical(),
   use_as_strict_model_label = logical(),
   use_as_deterministic_count = logical(),
+  use_as_rule_based_count = logical(),
   use_as_sensitivity_label = logical()
 )
 
@@ -356,6 +669,161 @@ tcad_account_links <- parcels_enhanced %>%
     source_record_id = paste0("tcad_account:", parcel_id),
     parcel_id,
     match_method = "appraisal_parcel_id",
+    match_confidence = "high",
+    match_distance_m = 0,
+    address_similarity = 1
+  )
+
+hays_account_records <- parcels_enhanced %>%
+  filter(!is.na(hays_deterministic_units)) %>%
+  transmute(
+    source_record_id = paste0("hays_account:", parcel_id),
+    source_name = "hays_appraisal_account_rule",
+    source_priority = 40L,
+    source_tier = "deterministic_appraisal_account",
+    unit_count_kind = "appraisal_state_code_count",
+    source_unit_count = hays_deterministic_units,
+    source_status = str_c(
+      coalesce(hays_improvement_code, ""),
+      coalesce(hays_land_code, ""),
+      sep = " | "
+    ),
+    source_project_name = NA_character_,
+    source_address = situs_address,
+    source_address_key = parcel_address_key,
+    source_zip5 = parcel_zip5,
+    source_lat = lat,
+    source_lon = lon,
+    source_consistent = TRUE,
+    use_as_strict_model_label = FALSE,
+    use_as_deterministic_count = TRUE,
+    use_as_rule_based_count = FALSE,
+    use_as_sensitivity_label = FALSE
+  )
+
+hays_account_links <- parcels_enhanced %>%
+  filter(!is.na(hays_deterministic_units)) %>%
+  transmute(
+    source_record_id = paste0("hays_account:", parcel_id),
+    parcel_id,
+    match_method = "appraisal_parcel_id",
+    match_confidence = "high",
+    match_distance_m = 0,
+    address_similarity = 1
+  )
+
+wcad_condo_records <- parcels_enhanced %>%
+  filter(wcad_explicit_residential_unit_account) %>%
+  transmute(
+    source_record_id = paste0("wcad_condo_account:", parcel_id),
+    source_name = "wcad_explicit_residential_unit_account",
+    source_priority = 40L,
+    source_tier = "deterministic_appraisal_account",
+    unit_count_kind = "explicit_condominium_unit_account",
+    source_unit_count = 1,
+    source_status = str_c(
+      coalesce(wcad_legal_type, ""),
+      coalesce(wcad_unit_type, ""),
+      sep = " | "
+    ),
+    source_project_name = NA_character_,
+    source_address = situs_address,
+    source_address_key = parcel_address_key,
+    source_zip5 = parcel_zip5,
+    source_lat = lat,
+    source_lon = lon,
+    source_consistent = TRUE,
+    use_as_strict_model_label = FALSE,
+    use_as_deterministic_count = TRUE,
+    use_as_rule_based_count = FALSE,
+    use_as_sensitivity_label = FALSE
+  )
+
+wcad_condo_links <- parcels_enhanced %>%
+  filter(wcad_explicit_residential_unit_account) %>%
+  transmute(
+    source_record_id = paste0("wcad_condo_account:", parcel_id),
+    parcel_id,
+    match_method = "wcad_property_and_unit_identifier",
+    match_confidence = "high",
+    match_distance_m = 0,
+    address_similarity = 1
+  )
+
+wcad_small_multifamily_records <- parcels_enhanced %>%
+  filter(
+    !wcad_explicit_residential_unit_account,
+    !is.na(wcad_small_multifamily_units)
+  ) %>%
+  transmute(
+    source_record_id = paste0("wcad_small_multifamily:", parcel_id),
+    source_name = "wcad_small_multifamily_legal_rule",
+    source_priority = 42L,
+    source_tier = "deterministic_appraisal_account",
+    unit_count_kind = "legal_description_unit_count",
+    source_unit_count = wcad_small_multifamily_units,
+    source_status = case_when(
+      wcad_small_multifamily_units == 2 ~ "duplex",
+      wcad_small_multifamily_units == 3 ~ "triplex",
+      wcad_small_multifamily_units == 4 ~ "fourplex",
+      TRUE ~ "small_multifamily"
+    ),
+    source_project_name = wcad_dba,
+    source_address = situs_address,
+    source_address_key = parcel_address_key,
+    source_zip5 = parcel_zip5,
+    source_lat = lat,
+    source_lon = lon,
+    source_consistent = TRUE,
+    use_as_strict_model_label = FALSE,
+    use_as_deterministic_count = TRUE,
+    use_as_rule_based_count = FALSE,
+    use_as_sensitivity_label = FALSE
+  )
+
+wcad_small_multifamily_links <- parcels_enhanced %>%
+  filter(
+    !wcad_explicit_residential_unit_account,
+    !is.na(wcad_small_multifamily_units)
+  ) %>%
+  transmute(
+    source_record_id = paste0("wcad_small_multifamily:", parcel_id),
+    parcel_id,
+    match_method = "wcad_legal_description",
+    match_confidence = "high",
+    match_distance_m = 0,
+    address_similarity = 1
+  )
+
+williamson_single_unit_records <- parcels_enhanced %>%
+  filter(!is.na(wcad_single_unit_rule_units)) %>%
+  transmute(
+    source_record_id = paste0("williamson_single_unit:", parcel_id),
+    source_name = "williamson_single_unit_rule",
+    source_priority = 60L,
+    source_tier = "rule_based_single_unit_assumption",
+    unit_count_kind = "residential_type_and_floor_area_rule",
+    source_unit_count = wcad_single_unit_rule_units,
+    source_status = wcad_property_type,
+    source_project_name = NA_character_,
+    source_address = situs_address,
+    source_address_key = parcel_address_key,
+    source_zip5 = parcel_zip5,
+    source_lat = lat,
+    source_lon = lon,
+    source_consistent = TRUE,
+    use_as_strict_model_label = FALSE,
+    use_as_deterministic_count = FALSE,
+    use_as_rule_based_count = TRUE,
+    use_as_sensitivity_label = FALSE
+  )
+
+williamson_single_unit_links <- parcels_enhanced %>%
+  filter(!is.na(wcad_single_unit_rule_units)) %>%
+  transmute(
+    source_record_id = paste0("williamson_single_unit:", parcel_id),
+    parcel_id,
+    match_method = "wcad_residential_single_unit_rule",
     match_confidence = "high",
     match_distance_m = 0,
     address_similarity = 1
@@ -689,16 +1157,42 @@ source_records <- bind_rows(
   record_template,
   tcad_explicit_records,
   tcad_account_records,
+  hays_account_records,
+  wcad_condo_records,
+  wcad_small_multifamily_records,
+  williamson_single_unit_records,
   costar_records,
   ahi_records,
   uro_records
 ) %>%
+  mutate(
+    use_as_strict_model_label = replace_na(
+      use_as_strict_model_label,
+      FALSE
+    ),
+    use_as_deterministic_count = replace_na(
+      use_as_deterministic_count,
+      FALSE
+    ),
+    use_as_rule_based_count = replace_na(
+      use_as_rule_based_count,
+      FALSE
+    ),
+    use_as_sensitivity_label = replace_na(
+      use_as_sensitivity_label,
+      FALSE
+    )
+  ) %>%
   arrange(source_priority, source_name, source_record_id)
 
 source_links <- bind_rows(
   link_template,
   tcad_explicit_links,
   tcad_account_links,
+  hays_account_links,
+  wcad_condo_links,
+  wcad_small_multifamily_links,
+  williamson_single_unit_links,
   costar_links,
   ahi_links,
   uro_links
@@ -762,6 +1256,9 @@ unit_source_qa <- bind_rows(
       deterministic_records = sum(
         use_as_deterministic_count & source_is_linked
       ),
+      rule_based_records = sum(
+        use_as_rule_based_count & source_is_linked
+      ),
       sensitivity_records = sum(
         use_as_sensitivity_label & source_is_linked
       ),
@@ -780,6 +1277,7 @@ unit_source_qa <- bind_rows(
       source_units = NA_real_,
       strict_label_records = NA_integer_,
       deterministic_records = NA_integer_,
+      rule_based_records = NA_integer_,
       sensitivity_records = NA_integer_,
       qa_section = paste0(
         "link_method:",
@@ -795,6 +1293,9 @@ source_manifest <- tibble(
     "production_parcel_universe",
     "tcad_property_profile",
     "tcad_compact_extract",
+    "wcad_property_certified",
+    "wcad_parcel_geometry_attributes",
+    "wcad_compact_extract",
     "costar_parcel_matches",
     "austin_universal_recycling_inventory",
     "austin_affordable_housing_inventory"
@@ -803,6 +1304,9 @@ source_manifest <- tibble(
     PARCEL_FILE,
     tcad_profile_file,
     tcad_compact_file,
+    wcad_property_file,
+    wcad_parcel_file,
+    wcad_compact_file,
     COSTAR_MATCH_FILE,
     uro_file,
     ahi_file
@@ -826,6 +1330,28 @@ unmatched_source_records <- source_records %>%
   filter(
     high_confidence_link_count == 0L,
     use_as_strict_model_label | use_as_sensitivity_label
+  )
+
+county_unit_classification_qa <- parcels_enhanced %>%
+  filter(source_county %in% c("Hays", "Williamson")) %>%
+  mutate(
+    county_unit_evidence_class = coalesce(
+      county_unit_evidence_class,
+      "unclassified_county_source"
+    )
+  ) %>%
+  group_by(source_county, county_unit_evidence_class) %>%
+  summarise(
+    parcels = n(),
+    current_units = sum(units_raw, na.rm = TRUE),
+    improvement_sqft = sum(improvement_sqft, na.rm = TRUE),
+    model_candidate_parcels = sum(county_model_candidate_signal, na.rm = TRUE),
+    excluded_non_unit_parcels = sum(
+      county_unit_exclude_from_unit_universe,
+      na.rm = TRUE
+    ),
+    review_parcels = sum(!is.na(county_unit_review_reason)),
+    .groups = "drop"
   )
 
 save_output(
@@ -863,6 +1389,10 @@ write_csv(
 write_csv(
   unmatched_source_records,
   file.path(OUTPUT_DIR, "residential_unit_unmatched_source_records.csv")
+)
+write_csv(
+  county_unit_classification_qa,
+  file.path(OUTPUT_DIR, "residential_unit_county_classification_qa.csv")
 )
 
 print_progress(

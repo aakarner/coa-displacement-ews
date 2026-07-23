@@ -60,16 +60,20 @@ The reconciliation audit creates:
 
 Run `02p_prepare_unit_sources.R` after `02d_calibrate_parcel_units.R`. It
 extracts a compact set of TCAD unit and improvement fields from the existing
-`landlord-mapper/output/property_profile.csv`, and ingests City Affordable
-Housing Inventory and Universal Recycling Ordinance records. Source totals and
-parcel links are stored in separate tables so a project total cannot be counted
-once per linked parcel.
+`landlord-mapper/output/property_profile.csv`, extracts the needed fields from
+the existing WCAD property and parcel files, applies explicit Hays and
+Williamson account classifications, and ingests City Affordable Housing
+Inventory and Universal Recycling Ordinance records. Source totals and parcel
+links are stored in separate tables so a project total cannot be counted once
+per linked parcel.
 
 Run `02q_build_residential_projects.R` next. It groups parcels conservatively,
 holds conflicting direct sources out of training, sums complete appraisal
 account enumerations, and writes strict labels and unresolved multifamily model
-candidates. These are shadow outputs and do not change the parcel count used by
-the analysis.
+candidates. Cross-county properties remain one project but carry explicit
+county-membership fields. WCAD reference-only common-interest accounts remain
+auditable but are excluded from the unit-bearing parcel denominator. These are
+shadow outputs and do not change the parcel count used by the analysis.
 
 The current hierarchy, caveats, validation gates, and complete output list are
 documented in `UNIT_COUNT_MODELING.md`. Raw and compact source extracts remain
