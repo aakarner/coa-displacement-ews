@@ -76,6 +76,8 @@ source("02k_audit_ownership_transactions.R")
 source("02l_process_ownership_transactions.R")
 source("02m_audit_amenity_sources.R")
 source("02n_process_amenity_change.R")
+source("02p_prepare_unit_sources.R")
+source("02q_build_residential_projects.R")
 source("03_feature_engineering.R")
 source("03b_cluster_analysis.R")
 source("03c_cluster_sensitivity_analysis.R")
@@ -112,6 +114,12 @@ can be changed with `CLUSTER_GAP_BOOTSTRAPS` and
 The `03e` script maps the selected amenity solution using the tentative names,
 concern levels, and colors in `config/amenity_cluster_labels_k6.csv`. It creates
 both a publication-ready PNG and a zoomable HTML map with per-hex profiles.
+
+Run `02p` and `02q` after `02d` when developing the parcel-unit model. They use
+the existing `landlord-mapper/output/property_profile.csv` by default and cache
+only a compact TCAD extract. City URO and Affordable Housing Inventory files are
+also cached under `data/raw_parcels/unit_sources/`. These scripts are not yet
+part of the master pipeline because their outputs remain in shadow validation.
 
 ## Step 5: View Results
 

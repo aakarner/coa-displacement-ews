@@ -67,6 +67,8 @@ coa-displacement-ews/
 ├── 02m_audit_amenity_sources.R # State and local establishment-source audit
 ├── 02n_process_amenity_change.R # Dated amenity-opening exposure features
 ├── 02o_audit_parcel_acs_housing_units.R # Parcel/ACS unit reconciliation audit
+├── 02p_prepare_unit_sources.R # Shadow unit-source hierarchy and parcel links
+├── 02q_build_residential_projects.R # Project grouping and model training table
 ├── 03_feature_engineering.R     # Engineer features for ML
 ├── 03a_feature_audit.R          # Verify feature roles and coverage
 ├── 03b_cluster_analysis.R       # **NEW: Unsupervised clustering**
@@ -114,6 +116,9 @@ coa-displacement-ews/
 
 The current parcel-versus-ACS housing-unit findings and reconciliation
 recommendations are documented in `PARCEL_ACS_UNIT_AUDIT.md`.
+The source hierarchy, project grouping, and floor-area model decision gates are
+documented in `UNIT_COUNT_MODELING.md`. Scripts `02p` and `02q` produce shadow
+outputs only and do not change the production unit denominator.
 
 ## Installation
 

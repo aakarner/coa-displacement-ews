@@ -56,6 +56,25 @@ The reconciliation audit creates:
 - `output/parcel_acs_block_group_unit_audit.csv`; and
 - `output/parcel_acs_unit_audit_summary.csv`.
 
+## Residential Unit Source and Project Tables
+
+Run `02p_prepare_unit_sources.R` after `02d_calibrate_parcel_units.R`. It
+extracts a compact set of TCAD unit and improvement fields from the existing
+`landlord-mapper/output/property_profile.csv`, and ingests City Affordable
+Housing Inventory and Universal Recycling Ordinance records. Source totals and
+parcel links are stored in separate tables so a project total cannot be counted
+once per linked parcel.
+
+Run `02q_build_residential_projects.R` next. It groups parcels conservatively,
+holds conflicting direct sources out of training, sums complete appraisal
+account enumerations, and writes strict labels and unresolved multifamily model
+candidates. These are shadow outputs and do not change the parcel count used by
+the analysis.
+
+The current hierarchy, caveats, validation gates, and complete output list are
+documented in `UNIT_COUNT_MODELING.md`. Raw and compact source extracts remain
+ignored under `data/raw_parcels/unit_sources/`.
+
 ## Optional Data Files
 
 ### 1. Building Demolitions (`demolitions.csv`)
