@@ -2,6 +2,60 @@
 
 This directory is for user-provided data files that complement the automatically-downloaded Census/ACS data.
 
+## Census/ACS Spatial Allocation
+
+Run `02d_calibrate_parcel_units.R`, `02e_validate_unit_counts.R`, and
+`02c_process_corporate_parcels.R` before the ACS scripts. The master
+`02_process_data.R` script enforces this order.
+
+`02f_process_acs_demographics.R` uses ACS block groups as source zones and
+2020 Census blocks as control zones. Within each Census block, population and
+housing totals are distributed among project hexes in proportion to mapped
+residential appraisal floor area. Missing floor area falls back to calibrated
+units and then parcel count. A block point is used only when a Census block has
+no residential parcel support. Person counts use block-population shares;
+housing, tenure, rent-burden, and population-in-occupied-housing counts use
+block-housing shares. Source-zone denominators include blocks outside the
+project grid, preventing edge block groups from being pulled wholly into
+Austin.
+
+Medians are non-additive. Median income, gross rent, and home value come from
+the dominant residential block group in each hex; a dominant tract is used
+only when that block-group estimate is suppressed. Each median retains its
+source geography, GEOID, residential share, assignment method, and MOE.
+Historical rent vintages use the same rule. Poverty uses block-group-available
+table `C17002` rather than tract-only detail table `B17001`.
+
+Raw ACS and decennial extracts are cached under ignored `data/raw_acs/` files.
+Audit outputs include:
+
+- `output/acs_dasymetric_block_hex_allocation.rds/.csv`;
+- `output/acs_dasymetric_hex_bg_crosswalk.rds/.csv`;
+- `output/acs_dasymetric_allocation_qa.csv`;
+- `output/acs_rent_dominant_sources_by_hex_vintage.csv`; and
+- `output/acs_rent_dasymetric_crosswalk_qa.csv`.
+
+The downstream `output/amenity_cluster_population_coverage.csv` uses these
+independently allocated ACS totals to report the population and housing shares
+inside and outside the clustering sample. It does not use parcel-unit counts as
+a proxy for population.
+
+Run `02o_audit_parcel_acs_housing_units.R` before changing the clustering
+eligibility rule or housing-unit denominator. The diagnostic compares the
+targeted, primary, and conservative parcel estimates with ACS total housing
+units on the exact H3 grid. It distinguishes robust source disagreements from
+cases that cross the 20-unit threshold only because of parcel-model or ACS
+sampling uncertainty. It does not alter the feature table.
+
+The reconciliation audit creates:
+
+- `output/parcel_acs_hex_unit_audit.csv`;
+- `output/parcel_acs_discordant_hex_review.csv`;
+- `output/parcel_acs_discordant_method_audit.csv`;
+- `output/parcel_acs_county_unit_summary.csv`;
+- `output/parcel_acs_block_group_unit_audit.csv`; and
+- `output/parcel_acs_unit_audit_summary.csv`.
+
 ## Optional Data Files
 
 ### 1. Building Demolitions (`demolitions.csv`)
@@ -120,18 +174,92 @@ reconciled against the reported-acre subset in the QA output.
 
 ---
 
-### 5. Corporate Ownership (`corporate_ownership.csv`) - COMING SOON
+### 5. Ownership and Transaction History
 
-**Purpose**: Track concentration of corporate/investor ownership of rental properties.
+**Purpose**: Track current corporate ownership, ownership turnover, and parcel
+transaction activity without confusing missing history with zero activity.
 
-**Planned Format**:
-```csv
-property_id,latitude,longitude,owner_name,owner_type,acquisition_date,units
-1,30.267153,-97.743061,ABC Investments LLC,Corporate,2021-01-15,12
-2,30.268422,-97.744318,Individual Owner,Individual,2019-03-20,1
-```
+Current ownership is processed by `02c_process_corporate_parcels.R`. Run
+`02k_audit_ownership_transactions.R` before
+`02l_process_ownership_transactions.R`. The audit checks the following sources
+against the exact residential parcel universe:
 
-**Integration**: Add to `02_process_data.R` Section 9
+- cached Travis deed events from the sibling `landlord-mapper` repository;
+- Hays annual `OWNER` exports and the latest `SALES` history;
+- Williamson 2023-2024 certified owner reports and current owner data; and
+- WCAD's `Sales History - Certified` dataset (`kdj3-9hpg`).
+
+The WCAD sales download is stored at
+`data/raw_parcels/williamson/wcad_sales_history_certified.csv`. Owner and sales
+row-level data remain ignored; only aggregate coverage QA is written to
+`output/`.
+
+`02l_process_ownership_transactions.R` builds parcel- and hex-level outputs:
+
+- `output/ownership_transaction_features_by_parcel.rds`;
+- `output/ownership_transaction_features_by_hex.rds/.csv`;
+- `output/ownership_transaction_source_qa.csv`;
+- `output/transaction_event_type_qa.csv`; and
+- `output/transaction_source_year_qa.csv`.
+
+Transaction pressure compares two equal 24-month windows and combines parcel
+turnover, unit exposure, and positive acceleration. The latest complete common
+source cutoff is April 30, 2025, so the windows are May 1, 2021-April 30, 2023
+and May 1, 2023-April 30, 2025. Travis uses WD/SW deeds and Hays uses
+warranty-deed variants. WCAD's current certified sales-history table
+omits 2022-2023 and nearly all 2024 events, so Williamson transaction pressure
+is deliberately missing rather than treated as zero. The raw partial event
+counts remain in QA outputs.
+
+Ownership change focuses on corporate entry. Hays and Williamson use annual
+2023-2025 owner transitions. Recent Travis deed-party names are blank; for
+Travis only, a corporate acquisition is inferred when a recent market-deed
+parcel is corporate-owned in the current appraisal extract. Corporate
+dispositions remain unavailable for Travis and are excluded from its index.
+
+The audit also documents that Williamson's 2021-2022 `ASMNT`
+field named `OwnerQuickRefID` duplicates the parcel reference and is not a
+comparable owner identity. Williamson owner-change measures therefore begin in
+2023.
+
+---
+
+### 6. Amenity Change
+
+**Purpose**: Measure dated commercial reorientation without treating static
+amenity density as displacement pressure.
+
+Run `02m_audit_amenity_sources.R` before
+`02n_process_amenity_change.R`. The audit downloads and caches:
+
+- Texas Comptroller permitted sales-tax locations active at any point in the
+  prior 48 months (`3kx8-uryv`), including NAICS, first-sale date, and
+  out-of-business date;
+- Texas mixed-beverage reports (`naix-2893`) for alcohol-establishment
+  corroboration; and
+- Austin food-establishment inspections (`ecmv-9xxi`) for local
+  corroboration only.
+
+The versioned taxonomy is `config/amenity_categories.csv`. The core score uses
+cafes, full-service restaurants, and drinking places. Craft alcohol,
+specialty food, and fitness categories remain exploratory. A cafe name filter
+removes fast-food and unrelated outlets assigned to NAICS 722515.
+
+The processing script compares equal 18-month windows ending April 1, 2026,
+batch geocodes unique addresses with the US Census geocoder, and measures
+distance-weighted exposure within 800 meters. Category scores are normalized
+separately and averaged with equal weight so the restaurant category cannot
+dominate the amenity domain. Closures are retained in QA but do not enter the
+first index.
+
+Generated raw API extracts and geocode caches remain ignored under
+`data/raw_amenities/`. Aggregate outputs include:
+
+- `output/amenity_source_audit.csv`;
+- `output/amenity_category_year_qa.csv`;
+- `output/amenity_window_change_qa.csv`;
+- `output/amenity_geocoding_qa.csv`; and
+- `output/amenity_change_features_by_hex.rds/.csv`.
 
 ---
 

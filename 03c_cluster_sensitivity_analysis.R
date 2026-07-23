@@ -91,6 +91,13 @@ profile_vars <- c(
   balanced_vars,
   "costar_present",
   "costar_rent_pressure_index",
+  "ownership_change_index",
+  "ownership_history_coverage_pct",
+  "transaction_pressure_index",
+  "transaction_window_coverage_pct",
+  "amenity_change_index",
+  "amenity_recent_weighted_openings",
+  "amenity_weighted_opening_change",
   "residential_units_per_km2",
   "pct_poc",
   "demographic_vulnerability_equity_index"

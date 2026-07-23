@@ -13,8 +13,8 @@
 │  STEP 1: Create Hexagonal Grid                                 │
 │  01_create_hex_grid.R                                          │
 │  ├─ Fetch Austin, TX boundary                                  │
-│  ├─ Generate H3 hexagons (resolution 8)                        │
-│  ├─ ~500-1000 hexagons covering Austin                         │
+│  ├─ Generate H3 hexagons (resolution 9)                        │
+│  ├─ ~7,000 hexagons covering Austin                            │
 │  └─ Output: hex_grid.rds + visualizations                      │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -22,7 +22,10 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │  STEP 2: Process Data                                           │
 │  02_process_data.R                                              │
-│  ├─ Download Census/ACS data (14 variables)                    │
+│  ├─ Build calibrated residential parcel support               │
+│  ├─ Download/cache Census block and ACS block-group data       │
+│  ├─ Allocate counts with block/parcel dasymetric weights       │
+│  ├─ Assign dominant-BG medians with tract fallback             │
 │  ├─ Process demolitions (optional)                             │
 │  ├─ Process rent prices (optional)                             │
 │  ├─ Spatial join to hexagons                                   │
@@ -35,6 +38,14 @@
 │  ├─ Estimate full-county annual appraisal baselines             │
 │  ├─ Remove common county-year shifts from parcel changes        │
 │  └─ Output: adjusted parcel/hex trends and sensitivity QA       │
+│  02k_audit_ownership_transactions.R                             │
+│  ├─ Audit annual owner identities and deed/sales histories      │
+│  ├─ Measure source coverage against the analysis parcel universe│
+│  └─ Output: ownership/transaction source and interval QA        │
+│  02l_process_ownership_transactions.R                           │
+│  ├─ Build equal-window transaction pressure measures            │
+│  ├─ Build direct or documented proxy corporate-entry measures   │
+│  └─ Output: parcel/hex features plus source and event QA         │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -144,7 +155,13 @@ Rent data ───┘                                                         �
                     │
                     ├─► 02_process_data.R
                     │       ├─ requires: hex_grid.rds
+                    │       ├─ runs: 02d → 02e → 02c → 02f
+                    │       ├─► output/acs_dasymetric_allocation_qa.csv
                     │       └─► output/hex_data_processed.rds
+                    │
+                    ├─► 02h_process_acs_rent_history.R
+                    │       ├─ requires: residential parcel support, ACS cache
+                    │       └─► output/acs_rent_trends_by_hex.rds
                     │
                     ├─► 02i_process_appraisal_history.R
                     │       ├─ requires: calibrated residential parcels, hex_grid.rds
@@ -156,6 +173,23 @@ Rent data ───┘                                                         �
                     │       ├─ requires: county and target appraisal panels
                     │       ├─► output/appraisal_county_year_baselines.csv
                     │       └─► output/appraisal_adjusted_trends_by_hex.rds
+                    │
+                    ├─► 02k_audit_ownership_transactions.R
+                    │       └─► output/ownership_transaction_source_audit.csv
+                    │
+                    ├─► 02l_process_ownership_transactions.R
+                    │       ├─ requires: parcel universe, owner snapshots, deed/sales histories
+                    │       ├─► output/ownership_transaction_features_by_parcel.rds
+                    │       ├─► output/ownership_transaction_features_by_hex.rds/.csv
+                    │       └─► output/ownership_transaction_source_qa.csv
+                    │
+                    ├─► 02m_audit_amenity_sources.R
+                    │       ├─ downloads/caches state establishment histories
+                    │       └─► output/amenity_source_candidates.rds and QA tables
+                    │
+                    ├─► 02n_process_amenity_change.R
+                    │       ├─ Census batch geocodes core opening events
+                    │       └─► output/amenity_change_features_by_hex.rds/.csv
                     │
                     ├─► 03_feature_engineering.R
                     │       ├─ requires: hex_data_processed.rds
@@ -213,6 +247,8 @@ Rent data ───┘                                                         �
 - **appraisal_value_trends_by_hex.rds** - Land/total value levels, growth, acceleration, and reliability
 - **appraisal_adjusted_trends_by_hex.rds** - County-relative land-value level, growth, acceleration, and reliability
 - **appraisal_county_year_baselines.csv** - Full-county annual appraisal shifts used for adjustment
+- **ownership_transaction_features_by_hex.rds/.csv** - Transaction pressure and ownership-change measures with coverage fields
+- **ownership_transaction_source_qa.csv** - County source completeness and ownership-direction methods
 - **figures/*.png** - All static visualizations
 
 ## Runtime Estimates

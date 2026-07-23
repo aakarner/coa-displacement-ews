@@ -51,10 +51,11 @@ The script will:
 1. ✓ Create hexagonal grid for Austin
 2. ✓ Download and process Census data
 3. ✓ Build the 2021-2025 county appraisal panels
-4. ✓ Engineer features
-5. ✓ Train three ML models
-6. ✓ Validate models
-7. ✓ Generate risk scores and visualizations
+4. ✓ Build ownership-change and transaction-pressure measures
+5. ✓ Engineer features
+6. ✓ Train three ML models
+7. ✓ Validate models
+8. ✓ Generate risk scores and visualizations
 
 ## Running Individual Scripts
 
@@ -71,6 +72,15 @@ source("01_create_hex_grid.R")
 source("02_process_data.R")
 source("02i_process_appraisal_history.R")
 source("02j_process_appraisal_adjusted_trends.R")
+source("02k_audit_ownership_transactions.R")
+source("02l_process_ownership_transactions.R")
+source("02m_audit_amenity_sources.R")
+source("02n_process_amenity_change.R")
+source("03_feature_engineering.R")
+source("03b_cluster_analysis.R")
+source("03c_cluster_sensitivity_analysis.R")
+source("03d_amenity_cluster_sensitivity.R")
+source("03e_visualize_amenity_clusters.R")
 # etc.
 ```
 
@@ -79,6 +89,29 @@ The first appraisal run downloads and caches large certified archives under
 `data/raw_parcels/appraisal_history/`; later runs use the normalized caches.
 Run `02j_process_appraisal_adjusted_trends.R` after `02i` to remove county-wide
 appraisal-year shifts before using land-value trends in feature engineering.
+The ownership/transaction scripts also require the cached Travis deed extract
+from the sibling `landlord-mapper` repository and the local county owner/sales
+files documented in `data/README.md`.
+The amenity scripts download and cache public Texas Comptroller and City of
+Austin API extracts under `data/raw_amenities/`. An optional Socrata app token
+can be supplied through `SOCRATA_APP_TOKEN`; no token is required for cached
+reruns.
+
+`02_process_data.R` builds the calibrated residential parcel support before
+running `02f_process_acs_demographics.R`. ACS additive counts are allocated
+from block groups through 2020 Census blocks and residential parcel floor-area
+support; suppressed block-group medians fall back to dominant tracts. Census
+downloads are cached under `data/raw_acs/`, so later runs are local.
+
+`03d_amenity_cluster_sensitivity.R` is a focused, noncanonical comparison of
+the six-domain baseline against the same matrix plus amenity change. It reports
+silhouette, gap-statistic, repeated-subsample stability, cluster agreement, and
+profiles without replacing the primary `03b` assignments. Its bootstrap counts
+can be changed with `CLUSTER_GAP_BOOTSTRAPS` and
+`CLUSTER_STABILITY_REPLICATES`.
+The `03e` script maps the selected amenity solution using the tentative names,
+concern levels, and colors in `config/amenity_cluster_labels_k6.csv`. It creates
+both a publication-ready PNG and a zoomable HTML map with per-hex profiles.
 
 ## Step 5: View Results
 

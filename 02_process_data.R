@@ -65,7 +65,20 @@ hex_grid <- load_output(
 )
 
 ################################################################################
-# Step 2: Process Census/ACS data #########################################
+# Step 2: Prepare residential parcel support ##############################
+################################################################################
+
+print_progress("Calibrating residential parcel unit counts via 02d_calibrate_parcel_units.R...")
+source(project_path("02d_calibrate_parcel_units.R"))
+
+print_progress("Validating calibrated parcel unit counts against ACS via 02e_validate_unit_counts.R...")
+source(project_path("02e_validate_unit_counts.R"))
+
+print_progress("Processing residential parcels and corporate ownership via 02c_process_corporate_parcels.R...")
+source(project_path("02c_process_corporate_parcels.R"))
+
+################################################################################
+# Step 3: Process Census/ACS data #########################################
 ################################################################################
 
 print_progress("Processing ACS demographic data via 02f_process_acs_demographics.R...")
@@ -425,17 +438,7 @@ if (file.exists(hex_eviction_summary_file)) {
 # Step 9: Process corporate ownership data #####################################
 ################################################################################
 
-print_progress("Calibrating residential parcel unit counts via 02d_calibrate_parcel_units.R...")
-
-source(project_path("02d_calibrate_parcel_units.R"))
-
-print_progress("Validating calibrated parcel unit counts against ACS tracts via 02e_validate_unit_counts.R...")
-
-source(project_path("02e_validate_unit_counts.R"))
-
-print_progress("Processing corporate ownership data via 02c_process_corporate_parcels.R...")
-
-source(project_path("02c_process_corporate_parcels.R"))
+print_progress("Joining the prepared corporate ownership hex summary...")
 
 hex_corporate_file <- file.path(OUTPUT_DIR, "corporate_ownership_by_hex.rds")
 if (file.exists(hex_corporate_file)) {

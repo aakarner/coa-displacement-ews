@@ -473,6 +473,78 @@ if (file.exists(appraisal_trends_file)) {
   )
 }
 
+ownership_transaction_file <- file.path(
+  OUTPUT_DIR,
+  "ownership_transaction_features_by_hex.rds"
+)
+if (file.exists(ownership_transaction_file)) {
+  print_progress("Joining ownership-change and transaction features...")
+
+  ownership_transaction_features <- load_output(
+    ownership_transaction_file,
+    "ownership-change and transaction hex summary"
+  ) %>%
+    st_drop_geometry() %>%
+    mutate(hex_id_join = as.character(hex_id)) %>%
+    select(-hex_id)
+
+  ownership_transaction_cols_to_join <- setdiff(
+    names(ownership_transaction_features),
+    names(st_drop_geometry(hex_features))
+  )
+  hex_features <- hex_features %>%
+    mutate(hex_id_join = as.character(hex_id)) %>%
+    left_join(
+      ownership_transaction_features %>%
+        select(hex_id_join, all_of(setdiff(
+          ownership_transaction_cols_to_join,
+          "hex_id_join"
+        ))),
+      by = "hex_id_join"
+    ) %>%
+    select(-hex_id_join)
+} else {
+  print_progress(
+    "WARNING: Ownership/transaction features missing; run 02l_process_ownership_transactions.R before clustering."
+  )
+}
+
+amenity_change_file <- file.path(
+  OUTPUT_DIR,
+  "amenity_change_features_by_hex.rds"
+)
+if (file.exists(amenity_change_file)) {
+  print_progress("Joining amenity-change features...")
+
+  amenity_change_features <- load_output(
+    amenity_change_file,
+    "amenity change hex summary"
+  ) %>%
+    st_drop_geometry() %>%
+    mutate(hex_id_join = as.character(hex_id)) %>%
+    select(-hex_id)
+
+  amenity_cols_to_join <- setdiff(
+    names(amenity_change_features),
+    names(st_drop_geometry(hex_features))
+  )
+  hex_features <- hex_features %>%
+    mutate(hex_id_join = as.character(hex_id)) %>%
+    left_join(
+      amenity_change_features %>%
+        select(hex_id_join, all_of(setdiff(
+          amenity_cols_to_join,
+          "hex_id_join"
+        ))),
+      by = "hex_id_join"
+    ) %>%
+    select(-hex_id_join)
+} else {
+  print_progress(
+    "WARNING: Amenity-change features missing; run 02m and 02n before clustering."
+  )
+}
+
 required_demographic_cols <- c(
   "median_income", "median_rent", "median_home_value", "total_pop",
   "pct_renter", "poverty_rate", "pct_college", "pct_rent_burden_30plus",
@@ -495,6 +567,45 @@ for (col in setdiff(required_appraisal_cols, names(hex_features))) {
 }
 if (!"appraisal_adjusted_trend_reliable" %in% names(hex_features)) {
   hex_features$appraisal_adjusted_trend_reliable <- FALSE
+}
+
+required_ownership_transaction_cols <- c(
+  "transaction_pressure_index", "transaction_window_coverage_pct",
+  "transaction_recent_per_100_parcels",
+  "transaction_previous_per_100_parcels",
+  "transaction_recent_per_100_units",
+  "transaction_recent_unit_exposure_pct",
+  "transaction_rate_change_per_100_parcels",
+  "transaction_log_count_change", "ownership_change_index",
+  "ownership_history_coverage_pct",
+  "ownership_change_recent_per_100_parcels",
+  "corporate_acquisition_recent_per_100_parcels",
+  "corporate_net_acquisition_recent_per_100_parcels",
+  "corporate_acquisition_recent_share",
+  "corporate_acquisition_recent_unit_exposure_pct"
+)
+for (col in setdiff(
+  required_ownership_transaction_cols,
+  names(hex_features)
+)) {
+  hex_features[[col]] <- NA_real_
+}
+if (!"transaction_window_complete" %in% names(hex_features)) {
+  hex_features$transaction_window_complete <- FALSE
+}
+
+required_amenity_cols <- c(
+  "amenity_change_index", "amenity_recent_weighted_openings",
+  "amenity_previous_weighted_openings", "amenity_weighted_opening_change",
+  "amenity_recent_opening_events", "amenity_previous_opening_events",
+  "amenity_cafe_score", "amenity_full_service_restaurant_score",
+  "amenity_drinking_place_score", "amenity_geocode_match_pct"
+)
+for (col in setdiff(required_amenity_cols, names(hex_features))) {
+  hex_features[[col]] <- NA_real_
+}
+if (!"amenity_window_complete" %in% names(hex_features)) {
+  hex_features$amenity_window_complete <- FALSE
 }
 
 required_acs_rent_cols <- c(
@@ -763,7 +874,9 @@ hex_features <- hex_features %>%
       c(rent_pressure_index, rent_pressure_citywide_index,
         costar_rent_pressure_index, land_value_pressure_index,
         eviction_pressure_index,
-        ownership_pressure_index, demolition_pressure_index,
+        ownership_pressure_index, ownership_change_index,
+        transaction_pressure_index, amenity_change_index,
+        demolition_pressure_index,
         demographic_vulnerability_index,
         demographic_vulnerability_equity_index, sr_311_pressure_index),
       ~if_else(is.nan(.x), NA_real_, .x)
@@ -859,6 +972,28 @@ feature_cols <- hex_features %>%
       "land_value_growth_recent_county_adjusted_pct",
       "land_value_acceleration_county_adjusted_pp",
       "appraisal_adjusted_trend_reliable",
+      "transaction_pressure_index", "transaction_window_coverage_pct",
+      "transaction_window_complete",
+      "transaction_recent_per_100_parcels",
+      "transaction_previous_per_100_parcels",
+      "transaction_recent_per_100_units",
+      "transaction_recent_unit_exposure_pct",
+      "transaction_rate_change_per_100_parcels",
+      "transaction_log_count_change", "ownership_change_index",
+      "ownership_history_coverage_pct",
+      "ownership_change_recent_per_100_parcels",
+      "corporate_acquisition_recent_per_100_parcels",
+      "corporate_net_acquisition_recent_per_100_parcels",
+      "corporate_acquisition_recent_share",
+      "corporate_acquisition_recent_unit_exposure_pct",
+      "amenity_change_index", "amenity_window_complete",
+      "amenity_geocode_match_pct",
+      "amenity_recent_weighted_openings",
+      "amenity_previous_weighted_openings",
+      "amenity_weighted_opening_change",
+      "amenity_recent_opening_events", "amenity_previous_opening_events",
+      "amenity_cafe_score", "amenity_full_service_restaurant_score",
+      "amenity_drinking_place_score",
       "median_income", "median_rent", "median_home_value", "total_pop",
       "pct_renter", "poverty_rate", "pct_college", "pct_rent_burden_30plus",
       "rent_burden_proxy", "vulnerability_index", "demographic_vulnerability_index",
@@ -926,6 +1061,12 @@ feature_list <- tibble(
     str_detect(feature_name, "demo") ~ "Demolitions",
     str_detect(feature_name, "eviction") ~ "Evictions",
     str_detect(feature_name, "sr_311") ~ "311",
+    str_detect(feature_name, "transaction") ~ "Transactions",
+    str_detect(feature_name, "amenity") ~ "Amenities",
+    str_detect(
+      feature_name,
+      "ownership_change|corporate_acquisition|corporate_net_acquisition"
+    ) ~ "Ownership Change",
     str_detect(feature_name, "corporate|financialized|ownership|residential") ~ "Ownership",
     str_detect(feature_name, "_lag") ~ "Spatial Lag",
     str_detect(feature_name, "interaction") ~ "Interactions",

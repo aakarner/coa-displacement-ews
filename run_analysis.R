@@ -121,8 +121,12 @@ cat("###########################################################################
 
 tryCatch({
   source(here::here("02_process_data.R"))
+  source(here::here("02h_process_acs_rent_history.R"))
   source(here::here("02i_process_appraisal_history.R"))
   source(here::here("02j_process_appraisal_adjusted_trends.R"))
+  source(here::here("02l_process_ownership_transactions.R"))
+  source(here::here("02m_audit_amenity_sources.R"))
+  source(here::here("02n_process_amenity_change.R"))
   cat("\n✓ Step 2 completed successfully\n")
 }, error = function(e) {
   cat("\n✗ ERROR in Step 2:\n")
@@ -242,6 +246,7 @@ cat("Output Files:\n")
 cat("  - Hexagonal grid:        output/hex_grid.rds\n")
 cat("  - Processed data:        output/hex_data_processed.rds\n")
 cat("  - Appraisal trends:      output/appraisal_value_trends_by_hex.rds\n")
+cat("  - Ownership/transactions: output/ownership_transaction_features_by_hex.rds\n")
 cat("  - Engineered features:   output/hex_features.rds\n")
 cat("  - Cluster analysis:      output/cluster_analysis_results.rds\n")
 cat("  - Features w/ clusters:  output/hex_features_with_clusters.rds\n")

@@ -102,6 +102,7 @@ EWS_CONFIG <- list(
   acs_counties = c("Travis", "Hays", "Williamson"),
   acs_cpi_u = acs_cpi_u,
   acs_rent_relative_moe_limit = 0.30,
+  acs_median_relative_moe_limit = 0.30,
   appraisal_years = appraisal_years,
   appraisal_current_year = appraisal_current_year,
   appraisal_cpi_u = appraisal_cpi_u,
@@ -109,5 +110,9 @@ EWS_CONFIG <- list(
   appraisal_adjustment_clip_quantiles = c(0.01, 0.99),
   costar_include_qtd = FALSE,
   demolition_recent_years = 2L,
+  transaction_recent_years = 2L,
+  transaction_analysis_as_of_date = as.Date("2025-04-30"),
+  amenity_window_months = 18L,
+  amenity_access_radius_m = 800,
   minimum_residential_units_for_rates = 20L
 )

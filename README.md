@@ -62,16 +62,24 @@ coa-displacement-ews/
 ├── 02h_process_acs_rent_history.R # Historical citywide ACS rent trends
 ├── 02i_process_appraisal_history.R # County appraisal parcel/hex panels
 ├── 02j_process_appraisal_adjusted_trends.R # County-adjusted land-value trends
+├── 02k_audit_ownership_transactions.R # Owner/deed source coverage audit
+├── 02l_process_ownership_transactions.R # Ownership-change/transaction features
+├── 02m_audit_amenity_sources.R # State and local establishment-source audit
+├── 02n_process_amenity_change.R # Dated amenity-opening exposure features
+├── 02o_audit_parcel_acs_housing_units.R # Parcel/ACS unit reconciliation audit
 ├── 03_feature_engineering.R     # Engineer features for ML
 ├── 03a_feature_audit.R          # Verify feature roles and coverage
 ├── 03b_cluster_analysis.R       # **NEW: Unsupervised clustering**
 ├── 03c_cluster_sensitivity_analysis.R # Compare balanced clustering methods
+├── 03d_amenity_cluster_sensitivity.R # Isolate amenity-domain cluster effects
+├── 03e_visualize_amenity_clusters.R # Tentatively labeled static/interactive maps
 ├── 04_train_models.R            # Train ML models (cluster-based)
 ├── 05_validate_models.R         # Validate and diagnose models
 ├── 06_predict_risk_scores.R     # Generate risk scores
 ├── 07_visualize_results.R       # Create visualizations
 │
 ├── R/
+│   ├── acs_dasymetric.R        # Census-block/parcel ACS allocation helpers
 │   └── utils.R                  # Utility functions
 │
 ├── data/                        # Input data (user-provided)
@@ -83,6 +91,7 @@ coa-displacement-ews/
 │   ├── hex_grid.rds             # Hexagonal grid
 │   ├── hex_data_processed.rds   # Processed data
 │   ├── appraisal_value_trends_by_hex.rds # 2021-2025 value trends
+│   ├── ownership_transaction_features_by_hex.rds # Change/transaction indices
 │   ├── hex_features.rds         # Engineered features
 │   ├── cluster_analysis_results.rds  # **NEW: Clustering results**
 │   ├── hex_features_with_clusters.rds # **NEW: Features + clusters**
@@ -102,6 +111,9 @@ coa-displacement-ews/
     ├── 07_summary_dashboard.png
     └── ...
 ```
+
+The current parcel-versus-ACS housing-unit findings and reconciliation
+recommendations are documented in `PARCEL_ACS_UNIT_AUDIT.md`.
 
 ## Installation
 
@@ -158,6 +170,14 @@ library(tidycensus)
 census_api_key("YOUR_KEY_HERE", install = TRUE)
 ```
 
+Current ACS counts use block groups as source zones. The pipeline preserves
+2020 Census block population and housing totals, distributes each block across
+hexes with residential appraisal parcel floor-area support, and uses a block
+point only where no residential parcel support exists. Non-additive medians are
+never averaged: the dominant residential block-group value is used first, with
+a dominant-tract fallback only when the block-group estimate is suppressed.
+Raw Census extracts are cached under ignored `data/raw_acs/` files.
+
 ## Usage
 
 ### Quick Start
@@ -196,6 +216,10 @@ source("02g_process_311_requests.R")
 source("02h_process_acs_rent_history.R")
 source("02i_process_appraisal_history.R")
 source("02j_process_appraisal_adjusted_trends.R")
+source("02k_audit_ownership_transactions.R")
+source("02l_process_ownership_transactions.R")
+source("02m_audit_amenity_sources.R")
+source("02n_process_amenity_change.R")
 source("03_feature_engineering.R")
 source("03a_feature_audit.R")
 source("03b_cluster_analysis.R")    # NEW: Clustering step
@@ -209,7 +233,10 @@ source("07_visualize_results.R")
 
 ### Required Data
 
-The system requires Census/ACS data, which is automatically downloaded via the `tidycensus` package. No manual data collection needed for basic functionality.
+The system requires Census/ACS data, which is automatically downloaded via the
+`tidycensus` package. Current ACS processing also requires the residential
+parcel support artifact built by `02d`, `02e`, and `02c`; `02_process_data.R`
+runs those steps in the required order.
 
 ### Optional Data Sources
 
@@ -233,14 +260,12 @@ hex_id,date,median_rent
 1,2021-04-01,1250
 ```
 
-#### 3. Future Data Sources (Placeholders Included)
+#### 3. Additional Data Sources
 
-The system has placeholder columns for:
-- **Eviction filings**: Add to `02_process_data.R`
-- **Land values**: Add to `02_process_data.R`
-- **Corporate ownership**: Add to `02_process_data.R`
-
-See `02_process_data.R` for integration points.
+Eviction filings, appraisal value trends, current corporate ownership,
+ownership change, and property transactions now have dedicated processing
+scripts. See `data/README.md` for inputs, source limitations, and generated QA.
+Amenity access and change remain the next planned source domain.
 
 ## Understanding the Models
 

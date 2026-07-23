@@ -63,6 +63,7 @@ output/*.csv
 figures/*.png
 figures/*.html
 figures/*.pdf
+figures/*_files/
 
 # Data files (user-provided, may contain sensitive info)
 data/*.csv
@@ -70,6 +71,8 @@ data/*.xlsx
 data/*.shp
 data/*.geojson
 data/raw_parcels/
+data/raw_amenities/
+data/raw_acs/
 
 # Keep directory structure
 !output/.gitkeep

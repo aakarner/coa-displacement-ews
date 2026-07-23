@@ -1,0 +1,11 @@
+naics,category,evidence_tier,include_in_index,name_filter_required,name_pattern,notes
+311811,specialty_food,exploratory,FALSE,FALSE,,Retail bakeries; retain for profiling only
+312120,craft_alcohol,exploratory,FALSE,FALSE,,Breweries; literature is mixed so exclude from the core index
+312130,craft_alcohol,exploratory,FALSE,FALSE,,Wineries; retain for profiling only
+312140,craft_alcohol,exploratory,FALSE,FALSE,,Distilleries; retain for profiling only
+445291,specialty_food,exploratory,FALSE,FALSE,,Baked-goods retailers under newer NAICS vintages
+445299,specialty_food,exploratory,FALSE,FALSE,,Other specialty-food retailers; price orientation is not observed
+713940,boutique_fitness,exploratory,FALSE,FALSE,,Fitness and recreational sports centers; category is broader than boutique fitness
+722410,drinking_place,core,TRUE,FALSE,,Drinking places serving alcoholic beverages
+722511,full_service_restaurant,core,TRUE,FALSE,,Full-service restaurants; limited-service restaurants are deliberately excluded
+722515,cafe,core,TRUE,TRUE,COFFEE|CAFE|ESPRESSO|ROAST|TEA|BOBA|MATCHA,Name filter removes fast food and other businesses miscoded as snack and nonalcoholic beverage bars

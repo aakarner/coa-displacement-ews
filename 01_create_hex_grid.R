@@ -67,7 +67,11 @@ print_progress(paste0("Creating H3 hexagonal grid at resolution ", H3_RESOLUTION
 h3_indices_sf <- polygon_to_cells(austin_boundary, res = H3_RESOLUTION, simple = FALSE)
 
 # Extract H3 indices as a character vector
-h3_indices <- h3_indices_sf$h3_address
+h3_indices <- unlist(h3_indices_sf$h3_address, use.names = FALSE)
+
+if (length(h3_indices) == 0) {
+  stop("polygon_to_cells() returned no H3 indexes.", call. = FALSE)
+}
 
 print_progress(paste0("Generated ", length(h3_indices), " H3 hexagons covering Austin"))
 
@@ -75,6 +79,10 @@ print_progress(paste0("Generated ", length(h3_indices), " H3 hexagons covering A
 print_progress("Converting H3 indices to polygon geometries...")
 hex_grid <- cell_to_polygon(h3_indices, simple = FALSE) |>
   st_as_sf()
+
+if (nrow(hex_grid) != length(h3_indices)) {
+  stop("H3 index and polygon counts do not match.", call. = FALSE)
+}
 
 # Add H3 index as a column
 hex_grid$h3_index <- h3_indices

@@ -38,18 +38,54 @@ equal-weight cluster inputs. `config/feature_dictionary.csv` is the
 machine-readable source of truth for these roles.
 
 Historical features are calculated only from observations available by the
-fixed date in `R/analysis_config.R`. The county-adjusted
-`land_value_pressure_index` is available as a sensitivity input before a
-decision about default inclusion. Remaining planned additions are property
-transactions, ownership change, and amenity change.
+fixed date in `R/analysis_config.R`. County-adjusted land value, property
+transactions, ownership change, and amenity reorientation are available as
+sensitivity inputs before a decision about default inclusion. Amenity change
+uses equal-category opening exposure for cafes, full-service restaurants, and
+drinking places; exploratory retail, fitness, and craft-alcohol categories do
+not enter the score.
+
+### ACS Spatial Support
+
+Additive ACS estimates originate at block-group geography. The pipeline first
+preserves 2020 Census block population and housing totals, then distributes
+each block among H3 cells using residential appraisal parcel floor area within
+the block. Calibrated units and parcel count are ordered fallbacks for missing
+floor area; blocks with no residential parcel support use a point fallback and
+are flagged in QA. Source-zone denominators retain blocks outside the project
+grid. Person counts use population shares, while housing, tenure, rent burden,
+and population-in-occupied-housing counts use housing shares.
+
+Median income, rent, and home value are assigned rather than interpolated. Each
+hex receives the median from its dominant residential block group; suppressed
+block-group estimates use the dominant tract. Medians are never averaged, and
+the output retains the source GEOID, geography, residential share, method, and
+MOE for each median. `output/acs_dasymetric_allocation_qa.csv` checks source
+coverage and exact conservation of every additive estimate.
+
+Cluster coverage is measured against the independently allocated ACS totals,
+not against the parcel-unit surface that defines the minimum-unit eligibility
+rule. `output/amenity_cluster_population_coverage.csv` reports total population,
+population in occupied housing, and housing units separately for classified
+hexes, hexes below the parcel-unit threshold, and otherwise eligible hexes with
+a missing clustering feature.
 
 **Validation**:
 - Elbow plots for optimal k selection
 - Silhouette scores for cluster quality (target: >0.3)
 - Gap statistic as a secondary diagnostic
 - Equal-domain and equal-family weighting sensitivity
+- Paired baseline-versus-amenity sensitivity on an identical complete sample
+- Repeated 80-percent subsample stability measured with adjusted Rand agreement
 - PCA visualization for cluster separation
 - Geographic coherence checking
+
+`03d_amenity_cluster_sensitivity.R` isolates the amenity decision. The baseline
+contains the six default domain indices, while the augmented specification adds
+`amenity_change_index` as one equally standardized domain. It evaluates both
+through the same range of cluster counts and saves complete assignments,
+profiles, crosswalks, gap statistics, and stability distributions. It does not
+change the canonical `03b` clusters.
 
 **Outputs**:
 - `cluster_analysis_results.rds` - Complete analysis
@@ -265,9 +301,8 @@ Cluster 4: High Rent Growth, Low Demolitions, Low Vulnerability
 
 ### Short-Term
 1. Add interactive cluster labeling interface
-2. Implement cluster stability analysis
-3. Include temporal validation with historical data
-4. Add cluster-specific intervention recommendations
+2. Include temporal validation with historical data
+3. Add cluster-specific intervention recommendations
 
 ### Long-Term
 1. Develop hierarchical clustering with sub-patterns
