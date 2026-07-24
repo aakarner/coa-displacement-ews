@@ -38,10 +38,21 @@ The evidence classes, in selection order, are:
 No lower-tier source overwrites a higher-tier source. Source conflicts remain
 unclassified pending review.
 
-WCAD records explicitly marked `REFERENCE ONLY` are condominium common-interest
-or master accounts, not additional dwellings. They remain visible in the audit
-tables but are excluded from the number of unit-bearing parcels that an account
-enumeration must cover.
+The Williamson cleanup distinguishes primary property evidence (legal
+description, DBA, and use description) from historical property comments.
+Incidental `APT` references in an owner's former mailing address do not make a
+parcel multifamily. A comment-only apartment signal is accepted only for C3/C5
+properties, which retains a documented apartment project without misclassifying
+ordinary homes.
+
+The following WCAD records remain visible in audit tables but are excluded from
+the unit-bearing parcel universe:
+
+- `REFERENCE ONLY` condominium common-interest or master accounts;
+- nonresidential condominium units identified by WCAD property and use codes;
+- park or amenity parcels with no residential building area;
+- transitional-commercial land with no building area; and
+- other explicitly nonresidential accounts carried into the upstream extract.
 
 ## Project construction
 
@@ -70,7 +81,8 @@ and unit totals count them only once.
 
 The repaired source hierarchy produces:
 
-- 237,161 parcel rows grouped into 206,162 residential projects;
+- 237,161 parcel rows grouped into 206,162 project records;
+- 264 excluded parcels across 263 fully ineligible projects;
 - 869 strict, model-eligible multifamily projects;
 - 855 unique unresolved multifamily model candidates; and
 - 140 direct-source or direct-versus-account conflicts held out for review.
@@ -79,9 +91,9 @@ The mutually exclusive selected hierarchy currently contains:
 
 - 116,418 units from 891 strict direct project totals;
 - 230,486 units from 188,468 deterministic appraisal-account projects; and
-- 10,381 units from 10,381 WCAD single-unit-rule projects.
+- 10,384 units from 10,384 WCAD single-unit-rule projects.
 
-Together these shadow selections account for 357,285 units. Only the first
+Together these shadow selections account for 357,288 units. Only the first
 116,418 are direct reported project totals; the appraisal and single-unit
 tiers must remain separately identified in reporting.
 
@@ -97,15 +109,23 @@ Current county handling is:
   one-unit appraisal-code counts. No Hays multifamily model candidate is
   present in the current extract.
 - Williamson: 2,712 explicit residential unit accounts supply 2,712 units;
-  96 small-multifamily legal descriptions supply 194 units; and 10,381
+  96 small-multifamily legal descriptions supply 194 units; and 10,384
   ordinary residential accounts receive the separate one-unit rule.
 - Williamson has 25 apartment model candidates. Nineteen have URO sensitivity
   counts and six currently have no external project total. Two of the 25 are
   cross-county projects also represented in TCAD.
-- Fifty-five WCAD reference-only common-interest accounts are excluded from
-  unit-bearing parcel coverage. Another 213 records remain flagged for source
-  review, primarily commercial condominiums carried into the upstream
-  residential extract.
+- Williamson excludes 202 nonresidential condominium accounts, 55
+  reference-only common-interest accounts, four park/amenity parcels, two
+  transitional-commercial land records, and one other nonresidential account.
+- One record remains under manual review: a 1,886-square-foot residential lot
+  whose DBA says `SPRINGWOODS APTS` but whose appraisal and legal fields do not
+  establish a unit count.
+
+The 264 excluded parcels currently carry about 1,344.8 units under the
+production floor-area rules. This shadow cleanup does not alter those
+production values. Before final integration, the upstream Williamson
+residential extract should be regenerated with equivalent exclusions, then the
+unit, ACS-allocation, and clustering audits must be rerun.
 
 Affordable Housing Inventory records require special care. Some completed
 records describe a subsidized subset within a larger condominium property.
@@ -143,6 +163,7 @@ validation data; they do not calibrate parcel predictions.
 - `output/residential_unit_source_parcel_links.rds/.csv`;
 - `output/residential_unit_source_qa.csv`;
 - `output/residential_unit_county_classification_qa.csv`;
+- `output/residential_unit_county_exclusion_audit.csv`;
 - `output/residential_unit_source_manifest.csv`; and
 - `output/residential_unit_unmatched_source_records.csv`.
 
@@ -154,5 +175,6 @@ validation data; they do not calibrate parcel predictions.
 - `output/residential_unit_model_candidates.rds/.csv`;
 - `output/residential_unit_project_source_comparison.csv`;
 - `output/residential_unit_source_conflicts.csv`;
-- `output/residential_unit_cross_county_projects.csv`; and
+- `output/residential_unit_cross_county_projects.csv`;
+- `output/residential_unit_excluded_projects.csv`; and
 - `output/residential_unit_project_qa.csv`.

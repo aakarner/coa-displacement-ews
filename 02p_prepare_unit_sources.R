@@ -474,13 +474,34 @@ parcels_enhanced <- parcels %>%
         sep = " | "
       )
     ),
-    wcad_apartment_signal = source_county == "Williamson" &
+    wcad_primary_evidence_text = str_to_upper(
+      str_c(
+        coalesce(wcad_legal_description, ""),
+        coalesce(wcad_dba, ""),
+        coalesce(wcad_use_description, ""),
+        sep = " | "
+      )
+    ),
+    wcad_apartment_primary_signal = source_county == "Williamson" &
       str_detect(
-        wcad_evidence_text,
+        wcad_primary_evidence_text,
         paste0(
           "APARTMENT|(^|[^A-Z])APTS?([^A-Z]|$)|",
           "MULTI[- ]?FAMILY"
         )
+      ),
+    wcad_apartment_comment_signal = source_county == "Williamson" &
+      str_detect(
+        str_to_upper(coalesce(wcad_property_comment, "")),
+        paste0(
+          "APARTMENT|(^|[^A-Z])APTS?([^A-Z]|$)|",
+          "MULTI[- ]?FAMILY"
+        )
+      ),
+    wcad_apartment_signal = wcad_apartment_primary_signal |
+      (
+        wcad_property_type %in% c("C3", "C5") &
+          wcad_apartment_comment_signal
       ),
     wcad_small_multifamily_units = case_when(
       source_county == "Williamson" &
@@ -519,6 +540,28 @@ parcels_enhanced <- parcels %>%
       wcad_apartment_signal &
       !wcad_non_unit_reference_account &
       model_improvement_sqft > 0,
+    wcad_nonresidential_condo_account = source_county == "Williamson" &
+      !wcad_residential_type &
+      wcad_condo_signal &
+      !wcad_non_unit_reference_account &
+      !wcad_apartment_model_candidate,
+    wcad_non_unit_amenity_parcel = source_county == "Williamson" &
+      wcad_residential_type &
+      (is.na(model_improvement_sqft) | model_improvement_sqft <= 0) &
+      (
+        str_detect(wcad_evidence_text, fixed("(PARK")) |
+          str_detect(wcad_evidence_text, "AMENIT")
+      ),
+    wcad_non_unit_transitional_land = source_county == "Williamson" &
+      wcad_property_type == "LTRC-Land Transitional Commercial" &
+      (is.na(model_improvement_sqft) | model_improvement_sqft <= 0),
+    wcad_nonresidential_account = source_county == "Williamson" &
+      wcad_property_type == "C6" &
+      wcad_use_description == "C6" &
+      !wcad_residential_type &
+      !wcad_condo_signal &
+      !wcad_apartment_model_candidate &
+      !wcad_non_unit_transitional_land,
     wcad_single_unit_rule_units = if_else(
       wcad_residential_type &
         model_improvement_sqft > 0 &
@@ -530,26 +573,39 @@ parcels_enhanced <- parcels %>%
     ),
     county_model_candidate_signal = hays_multifamily_model_candidate |
       wcad_apartment_model_candidate,
+    county_unit_exclusion_reason = case_when(
+      wcad_non_unit_reference_account ~
+        "williamson_reference_only_common_interest_account",
+      wcad_nonresidential_condo_account ~
+        "williamson_nonresidential_condominium_account",
+      wcad_non_unit_amenity_parcel ~
+        "williamson_park_or_amenity_parcel_without_units",
+      wcad_non_unit_transitional_land ~
+        "williamson_transitional_commercial_land_without_units",
+      wcad_nonresidential_account ~
+        "williamson_other_nonresidential_account",
+      TRUE ~ NA_character_
+    ),
     county_unit_exclude_from_unit_universe =
-      wcad_non_unit_reference_account,
+      !is.na(county_unit_exclusion_reason),
     county_unit_review_reason = case_when(
       source_county == "Williamson" &
-        !wcad_non_unit_reference_account &
+        !county_unit_exclude_from_unit_universe &
         (is.na(model_improvement_sqft) | model_improvement_sqft <= 0) ~
         "williamson_zero_or_missing_residential_floor_area",
       source_county == "Williamson" &
-        !wcad_non_unit_reference_account &
+        !county_unit_exclude_from_unit_universe &
         !wcad_residential_type &
         wcad_condo_signal &
         !wcad_apartment_model_candidate ~
         "williamson_commercial_condominium_in_residential_extract",
       source_county == "Williamson" &
-        !wcad_non_unit_reference_account &
+        !county_unit_exclude_from_unit_universe &
         !wcad_residential_type &
         !wcad_apartment_model_candidate ~
         "williamson_nonresidential_type_in_residential_extract",
       source_county == "Williamson" &
-        !wcad_non_unit_reference_account &
+        !county_unit_exclude_from_unit_universe &
         wcad_residential_type &
         wcad_apartment_signal &
         is.na(wcad_small_multifamily_units) &
@@ -572,6 +628,14 @@ parcels_enhanced <- parcels %>%
         "williamson_single_unit_rule",
       wcad_non_unit_reference_account ~
         "wcad_non_unit_reference_account",
+      wcad_nonresidential_condo_account ~
+        "wcad_nonresidential_condominium_account",
+      wcad_non_unit_amenity_parcel ~
+        "wcad_non_unit_park_or_amenity_parcel",
+      wcad_non_unit_transitional_land ~
+        "wcad_non_unit_transitional_commercial_land",
+      wcad_nonresidential_account ~
+        "wcad_other_nonresidential_account",
       !is.na(county_unit_review_reason) ~
         "county_source_review",
       TRUE ~ NA_character_
@@ -1354,6 +1418,53 @@ county_unit_classification_qa <- parcels_enhanced %>%
     .groups = "drop"
   )
 
+county_unit_exclusion_audit <- parcels_enhanced %>%
+  filter(
+    county_unit_exclude_from_unit_universe |
+      !is.na(county_unit_review_reason)
+  ) %>%
+  select(
+    parcel_id,
+    source_county,
+    situs_address,
+    lat,
+    lon,
+    county_unit_evidence_class,
+    county_unit_exclusion_reason,
+    county_unit_review_reason,
+    units_raw,
+    units_calibrated,
+    model_improvement_sqft,
+    appraisal_state_code,
+    wcad_property_id,
+    wcad_property_type,
+    wcad_use_description,
+    wcad_legal_type,
+    wcad_legal_description,
+    wcad_property_comment,
+    wcad_dba,
+    wcad_apartment_primary_signal,
+    wcad_apartment_comment_signal,
+    wcad_condo_signal
+  )
+
+if (
+  any(
+    parcels_enhanced$county_unit_exclude_from_unit_universe &
+      !is.na(parcels_enhanced$county_unit_review_reason)
+  )
+) {
+  stop("County unit exclusions and review flags must not overlap.", call. = FALSE)
+}
+if (
+  any(
+    parcels_enhanced$county_unit_exclude_from_unit_universe !=
+      !is.na(parcels_enhanced$county_unit_exclusion_reason)
+  )
+) {
+  stop("County unit exclusion flags and reasons are inconsistent.", call. = FALSE)
+}
+
 save_output(
   parcels_enhanced,
   file.path(OUTPUT_DIR, "residential_parcels_unit_source_attributes.rds"),
@@ -1393,6 +1504,10 @@ write_csv(
 write_csv(
   county_unit_classification_qa,
   file.path(OUTPUT_DIR, "residential_unit_county_classification_qa.csv")
+)
+write_csv(
+  county_unit_exclusion_audit,
+  file.path(OUTPUT_DIR, "residential_unit_county_exclusion_audit.csv")
 )
 
 print_progress(

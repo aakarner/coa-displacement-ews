@@ -161,6 +161,10 @@ projects <- project_parcels %>%
       !county_unit_exclude_from_unit_universe,
       na.rm = TRUE
     ),
+    project_unit_exclusion_reasons = str_c(
+      sort(unique(na.omit(county_unit_exclusion_reason))),
+      collapse = " | "
+    ),
     project_address_count = n_distinct(parcel_address_key, na.rm = TRUE),
     project_grouping_methods = first(project_grouping_methods),
     project_link_group_count = first(project_link_group_count),
@@ -256,7 +260,9 @@ projects <- project_parcels %>%
   mutate(
     project_improvement_sqft = na_if(project_improvement_sqft, 0),
     project_main_area = na_if(project_main_area, 0),
-    project_land_sqft = na_if(project_land_sqft, 0)
+    project_land_sqft = na_if(project_land_sqft, 0),
+    project_unit_universe_eligible =
+      project_required_unit_parcel_count > 0L
   )
 
 project_county_membership <- project_parcels %>%
@@ -483,12 +489,14 @@ projects <- projects %>%
     training_label_eligible = !is.na(selected_strict_units) &
       strict_sources_agree &
       !deterministic_count_covers_project &
+      project_unit_universe_eligible &
       project_is_multifamily_like &
       project_improvement_sqft > 0 &
       selected_strict_units >= 5 &
       strict_label_sqft_per_unit >= 200 &
       strict_label_sqft_per_unit <= 3000,
     model_candidate = project_is_multifamily_like &
+      project_unit_universe_eligible &
       project_improvement_sqft > 0 &
       is.na(selected_observed_units) &
       (
@@ -549,6 +557,7 @@ source_conflicts <- projects %>%
     project_parcel_count,
     project_required_unit_parcel_count,
     project_excluded_unit_parcel_count,
+    project_unit_exclusion_reasons,
     project_grouping_methods,
     strict_source_names,
     strict_source_min_units,
@@ -593,7 +602,8 @@ project_qa <- bind_rows(
       "projects",
       "multi_parcel_projects",
       "cross_county_projects",
-      "excluded_non_unit_reference_parcels",
+      "excluded_unit_parcels",
+      "excluded_unit_universe_projects",
       "multifamily_like_projects",
       "strict_labeled_projects",
       "training_eligible_projects",
@@ -611,6 +621,7 @@ project_qa <- bind_rows(
       sum(projects$project_parcel_count > 1L),
       sum(projects$project_cross_county),
       sum(projects$project_excluded_unit_parcel_count),
+      sum(!projects$project_unit_universe_eligible),
       sum(projects$project_is_multifamily_like),
       sum(!is.na(projects$selected_strict_units)),
       nrow(training_table),
@@ -688,6 +699,18 @@ if (
 ) {
   stop("Selected unit counts and hierarchy tiers are inconsistent.", call. = FALSE)
 }
+excluded_project_ids <- projects$project_id[
+  !projects$project_unit_universe_eligible
+]
+if (
+  any(training_table$project_id %in% excluded_project_ids) ||
+    any(model_candidates$project_id %in% excluded_project_ids)
+) {
+  stop(
+    "Excluded projects cannot enter model training or prediction.",
+    call. = FALSE
+  )
+}
 
 save_output(
   project_membership,
@@ -737,6 +760,10 @@ write_csv(
 write_csv(
   projects %>% filter(project_cross_county),
   file.path(OUTPUT_DIR, "residential_unit_cross_county_projects.csv")
+)
+write_csv(
+  projects %>% filter(!project_unit_universe_eligible),
+  file.path(OUTPUT_DIR, "residential_unit_excluded_projects.csv")
 )
 write_csv(
   project_qa,
