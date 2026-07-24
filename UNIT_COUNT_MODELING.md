@@ -7,13 +7,25 @@ model training, and production integration. This prevents a project total from
 being repeated on every parcel account and allows disagreements to remain
 visible.
 
-The current `02p` and `02q` scripts are a shadow stage. They do not change
-`units_calibrated`, the ACS allocation, clustering eligibility, features, or
-cluster assignments.
+WCAD residential eligibility is now a production preprocessing rule.
+`02d_calibrate_parcel_units.R` applies it before unit calibration and writes
+excluded and review records separately. Scripts `02p` and `02q` remain the
+source-modeling shadow stage: they do not replace calibrated units with the
+source hierarchy or future model predictions.
+
+The EWS repository owns this definition. It reads local WCAD raw files through
+`R/wcad_unit_eligibility.R`; it does not import or execute `landlord-mapper`
+code. County CSV exports are treated as broad candidate inputs under a
+documented schema, not as authoritative residential classifications.
 
 ## Source hierarchy
 
-`02p_prepare_unit_sources.R` stores each project or account count once in
+`02d` first joins the compact WCAD legal, use, unit, and property-type fields to
+the Williamson candidate parcels. It writes canonical eligibility audit,
+exclusion, review, and QA outputs before excluded rows can enter calibration,
+corporate aggregation, ACS allocation, or feature engineering.
+
+`02p_prepare_unit_sources.R` then stores each project or account count once in
 `output/residential_unit_source_records.rds` and stores parcel relationships
 separately in `output/residential_unit_source_parcel_links.rds`.
 
@@ -79,22 +91,22 @@ and unit totals count them only once.
 
 ## Current shadow results
 
-The repaired source hierarchy produces:
+After production eligibility filtering, the source hierarchy produces:
 
-- 237,161 parcel rows grouped into 206,162 project records;
-- 264 excluded parcels across 263 fully ineligible projects;
-- 869 strict, model-eligible multifamily projects;
+- 236,897 eligible parcel rows grouped into 205,899 project records;
+- 264 excluded candidate parcels retained outside the unit universe;
+- 868 strict, model-eligible multifamily projects;
 - 855 unique unresolved multifamily model candidates; and
-- 140 direct-source or direct-versus-account conflicts held out for review.
+- 141 direct-source or direct-versus-account conflicts held out for review.
 
 The mutually exclusive selected hierarchy currently contains:
 
-- 116,418 units from 891 strict direct project totals;
-- 230,486 units from 188,468 deterministic appraisal-account projects; and
+- 116,412 units from 890 strict direct project totals;
+- 230,488 units from 188,467 deterministic appraisal-account projects; and
 - 10,384 units from 10,384 WCAD single-unit-rule projects.
 
-Together these shadow selections account for 357,288 units. Only the first
-116,418 are direct reported project totals; the appraisal and single-unit
+Together these shadow selections account for 357,284 units. Only the first
+116,412 are direct reported project totals; the appraisal and single-unit
 tiers must remain separately identified in reporting.
 
 All current model-eligible projects are in Travis County. The first model must
@@ -121,11 +133,15 @@ Current county handling is:
   whose DBA says `SPRINGWOODS APTS` but whose appraisal and legal fields do not
   establish a unit count.
 
-The 264 excluded parcels currently carry about 1,344.8 units under the
-production floor-area rules. This shadow cleanup does not alter those
-production values. Before final integration, the upstream Williamson
-residential extract should be regenerated with equivalent exclusions, then the
-unit, ACS-allocation, and clustering audits must be rerun.
+The 264 excluded parcels carried 1,344.823 units under the former production
+rules, including 1,275.6 corporate-owned units. The integrated eligibility rule
+now removes them before calibration. A full refresh produces 534,966 primary
+units and 519,533 targeted units regionwide; the H3 parcel/ACS audit contains
+514,292 targeted parcel units versus 477,406 ACS housing units. The complete
+refresh also updated a pre-existing Travis CoStar match: a six-unit record whose
+address says 308 E 34th but whose geocode falls near 308 W 34th is now held as a
+direct-versus-account conflict. This explains the change from 869 to 868
+training projects; all 855 model-candidate project IDs are unchanged.
 
 Affordable Housing Inventory records require special care. Some completed
 records describe a subsidized subset within a larger condominium property.
@@ -156,6 +172,14 @@ validation data; they do not calibrate parcel predictions.
 
 ## Outputs
 
+`02d` writes the canonical eligibility artifacts:
+
+- `output/residential_unit_eligibility_audit.rds/.csv`;
+- `output/residential_unit_eligibility_exclusions.rds/.csv`;
+- `output/residential_unit_eligibility_reviews.rds/.csv`;
+- `output/residential_unit_eligibility_qa.csv`; and
+- `output/residential_unit_county_exclusion_audit.csv`.
+
 `02p` writes:
 
 - `output/residential_parcels_unit_source_attributes.rds`;
@@ -163,7 +187,6 @@ validation data; they do not calibrate parcel predictions.
 - `output/residential_unit_source_parcel_links.rds/.csv`;
 - `output/residential_unit_source_qa.csv`;
 - `output/residential_unit_county_classification_qa.csv`;
-- `output/residential_unit_county_exclusion_audit.csv`;
 - `output/residential_unit_source_manifest.csv`; and
 - `output/residential_unit_unmatched_source_records.csv`.
 

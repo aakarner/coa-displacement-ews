@@ -2,10 +2,11 @@
 # 02d - Calibrate Residential Parcel Unit Counts
 ################################################################################
 #
-# Builds a calibrated residential unit count for the parcel universe. The script
-# keeps credible parcel unit counts, uses CoStar-matched large multifamily
-# properties to estimate a local sqft-per-unit factor, and writes diagnostics for
-# review before corporate ownership is aggregated to the hex grid.
+# Builds a calibrated residential unit count for the parcel universe. It joins
+# local WCAD evidence to the broad Williamson candidate export, removes explicit
+# non-unit/nonresidential accounts, keeps credible parcel unit counts, and uses
+# CoStar-matched large multifamily properties to estimate a local sqft-per-unit
+# factor before corporate ownership is aggregated to the hex grid.
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -19,13 +20,36 @@ suppressPackageStartupMessages({
 })
 
 source(here::here("R/utils.R"))
+source(here::here("R/unit_count_helpers.R"))
+source(here::here("R/wcad_unit_eligibility.R"))
 
 print_header("02d - CALIBRATE PARCEL UNIT COUNTS")
 
 OUTPUT_DIR <- here::here("output")
 DATA_DIR <- here::here("data")
+UNIT_SOURCE_DIR <- here::here("data", "raw_parcels", "unit_sources")
+WCAD_PROPERTY_FILE <- here::here(
+  "data",
+  "raw_parcels",
+  "williamson",
+  "wcad_property_certified.csv"
+)
+WCAD_PARCEL_FILE <- here::here(
+  "data",
+  "raw_parcels",
+  "williamson",
+  "wcad_parcels_flat.csv"
+)
+WCAD_COMPACT_FILE <- file.path(
+  UNIT_SOURCE_DIR,
+  "wcad_property_unit_fields.csv"
+)
+REFRESH_UNIT_SOURCES <- str_to_lower(
+  Sys.getenv("REFRESH_UNIT_SOURCES", unset = "false")
+) %in% c("true", "t", "1", "yes", "y")
 
 dir.create(OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
+dir.create(UNIT_SOURCE_DIR, showWarnings = FALSE, recursive = TRUE)
 
 residential_parcel_files <- c(
   Travis = file.path(DATA_DIR, "residential_parcels_for_hex.csv"),
@@ -158,6 +182,127 @@ parcels <- parcels_raw %>%
       improvement_sqft >= 18000 &
       abs(units_raw - improvement_sqft / 900) <= pmax(1, units_raw * 0.02)
   )
+
+input_parcel_count <- nrow(parcels)
+wcad_attributes <- load_wcad_unit_attributes(
+  property_file = WCAD_PROPERTY_FILE,
+  parcel_file = WCAD_PARCEL_FILE,
+  compact_file = WCAD_COMPACT_FILE,
+  parcel_ids = parcels$parcel_id[parcels$source_county == "Williamson"],
+  refresh = REFRESH_UNIT_SOURCES
+)
+
+parcels <- parcels %>%
+  mutate(model_improvement_sqft = na_if(improvement_sqft, 0)) %>%
+  left_join(
+    wcad_attributes,
+    by = "parcel_id",
+    relationship = "many-to-one"
+  ) %>%
+  classify_wcad_unit_eligibility() %>%
+  mutate(
+    county_model_candidate_signal = wcad_model_candidate_signal,
+    county_unit_exclusion_reason = wcad_unit_exclusion_reason,
+    county_unit_exclude_from_unit_universe =
+      wcad_unit_exclude_from_universe,
+    county_unit_review_reason = wcad_unit_review_reason,
+    county_unit_evidence_class = wcad_unit_evidence_class
+  )
+
+eligibility_audit <- wcad_unit_eligibility_audit(parcels)
+eligibility_exclusions <- eligibility_audit %>%
+  filter(!is.na(wcad_unit_exclusion_reason))
+eligibility_reviews <- eligibility_audit %>%
+  filter(!is.na(wcad_unit_review_reason))
+
+if (
+  any(
+    parcels$county_unit_exclude_from_unit_universe &
+      !is.na(parcels$county_unit_review_reason)
+  )
+) {
+  stop("Unit eligibility exclusions and review flags must not overlap.", call. = FALSE)
+}
+if (
+  nrow(eligibility_exclusions) +
+    sum(!parcels$county_unit_exclude_from_unit_universe) !=
+    input_parcel_count
+) {
+  stop("Unit eligibility row accounting does not balance.", call. = FALSE)
+}
+
+eligibility_qa <- bind_rows(
+  tibble(
+    qa_section = "eligibility_totals",
+    metric = c(
+      "input_candidate_parcels",
+      "eligible_parcels",
+      "excluded_parcels",
+      "review_parcels",
+      "excluded_raw_unit_proxy"
+    ),
+    value = c(
+      input_parcel_count,
+      sum(!parcels$county_unit_exclude_from_unit_universe),
+      nrow(eligibility_exclusions),
+      nrow(eligibility_reviews),
+      sum(eligibility_exclusions$units_raw, na.rm = TRUE)
+    )
+  ),
+  eligibility_exclusions %>%
+    count(wcad_unit_exclusion_reason, name = "value") %>%
+    transmute(
+      qa_section = "exclusions_by_reason",
+      metric = wcad_unit_exclusion_reason,
+      value
+    ),
+  eligibility_reviews %>%
+    count(wcad_unit_review_reason, name = "value") %>%
+    transmute(
+      qa_section = "reviews_by_reason",
+      metric = wcad_unit_review_reason,
+      value
+    )
+)
+
+save_output(
+  eligibility_audit,
+  file.path(OUTPUT_DIR, "residential_unit_eligibility_audit.rds"),
+  "residential unit eligibility audit"
+)
+save_output(
+  eligibility_exclusions,
+  file.path(OUTPUT_DIR, "residential_unit_eligibility_exclusions.rds"),
+  "excluded residential unit candidate parcels"
+)
+save_output(
+  eligibility_reviews,
+  file.path(OUTPUT_DIR, "residential_unit_eligibility_reviews.rds"),
+  "residential unit eligibility review parcels"
+)
+write_csv(
+  eligibility_audit,
+  file.path(OUTPUT_DIR, "residential_unit_eligibility_audit.csv")
+)
+write_csv(
+  eligibility_audit,
+  file.path(OUTPUT_DIR, "residential_unit_county_exclusion_audit.csv")
+)
+write_csv(
+  eligibility_exclusions,
+  file.path(OUTPUT_DIR, "residential_unit_eligibility_exclusions.csv")
+)
+write_csv(
+  eligibility_reviews,
+  file.path(OUTPUT_DIR, "residential_unit_eligibility_reviews.csv")
+)
+write_csv(
+  eligibility_qa,
+  file.path(OUTPUT_DIR, "residential_unit_eligibility_qa.csv")
+)
+
+parcels <- parcels %>%
+  filter(!county_unit_exclude_from_unit_universe)
 
 missing_coords <- parcels %>%
   filter(is.na(lat) | is.na(lon))
@@ -631,8 +776,8 @@ parcels_calibrated <- parcels %>%
     -sqft_per_raw_unit
   )
 
-if (nrow(parcels_calibrated) != nrow(parcels_raw)) {
-  stop("Calibrated parcel row count does not match the original parcel row count.", call. = FALSE)
+if (nrow(parcels_calibrated) != nrow(parcels)) {
+  stop("Calibrated parcel row count does not match the eligible parcel count.", call. = FALSE)
 }
 
 if (any(duplicated(parcels_calibrated$parcel_id))) {
@@ -714,6 +859,12 @@ diagnostics <- bind_rows(
       sum(parcels_calibrated$conservative_unit_delta, na.rm = TRUE)
     )
   ),
+  eligibility_qa %>%
+    transmute(
+      metric_group = paste0("unit_", qa_section),
+      metric,
+      value
+    ),
   parcels_calibrated %>%
     group_by(source_county) %>%
     summarise(value = sum(units_calibrated, na.rm = TRUE), .groups = "drop") %>%
@@ -821,6 +972,16 @@ print_progress(paste0("CoStar properties in latest period: ", nrow(costar_latest
 print_progress(paste0("CoStar match rows: ", nrow(costar_matches)))
 print_progress(paste0("Plausible calibration properties: ", nrow(calibration_sample)))
 print_progress(paste0("Median matched sqft/unit: ", round(costar_median_sqft_per_unit, 1)))
+print_progress(
+  paste0(
+    "Eligible parcels: ",
+    scales::comma(nrow(parcels)),
+    "; excluded before calibration: ",
+    scales::comma(nrow(eligibility_exclusions)),
+    "; held for review: ",
+    scales::comma(nrow(eligibility_reviews))
+  )
+)
 print_progress(
   paste0(
     "Raw units: ",

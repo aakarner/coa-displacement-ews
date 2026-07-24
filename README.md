@@ -82,6 +82,7 @@ coa-displacement-ews/
 │
 ├── R/
 │   ├── acs_dasymetric.R        # Census-block/parcel ACS allocation helpers
+│   ├── wcad_unit_eligibility.R # EWS-owned Williamson eligibility rules
 │   └── utils.R                  # Utility functions
 │
 ├── data/                        # Input data (user-provided)
