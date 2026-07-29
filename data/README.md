@@ -418,8 +418,14 @@ Key outputs are:
 - `output/eviction_filings_by_hex_summary.rds/.csv`; and
 - `output/eviction_filings_by_hex_year.csv`.
 
-Eviction ingestion is implemented. The existing hex-year file still needs
-completeness and outcome-definition validation before Part 3 forecasting.
+Eviction ingestion is implemented: the pipeline turns the available Travis
+County court extracts into annual counts of observed eviction filings by hex.
+Before Part 3 forecasting, these observations must be expanded into a complete
+panel, using zero only for a covered hex-year with no filing and retaining
+uncovered places or periods as missing; partial years must also be handled
+explicitly. The forecasting outcome must then specify whether it represents
+filings or a later case disposition and which rental-unit denominator is used
+to calculate rates.
 
 ### Residential Demolitions
 
