@@ -94,8 +94,28 @@ if (length(missing_appraisal_cpi_years) > 0) {
   )
 }
 
+amenity_cluster_k <- as.integer(
+  Sys.getenv("EWS_AMENITY_CLUSTER_K", unset = "6")
+)
+if (is.na(amenity_cluster_k) || amenity_cluster_k < 2L) {
+  stop("EWS_AMENITY_CLUSTER_K must be an integer of at least 2.", call. = FALSE)
+}
+
+baseline_cluster_specification <- Sys.getenv(
+  "EWS_BASELINE_CLUSTER_SPECIFICATION",
+  unset = "amenity_augmented"
+)
+if (!baseline_cluster_specification %in% c("baseline", "amenity_augmented")) {
+  stop(
+    "EWS_BASELINE_CLUSTER_SPECIFICATION must be 'baseline' or ",
+    "'amenity_augmented'.",
+    call. = FALSE
+  )
+}
+
 EWS_CONFIG <- list(
   analysis_as_of_date = analysis_as_of_date,
+  h3_resolution = 9L,
   acs_years = acs_years,
   acs_current_year = acs_current_year,
   acs_survey = "acs5",
@@ -114,5 +134,10 @@ EWS_CONFIG <- list(
   transaction_analysis_as_of_date = as.Date("2025-04-30"),
   amenity_window_months = 18L,
   amenity_access_radius_m = 800,
-  minimum_residential_units_for_rates = 20L
+  minimum_residential_units_for_rates = 20L,
+  amenity_cluster_k = amenity_cluster_k,
+  baseline_cluster_specification = baseline_cluster_specification,
+  cluster_assignment_distance_quantile = 0.95,
+  cluster_assignment_margin_quantile = 0.10,
+  forecast_horizons_years = c(1L, 3L, 5L)
 )

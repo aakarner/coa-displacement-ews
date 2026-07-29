@@ -1,0 +1,5 @@
+parcel_id,reviewed_group_id,allocation_parcel_id,grouping_reason
+WILLIAMSON:R056943,lantern_at_westwood,WILLIAMSON:R056943,"Same current DBA, adjacent addresses, and one URO development count; R056945 is a commercial-reference companion account."
+WILLIAMSON:R056945,lantern_at_westwood,WILLIAMSON:R056943,"Same current DBA, adjacent addresses, and one URO development count; R056945 is a commercial-reference companion account."
+WILLIAMSON:R500217,lakeline_crossing,WILLIAMSON:R539770,"Same DBA and development site; the address-less commercial-reference account is a companion to the 13010 Ridgeline account."
+WILLIAMSON:R539770,lakeline_crossing,WILLIAMSON:R539770,"Same DBA and development site; the address-less commercial-reference account is a companion to the 13010 Ridgeline account."

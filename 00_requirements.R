@@ -49,11 +49,14 @@ EWS_PACKAGE_GROUPS <- list(
   ),
   census_and_api = c("tidycensus", "httr", "jsonlite"),
   clustering = c("cluster", "factoextra", "dbscan", "Rtsne"),
-  modeling = c("caret", "randomForest", "xgboost", "glmnet", "blockCV"),
+  modeling = c(
+    "caret", "randomForest", "xgboost", "glmnet", "blockCV", "mgcv"
+  ),
   visualization = c(
     "ggplot2", "leaflet", "mapview", "viridis", "scales", "patchwork",
     "gridExtra", "htmlwidgets", "ggthemes", "classInt", "ggspatial", "rosm"
   ),
+  pipeline = c("targets"),
   utilities = c("here", "tictoc")
 )
 

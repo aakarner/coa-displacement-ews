@@ -1,322 +1,97 @@
-# Cluster-Based Displacement Risk Methodology - Implementation Summary
+# Parts 1 and 2: Cluster Methodology
 
-## Problem Statement
+## Purpose
 
-The original displacement early warning system suffered from **circular reasoning**:
-- Created a synthetic `displacement_risk` variable by combining rent changes, demolitions, and vulnerability
-- Used these same features to predict the synthetic outcome
-- This approach lacks scientific rigor and interpretability
+Part 1 discovers a baseline typology of current displacement pressure and
+vulnerability. Part 2 tracks change by assigning later observations to those
+same definitions. Part 2 does not rerun k-means.
 
-## Solution: Two-Phase Machine Learning Approach
+## Part 1 Inputs
 
-### Phase 1: Unsupervised Clustering (Pattern Discovery)
-**Script**: `03b_cluster_analysis.R`
+The current selected specification contains seven equally scaled conceptual
+indices:
 
-**Purpose**: Identify natural displacement patterns in the data without predefined labels
+- citywide rent pressure;
+- demographic vulnerability;
+- residential demolition pressure;
+- eviction pressure;
+- 311 pressure;
+- corporate ownership pressure;
+- amenity change pressure.
 
-**Methods**:
-- **K-means clustering**: Partitional clustering with optimal k selection via silhouette analysis
-- **Hierarchical clustering**: Agglomerative clustering with dendrograms
-- **DBSCAN**: Density-based clustering that handles noise and irregular shapes
+CoStar availability is represented within the rent construction rather than
+used to remove non-CoStar hexes. `config/feature_dictionary.csv` records source
+coverage and missingness rules. Land-value and transaction indices remain
+available for sensitivity work and should be reconsidered before the baseline
+is formally adopted by project partners.
 
-**Key Features**:
-```r
-clustering_vars <- c(
-  "rent_pressure_citywide_index",
-  "demolition_pressure_index",
-  "eviction_pressure_index",
-  "sr_311_pressure_index",
-  "ownership_pressure_index",
-  "demographic_vulnerability_index"
-)
+## Selecting the Solution
+
+`scripts/part1/fit_baseline_clusters.R` evaluates:
+
+- average silhouette width;
+- gap statistics;
+- cluster size balance;
+- repeated 80% subsample stability;
+- geographic coherence through mapped assignments.
+
+These statistics inform, but do not mechanically replace, substantive review.
+The current shared solution uses `k = 6`, configured in
+`R/analysis_config.R`, with tentative labels in
+`config/amenity_cluster_labels_k6.csv`.
+
+## Frozen Baseline Artifact
+
+`output/part1/baseline_cluster_model.rds` contains:
+
+- the baseline cutoff and H3 resolution;
+- ordered feature names;
+- baseline means and standard deviations;
+- selected centroids;
+- cluster labels and concern levels;
+- the distance metric;
+- cluster-specific 95th-percentile baseline distances;
+- the baseline 10th-percentile nearest-versus-second-nearest margin.
+
+The quantiles are configuration values, not universal uncertainty thresholds.
+They provide transparent baseline reference points that can be reviewed before
+operational deployment.
+
+## Fixed Assignment
+
+For each later vintage, feature `j` is transformed using its baseline mean and
+standard deviation:
+
+```text
+z_j(t) = (x_j(t) - baseline_mean_j) / baseline_sd_j
 ```
 
-The default matrix uses one score per available substantive domain. CoStar
-coverage, residential density, race/ethnicity, and detailed raw components are
-retained for profiling and sensitivity analysis rather than repeated as
-equal-weight cluster inputs. `config/feature_dictionary.csv` is the
-machine-readable source of truth for these roles.
+The hex is assigned to the centroid with minimum Euclidean distance. Assignment
+confidence is:
 
-Historical features are calculated only from observations available by the
-fixed date in `R/analysis_config.R`. County-adjusted land value, property
-transactions, ownership change, and amenity reorientation are available as
-sensitivity inputs before a decision about default inclusion. Amenity change
-uses equal-category opening exposure for cafes, full-service restaurants, and
-drinking places; exploratory retail, fitness, and craft-alcohol categories do
-not enter the score.
-
-### ACS Spatial Support
-
-Additive ACS estimates originate at block-group geography. The pipeline first
-preserves 2020 Census block population and housing totals, then distributes
-each block among H3 cells using residential appraisal parcel floor area within
-the block. Calibrated units and parcel count are ordered fallbacks for missing
-floor area; blocks with no residential parcel support use a point fallback and
-are flagged in QA. Source-zone denominators retain blocks outside the project
-grid. Person counts use population shares, while housing, tenure, rent burden,
-and population-in-occupied-housing counts use housing shares.
-
-Median income, rent, and home value are assigned rather than interpolated. Each
-hex receives the median from its dominant residential block group; suppressed
-block-group estimates use the dominant tract. Medians are never averaged, and
-the output retains the source GEOID, geography, residential share, method, and
-MOE for each median. `output/acs_dasymetric_allocation_qa.csv` checks source
-coverage and exact conservation of every additive estimate.
-
-Cluster coverage is measured against the independently allocated ACS totals,
-not against the parcel-unit surface that defines the minimum-unit eligibility
-rule. `output/amenity_cluster_population_coverage.csv` reports total population,
-population in occupied housing, and housing units separately for classified
-hexes, hexes below the parcel-unit threshold, and otherwise eligible hexes with
-a missing clustering feature.
-
-**Validation**:
-- Elbow plots for optimal k selection
-- Silhouette scores for cluster quality (target: >0.3)
-- Gap statistic as a secondary diagnostic
-- Equal-domain and equal-family weighting sensitivity
-- Paired baseline-versus-amenity sensitivity on an identical complete sample
-- Repeated 80-percent subsample stability measured with adjusted Rand agreement
-- PCA visualization for cluster separation
-- Geographic coherence checking
-
-`03d_amenity_cluster_sensitivity.R` isolates the amenity decision. The baseline
-contains the six default domain indices, while the augmented specification adds
-`amenity_change_index` as one equally standardized domain. It evaluates both
-through the same range of cluster counts and saves complete assignments,
-profiles, crosswalks, gap statistics, and stability distributions. It does not
-change the canonical `03b` clusters.
-
-**Outputs**:
-- `cluster_analysis_results.rds` - Complete analysis
-- `cluster_profiles.csv` - Cluster characterizations
-- `hex_features_with_clusters.rds` - Features + assignments
-- Visualizations: elbow, silhouette, PCA, map, profiles, dendrogram
-
-### Phase 2: Supervised Classification (Risk Prediction)
-**Scripts**: `04_train_models.R`, `05_validate_models.R`, `06_predict_risk_scores.R`
-
-**Purpose**: Train models to predict which displacement cluster a neighborhood belongs to
-
-**Changes from Original**:
-
-#### 04_train_models.R
-- **Before**: Predicted synthetic `displacement_risk` (0-100 continuous)
-- **After**: Predicts `cluster_class` (multi-class classification)
-- **Metric**: Changed from RMSE to Accuracy
-- **Outcome**: Non-circular cluster membership
-
-```r
-# Before (circular):
-displacement_risk = 0.4 * rent_risk + 0.3 * demo_risk + 0.3 * vuln_risk
-
-# After (non-circular):
-cluster_class = factor(cluster)  # From unsupervised clustering
+```text
+1 - nearest_distance / second_nearest_distance
 ```
 
-#### 05_validate_models.R
-- **Before**: Residual plots, RMSE, MAE, R²
-- **After**: Confusion matrices, F1-scores, accuracy, per-cluster analysis
-- **Metrics**: Classification-appropriate validation
+A value near zero indicates that the hex lies close to a boundary. A separate
+flag identifies observations farther from their assigned centroid than 95% of
+that cluster's baseline members.
 
-#### 06_predict_risk_scores.R
-- **Before**: Direct ensemble of continuous predictions
-- **After**: Cluster probability → risk score conversion
-- **Method**: Probability-weighted mapping using cluster profiles
+Assignment files retain every H3 cell. Cells outside the residential
+eligibility rule or missing a required cluster feature receive an explicit
+`assignment_status` instead of disappearing from the output.
 
-```r
-# Map clusters to risk scores based on empirical profiles
-cluster_risk_mapping <- cluster_profiles %>%
-  mutate(
-    cluster_risk_score = (
-      normalize_to_100(mean_rent_change_total) * 0.4 +
-      normalize_to_100(mean_demo_density) * 0.3 +
-      normalize_to_100(mean_vulnerability) * 0.3
-    )
-  )
+## Validation
 
-# Use probability-weighted risk scores
-risk_score = sum(P(cluster_i) * risk_score_i)
-```
+Part 1 validation includes spatial holdout stability, silhouette and gap
+diagnostics, mapped geographic review, and expert/community interpretation.
+Part 2 validation includes:
 
-## Key Advantages
+- exact baseline self-reproduction;
+- distance-to-centroid distributions;
+- boundary flags;
+- transition tables between vintages;
+- global drift monitoring.
 
-### Methodological
-1. **Non-Circular**: Outcome (clusters) derived independently from predictors
-2. **Empirically-Grounded**: Patterns emerge from data, not assumptions
-3. **Scientifically Defensible**: Standard unsupervised → supervised workflow
-4. **Transparent**: Clear separation between pattern discovery and prediction
-
-### Interpretability
-1. **Cluster Labels**: "High Rent Growth + High Vulnerability" vs. arbitrary scores
-2. **Pattern Matching**: "This area resembles Cluster 2" is more interpretable
-3. **Actionable Insights**: Cluster profiles guide intervention strategies
-4. **Discovery Potential**: Can identify unexpected displacement types
-
-### Practical
-1. **Backward Compatible**: Still produces 0-100 risk scores for visualizations
-2. **Enhanced Output**: Includes predicted cluster for additional context
-3. **Model Validation**: Classification metrics are more appropriate
-4. **Extensible**: Easy to add new clustering variables
-
-## Implementation Details
-
-### File Structure
-```
-03b_cluster_analysis.R          # NEW: Clustering script
-output/
-  cluster_analysis_results.rds  # NEW: Complete clustering results
-  cluster_profiles.csv          # NEW: Cluster characterizations
-  hex_features_with_clusters.rds # NEW: Features + clusters
-figures/
-  03b_elbow_plot.png           # NEW: K selection
-  03b_silhouette_plot.png      # NEW: Cluster validation
-  03b_pca_clusters.png         # NEW: Cluster visualization
-  03b_cluster_map.png          # NEW: Geographic distribution
-  03b_cluster_profiles.png     # NEW: Profile comparison
-  03b_dendrogram.png           # NEW: Hierarchical tree
-```
-
-### Dependencies Added
-```r
-# Clustering packages
-library(cluster)      # K-means, hierarchical, silhouette
-library(factoextra)   # Cluster visualization
-library(dbscan)       # Density-based clustering
-library(Rtsne)        # t-SNE dimensionality reduction
-```
-
-### Pipeline Flow
-```
-01_create_hex_grid.R
-    ↓
-02_process_data.R
-    ↓
-03_feature_engineering.R
-    ↓
-03b_cluster_analysis.R  ← NEW STEP
-    ↓
-04_train_models.R (modified for classification)
-    ↓
-05_validate_models.R (modified for classification metrics)
-    ↓
-06_predict_risk_scores.R (modified for cluster → risk conversion)
-    ↓
-07_visualize_results.R
-```
-
-## Performance Expectations
-
-### Clustering Quality
-- **Silhouette Score**: >0.3 acceptable, >0.5 good
-- **Optimal K**: Typically 3-6 clusters for displacement patterns
-- **Cluster Sizes**: No single cluster should dominate (>50%)
-
-### Classification Performance
-- **Accuracy**: >60% acceptable, >70% good
-- **Kappa**: >0.4 acceptable, >0.6 good
-- **F1-Score**: >0.5 per cluster, higher for larger clusters
-
-### Comparison to Original
-- Original RMSE ≈ 15-20 points (on 0-100 scale)
-- New accuracy ≈ 65-75% (for k=4 clusters)
-- Both provide similar practical utility but new approach is more defensible
-
-## Usage Example
-
-```r
-# Run full pipeline
-source("00_requirements.R")
-source("run_analysis.R")
-
-# Or step-by-step
-source("00_requirements.R")
-source("packages.R")
-source("01_create_hex_grid.R")
-source("02_process_data.R")
-source("03_feature_engineering.R")
-source("03b_cluster_analysis.R")  # NEW
-source("04_train_models.R")
-source("05_validate_models.R")
-source("06_predict_risk_scores.R")
-source("07_visualize_results.R")
-
-# Examine cluster profiles
-cluster_profiles <- read_csv("output/cluster_profiles.csv")
-print(cluster_profiles)
-
-# Check clustering results
-clustering <- readRDS("output/cluster_analysis_results.rds")
-print(clustering$cluster_labels)
-```
-
-## Interpretation Guide
-
-### Risk Score Interpretation
-**Before**: "This area has a displacement risk score of 75/100"
-- Hard to explain what this means
-- Arbitrary combination of features
-
-**After**: "This area has a 75% probability of belonging to Cluster 2 (High Rent Growth + High Vulnerability)"
-- Clear pattern matching
-- Grounded in empirical observations
-- Actionable: "Areas in Cluster 2 typically experience..."
-
-### Cluster Characterization Example
-```
-Cluster 1: Low Rent Growth, Low Demolitions, Low Vulnerability
-  → Stable neighborhoods, low displacement risk
-  
-Cluster 2: High Rent Growth, High Demolitions, High Vulnerability
-  → Active gentrification, high displacement risk
-  
-Cluster 3: Moderate Rent Growth, Low Demolitions, High Vulnerability
-  → Vulnerable but not yet experiencing rapid change
-  
-Cluster 4: High Rent Growth, Low Demolitions, Low Vulnerability
-  → Upscale areas with market pressure but low displacement risk
-```
-
-## Validation & Quality Checks
-
-### Cluster Quality
-- [ ] Silhouette score >0.3 for all clusters
-- [ ] Clusters show geographic coherence (not random spatial distribution)
-- [ ] Cluster sizes are balanced (no single cluster >50%)
-- [ ] Cluster profiles are interpretable and distinct
-
-### Model Performance
-- [ ] Classification accuracy >60%
-- [ ] All clusters have F1-score >0.4
-- [ ] Confusion matrix shows reasonable separation
-- [ ] Feature importance makes domain sense
-
-### Output Quality
-- [ ] Risk scores in 0-100 range
-- [ ] Predicted cluster distribution similar to actual
-- [ ] High-risk areas align with domain knowledge
-- [ ] Visualizations load and render correctly
-
-## Future Enhancements
-
-### Short-Term
-1. Add interactive cluster labeling interface
-2. Include temporal validation with historical data
-3. Add cluster-specific intervention recommendations
-
-### Long-Term
-1. Develop hierarchical clustering with sub-patterns
-2. Implement ensemble clustering (combining multiple algorithms)
-3. Add online learning for cluster updating
-4. Create cluster trajectory analysis (how areas move between clusters)
-
-## Conclusion
-
-This implementation transforms the displacement early warning system from a methodologically questionable approach (circular reasoning with synthetic outcomes) to a scientifically rigorous two-phase methodology:
-
-1. **Phase 1 (Unsupervised)**: Discover displacement patterns empirically
-2. **Phase 2 (Supervised)**: Predict which pattern a neighborhood matches
-
-This provides both scientific defensibility and practical utility, while maintaining backward compatibility with existing visualizations and workflows.
-
-**Key Benefit**: Users can now say "This area resembles other high-risk displacement clusters" with confidence, backed by empirical data rather than arbitrary assumptions.
+The current baseline self-check is written to
+`output/part2/baseline_fixed_cluster_assignment_summary.csv`.

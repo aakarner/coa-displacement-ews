@@ -4,11 +4,13 @@ This directory is for user-provided data files that complement the automatically
 
 ## Census/ACS Spatial Allocation
 
-Run `02d_calibrate_parcel_units.R`, `02e_validate_unit_counts.R`, and
-`02c_process_corporate_parcels.R` before the ACS scripts. The master
-`02_process_data.R` script enforces this order.
+Run `scripts/data/parcel_units_calibrate.R`,
+`scripts/data/parcel_units_validate.R`, and
+`scripts/data/corporate_ownership.R` before the ACS scripts. After a promotion,
+rerun `02c` and `02f` so ownership denominators and ACS dasymetric support use
+the promoted surface.
 
-`02f_process_acs_demographics.R` uses ACS block groups as source zones and
+`scripts/data/acs_demographics.R` uses ACS block groups as source zones and
 2020 Census blocks as control zones. Within each Census block, population and
 housing totals are distributed among project hexes in proportion to mapped
 residential appraisal floor area. Missing floor area falls back to calibrated
@@ -40,9 +42,9 @@ independently allocated ACS totals to report the population and housing shares
 inside and outside the clustering sample. It does not use parcel-unit counts as
 a proxy for population.
 
-Run `02o_audit_parcel_acs_housing_units.R` before changing the clustering
+Run `scripts/audits/parcel_acs_housing_units.R` before changing the clustering
 eligibility rule or housing-unit denominator. The diagnostic compares the
-targeted, primary, and conservative parcel estimates with ACS total housing
+promoted, primary, and conservative parcel estimates with ACS total housing
 units on the exact H3 grid. It distinguishes robust source disagreements from
 cases that cross the 20-unit threshold only because of parcel-model or ACS
 sampling uncertainty. It does not alter the feature table.
@@ -56,9 +58,17 @@ The reconciliation audit creates:
 - `output/parcel_acs_block_group_unit_audit.csv`; and
 - `output/parcel_acs_unit_audit_summary.csv`.
 
+Run `scripts/audits/populated_zero_unit_hexes.R` to classify populated hexes that
+still have zero canonical parcel units. It checks the unit-bearing parcel universe,
+selected project counts, explicit eligibility exclusions, the three full
+appraisal parcel maps, ACS block-point fallback, and Austin jurisdiction
+context. It writes `output/populated_zero_unit_*` audit tables and
+`figures/02u_populated_zero_unit_hex_audit.png`; it does not backfill units or
+change eligibility.
+
 ## Residential Unit Source and Project Tables
 
-`02d_calibrate_parcel_units.R` treats the three county CSVs as broad candidate
+`scripts/data/parcel_units_calibrate.R` treats the three county CSVs as broad candidate
 parcel inputs. Before calibration, it uses the local WCAD raw property and
 parcel files plus `R/wcad_unit_eligibility.R` to classify Williamson records.
 Explicit nonresidential condominium, reference-only, park/amenity,
@@ -66,21 +76,61 @@ transitional-land, and other non-unit accounts are written to audit outputs and
 removed from the production unit universe. The EWS pipeline does not execute or
 import code from `landlord-mapper`.
 
-Run `02p_prepare_unit_sources.R` after `02d`. It reuses the WCAD eligibility
+The same stage uses `R/wcad_residential_supplement.R` to compare the broad
+Williamson input with active certified residential records whose parcel
+geometry falls inside the study grid. Certified records with positive living
+area, unique parcel/address keys, and no existing input row are added under the
+existing one-unit WCAD rules. Reviewed exceptions and land-only dispositions
+are tracked in `config/residual_unit_parcel_reviews.csv`. The current repair
+adds 408 records and writes `output/williamson_certified_residential_*` source
+and audit tables.
+
+Run `scripts/data/unit_counts/prepare_sources.R` after parcel calibration. It reuses the WCAD eligibility
 helper, extracts a compact set of TCAD unit and improvement fields from the
 configured property-profile input, applies explicit Hays account
 classifications, and ingests City Affordable Housing Inventory and Universal
 Recycling Ordinance records. Source totals and parcel links are stored in
 separate tables so a project total cannot be counted once per linked parcel.
 
-Run `02q_build_residential_projects.R` next. It groups parcels conservatively,
+Run `scripts/data/unit_counts/build_projects.R` next. It groups parcels conservatively,
 holds conflicting direct sources out of training, sums complete appraisal
 account enumerations, and writes strict labels and unresolved multifamily model
 candidates. Cross-county properties remain one project but carry explicit
 county-membership fields. Apartment signals from historical comments are
 distinguished from legal, DBA, and use evidence. Source hierarchy and model
-candidate outputs remain a shadow analysis, although the shared WCAD
-eligibility rule itself is now part of production preprocessing.
+candidate outputs remain separately auditable before promotion.
+
+Run `scripts/data/unit_counts/fit_models.R` after project construction to compare global and stratified
+square-feet-per-unit ratios, a negative-binomial GAM, and monotonic gradient
+boosting. The script uses project, spatial, and source holdouts; writes
+prediction intervals and transfer flags. Predictions enter the production
+denominator only through the reviewed `02v` promotion stage.
+
+Run `scripts/data/unit_counts/validate_williamson.R` after model fitting. It treats appraisal rows as
+accounts rather than automatically treating each row as a separate physical
+development, applies the reviewed groupings in
+`config/williamson_project_groups.csv`, and reads documented validation records
+from `config/williamson_unit_validation_sources.csv`. It also checks the
+limited-coverage AEGB and TDHCA inventories, records nonmatches without
+interpreting them as zero units, and tests a main/living-area ratio
+specification on the existing folds. HUD's official multifamily API is listed
+in the coverage manifest but is not used after repeated service timeouts.
+
+Run `scripts/data/unit_counts/build_integration.R` after Williamson validation. It gives strict selected
+direct project totals first priority, then documented unresolved-project
+counts, the validated main/living-area stratified estimate for comparable
+Williamson and other in-domain candidates, and the targeted parcel total for
+review or out-of-domain projects. Reviewed companion accounts and cross-county
+duplicates are allocated to one configured parcel representation before
+aggregation. The resulting parcel and hex files have `unit_shadow` in their
+names and remain validation artifacts.
+
+Run `scripts/data/unit_counts/promote_integration.R` after approving the integration results. It
+checks every shadow parcel against the current `02e` baseline, archives the
+pre-promotion analytical outputs once, and writes
+`output/residential_parcels_unit_promoted.rds`. `02c` requires that promoted
+surface by default; use `EWS_UNIT_SURFACE=baseline` only for an explicit
+historical or bootstrap run.
 
 The current hierarchy, caveats, validation gates, and complete output list are
 documented in `UNIT_COUNT_MODELING.md`. Raw and compact source extracts remain
@@ -167,7 +217,7 @@ eviction_id,latitude,longitude,filing_date,case_type,outcome
 
 **Purpose**: Track changes in land values that may signal gentrification pressure.
 
-Run `02i_process_appraisal_history.R` after the calibrated residential parcel
+Run `scripts/data/appraisal_history.R` after the calibrated residential parcel
 universe has been built. The source inventory is versioned in
 `config/appraisal_sources.csv`; downloaded archives and matched county-year
 extracts are cached under `data/raw_parcels/appraisal_history/`.
@@ -188,7 +238,7 @@ later post-certification export is retained only for an explicit source
 comparison. Other Hays archives can be placed at
 `data/raw_parcels/appraisal_history/hays/<year>/hays_<year>.zip` before rerunning.
 
-Then run `02j_process_appraisal_adjusted_trends.R`. It estimates each annual
+Then run `scripts/data/appraisal_adjusted_trends.R`. It estimates each annual
 county shift from stable improved real-property accounts, subtracts that shift
 from target parcel changes, and creates:
 
@@ -209,9 +259,9 @@ reconciled against the reported-acre subset in the QA output.
 **Purpose**: Track current corporate ownership, ownership turnover, and parcel
 transaction activity without confusing missing history with zero activity.
 
-Current ownership is processed by `02c_process_corporate_parcels.R`. Run
-`02k_audit_ownership_transactions.R` before
-`02l_process_ownership_transactions.R`. The audit checks the following sources
+Current ownership is processed by `scripts/data/corporate_ownership.R`. Run
+`scripts/audits/ownership_transactions.R` before
+`scripts/data/ownership_transactions.R`. The audit checks the following sources
 against the exact residential parcel universe:
 
 - cached Travis deed events from the sibling `landlord-mapper` repository;
@@ -224,7 +274,7 @@ The WCAD sales download is stored at
 row-level data remain ignored; only aggregate coverage QA is written to
 `output/`.
 
-`02l_process_ownership_transactions.R` builds parcel- and hex-level outputs:
+`scripts/data/ownership_transactions.R` builds parcel- and hex-level outputs:
 
 - `output/ownership_transaction_features_by_parcel.rds`;
 - `output/ownership_transaction_features_by_hex.rds/.csv`;
@@ -259,8 +309,8 @@ comparable owner identity. Williamson owner-change measures therefore begin in
 **Purpose**: Measure dated commercial reorientation without treating static
 amenity density as displacement pressure.
 
-Run `02m_audit_amenity_sources.R` before
-`02n_process_amenity_change.R`. The audit downloads and caches:
+Run `scripts/audits/amenity_sources.R` before
+`scripts/data/amenities.R`. The audit downloads and caches:
 
 - Texas Comptroller permitted sales-tax locations active at any point in the
   prior 48 months (`3kx8-uryv`), including NAICS, first-sale date, and

@@ -1,7 +1,7 @@
-solution_k,cluster,tentative_name,concern_level,map_color,interpretation
-6,1,Corporate Ownership + Vulnerability,High - structural,#E66101,High ownership pressure and demographic vulnerability with accumulating rather than acute physical change
-6,2,Lower-Pressure / Watch,Low,#1B9E77,Below-average pressure across most domains with some 311 activity
-6,3,Eviction + Vulnerable Renters,Very high - immediate,#D73027,High eviction pressure and vulnerability with elevated 311 activity
-6,4,Amenity-Led Emerging Pressure,High - rising,#7570B3,High amenity change with elevated 311 and ownership pressure
-6,5,High-Cost / Lower-Vulnerability,Moderate - ambiguous,#E6AB02,High rent pressure but low vulnerability and few acute smoke signals
-6,6,Demolition-Led Redevelopment,Very high - physical,#542788,High demolition pressure and elevated 311 activity with moderate vulnerability
+solution_k,cluster,tentative_name,concern_level,map_color,interpretation,profile_anchor
+6,1,Lower-Pressure / Watch,Low,#1B9E77,Below-average pressure across most domains with some 311 activity,
+6,2,High-Cost / Lower-Vulnerability,Moderate - ambiguous,#E6AB02,High rent pressure but low vulnerability and few acute smoke signals,rent_pressure_citywide_index
+6,3,Demolition-Led Redevelopment,Very high - physical,#542788,High demolition pressure and elevated 311 activity with moderate vulnerability,demolition_pressure_index
+6,4,Amenity-Led Emerging Pressure,High - rising,#7570B3,High amenity change with elevated 311 and ownership pressure,amenity_change_index
+6,5,Eviction + Vulnerable Renters,Very high - immediate,#D73027,High eviction pressure and vulnerability with elevated 311 activity,eviction_pressure_index
+6,6,Corporate Ownership + Vulnerability,High - structural,#E66101,High ownership pressure and demographic vulnerability with accumulating rather than acute physical change,ownership_pressure_index

@@ -31,9 +31,10 @@ print_header("01 - CREATING HEXAGONAL GRID")
 
 # Source utilities (enables standalone execution; also sourced by run_analysis.R)
 source(here::here("R/utils.R"))
+source(here::here("R/analysis_config.R"))
 
 # Configuration
-H3_RESOLUTION <- 9  # Hexagon resolution (~0.1km² cells)
+H3_RESOLUTION <- EWS_CONFIG$h3_resolution
 OUTPUT_DIR <- here::here("output")
 FIGURES_DIR <- here::here("figures")
 
