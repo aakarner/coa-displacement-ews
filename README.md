@@ -120,11 +120,10 @@ source roles are:
 | Demolitions | Austin issued construction permits are filtered to residential demolitions | Part 1 displacement proxy; the Part 3 hex-year outcome artifact remains to be built |
 | Land value | Hays, Travis, and Williamson appraisal histories | Part 1 sensitivity input; historical panel requires Part 3 validation |
 | 311 requests | Austin 311 API requests filtered to displacement-related service types | Part 1 smoke signal |
-| Ownership and sales | County appraisal ownership plus available deed and sales histories | Current ownership is a Part 1 input; change and transaction measures are sensitivity inputs |
+| Corporate ownership and property sales | County appraisal corporate-ownership classifications plus available deed and sales histories | Current corporate ownership is a Part 1 input; corporate-ownership change and transaction measures are sensitivity inputs |
 | Amenity change | Texas Comptroller openings, with mixed-beverage and Austin inspection corroboration | Part 1 sensitivity input |
 
-Zillow rent data are not used by the pipeline. See
-[`data/README.md`](data/README.md) for source files, coverage limits, and
+See [`data/README.md`](data/README.md) for source files, coverage limits, and
 generated artifacts.
 
 ## Data and Secrets

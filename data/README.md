@@ -27,7 +27,7 @@ downstream artifacts when an input, method, or analysis cutoff changes.
 | Demolitions | Austin issued construction permits | Current Part 1 feature implemented; Part 3 hex-year artifact pending |
 | 311 | Austin 311 Socrata API | Current Part 1 smoke signal implemented |
 | Appraisal values | County appraisal histories, 2021-2025 | Current trends and hex-year panel implemented |
-| Ownership and sales | Current county ownership plus available deed and sales histories | Current ownership and partial change measures implemented |
+| Corporate ownership and property sales | Current county corporate-ownership classifications plus available deed and sales histories | Current corporate ownership and partial change measures implemented |
 | Amenity change | Texas Comptroller sales-tax locations with corroborating sources | Current sensitivity feature implemented |
 
 ## Census/ACS Spatial Allocation
@@ -179,7 +179,7 @@ CoStar is not the citywide backfill. `data/CoStarHistoric-clean.csv` and
 `data/geocoded_buildings.csv` produce a separate
 `costar_rent_pressure_index` only where matched properties exist.
 `costar_present` records that coverage. Missing CoStar observations remain
-missing, and Zillow rent data are not used.
+missing.
 
 Key outputs are:
 
@@ -272,12 +272,14 @@ are:
 - `output/311_requests_by_hex_year.csv`; and
 - `output/311_service_request_counts.csv`.
 
-### Ownership and Transaction History
+### Corporate Ownership and Transaction History
 
-**Purpose**: Track current corporate ownership, ownership turnover, and parcel
-transaction activity without confusing missing history with zero activity.
+**Purpose**: Track current corporate ownership, corporate-ownership change, and
+parcel transaction activity without confusing missing history with zero
+activity.
 
-Current ownership is processed by `scripts/data/corporate_ownership.R`. Run
+Current corporate ownership is processed by
+`scripts/data/corporate_ownership.R`. Run
 `scripts/audits/ownership_transactions.R` before
 `scripts/data/ownership_transactions.R`. The audit checks the following sources
 against the exact residential parcel universe:
@@ -309,16 +311,16 @@ omits 2022-2023 and nearly all 2024 events, so Williamson transaction pressure
 is deliberately missing rather than treated as zero. The raw partial event
 counts remain in QA outputs.
 
-Ownership change focuses on corporate entry. Hays and Williamson use annual
-2023-2025 owner transitions. Recent Travis deed-party names are blank; for
-Travis only, a corporate acquisition is inferred when a recent market-deed
+Corporate-ownership change focuses on corporate entry. Hays and Williamson use
+annual 2023-2025 owner transitions. Recent Travis deed-party names are blank;
+for Travis only, a corporate acquisition is inferred when a recent market-deed
 parcel is corporate-owned in the current appraisal extract. Corporate
 dispositions remain unavailable for Travis and are excluded from its index.
 
 The audit also documents that Williamson's 2021-2022 `ASMNT`
 field named `OwnerQuickRefID` duplicates the parcel reference and is not a
-comparable owner identity. Williamson owner-change measures therefore begin in
-2023.
+comparable owner identity. Williamson corporate-ownership change measures
+therefore begin in 2023.
 
 ### Amenity Change
 
