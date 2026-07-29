@@ -320,7 +320,8 @@ allocation rather than positive independent parcel-unit evidence. The
 certified-roll supplement reduces the full-residential-proxy gap count to zero.
 The ten former multifamily-signal hexes are now documented as TCAD land-only
 records whose signal came from zoning rather than current improvements. See
-`PARCEL_ACS_UNIT_AUDIT.md` and `scripts/audits/populated_zero_unit_hexes.R`.
+the [July 2026 parcel/ACS unit audit](../audits/parcel-acs-unit-audit-2026-07.md)
+and `scripts/audits/populated_zero_unit_hexes.R`.
 
 ## Outputs
 

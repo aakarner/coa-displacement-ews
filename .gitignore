@@ -45,8 +45,8 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-# pkgdown site
-docs/
+# Project documentation under docs/ is tracked. Configure any future pkgdown
+# site to use a separate generated-output directory.
 
 # translation temp files
 po/*~

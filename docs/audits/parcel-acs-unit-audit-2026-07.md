@@ -1,5 +1,9 @@
 # Parcel and ACS Housing-Unit Audit
 
+**Audit vintage:** July 2026. The values below are a point-in-time record of the
+promoted parcel-unit surface and contemporaneous ACS allocation. Rerun the named
+audit scripts before using the figures to describe a later pipeline vintage.
+
 ## Purpose
 
 This audit tests disagreement between the parcel-derived housing-unit surface

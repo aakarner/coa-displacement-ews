@@ -160,8 +160,10 @@ surface by default; use `EWS_UNIT_SURFACE=baseline` only for an explicit
 historical or bootstrap run.
 
 The current hierarchy, caveats, validation gates, and complete output list are
-documented in `UNIT_COUNT_MODELING.md`. Raw and compact source extracts remain
-ignored under `data/raw_parcels/unit_sources/`.
+documented in
+[`docs/methods/unit-count-modeling.md`](../docs/methods/unit-count-modeling.md).
+Raw and compact source extracts remain ignored under
+`data/raw_parcels/unit_sources/`.
 
 ## Displacement Proxies
 

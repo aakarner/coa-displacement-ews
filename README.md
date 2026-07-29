@@ -79,6 +79,7 @@ config/
   forecast_outcomes.csv       Part 3 displacement-proxy outcomes
   amenity_cluster_labels_k6.csv
 
+docs/                         Current guidance and dated audit reports
 data/                         Local inputs and cached public extracts
 output/                       Derived data artifacts
 figures/                      Static and interactive outputs
@@ -137,7 +138,5 @@ export AUSTIN_DATA_API_KEY="..."
 export AUSTIN_DATA_API_SECRET="..."
 ```
 
-See [`data/README.md`](data/README.md) for source details,
-[`WORKFLOW.md`](WORKFLOW.md) for the analytical graph,
-[`CLUSTER_METHODOLOGY.md`](CLUSTER_METHODOLOGY.md) for Parts 1 and 2, and
-[`UNIT_COUNT_MODELING.md`](UNIT_COUNT_MODELING.md) for the parcel-unit hierarchy.
+See [`docs/README.md`](docs/README.md) for the documentation index and
+[`data/README.md`](data/README.md) for source details and coverage limits.
