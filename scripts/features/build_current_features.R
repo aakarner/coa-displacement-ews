@@ -261,6 +261,10 @@ build_current_stream_features <- function() {
       mutate(
         issue_date_parsed = ymd(`Issued Date`),
         issued_year = year(issue_date_parsed),
+        is_demolition_work_class = str_detect(
+          `Work Class`,
+          regex("^demolition$", ignore_case = TRUE)
+        ),
         is_residential_demo = str_detect(
           `Permit Class Mapped`,
           regex("residential", ignore_case = TRUE)
@@ -275,6 +279,7 @@ build_current_stream_features <- function() {
         !is.na(Longitude),
         !is.na(issue_date_parsed),
         issue_date_parsed <= EWS_CONFIG$analysis_as_of_date,
+        is_demolition_work_class,
         is_residential_demo
       ) %>%
       st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, remove = FALSE) %>%

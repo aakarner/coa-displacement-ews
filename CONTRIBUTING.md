@@ -80,7 +80,7 @@ Use clear, descriptive commit messages:
 
 ```
 Good:
-- "Add eviction data processing to 02_process_data.R"
+- "Build residential demolition hex-year outcome panel"
 - "Fix bug in spatial lag calculation"
 - "Update README with new data source instructions"
 
@@ -94,16 +94,17 @@ Bad:
 
 We especially welcome contributions in these areas:
 
-### 1. New Data Sources
+### 1. Source Coverage
 
-Help integrate additional displacement indicators:
-- Eviction filings
-- Land value assessments  
-- Corporate/investor ownership
+Help improve the coverage and validation of displacement indicators:
+- Historical residential demolition outcomes
+- More complete deed and sales histories
+- Authoritative rental inventories
 - Building code violations
 - Utility disconnections
 
-See `data/README.md` for data format guidelines.
+See `data/README.md` for current sources, coverage limits, and pipeline
+artifacts.
 
 ### 2. Model Improvements
 
@@ -140,7 +141,7 @@ Improve documentation:
 ## Development Setup
 
 1. Fork and clone the repository
-2. Install dependencies: `source("00_requirements.R")`
+2. Install dependencies: `Rscript 00_requirements.R`
 3. Set up Census API key
 4. Run the full pipeline once to understand the workflow
 5. Make your changes

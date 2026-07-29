@@ -1,14 +1,42 @@
 # Data Directory
 
-This directory is for user-provided data files that complement the automatically-downloaded Census/ACS data.
+This directory contains local source files and ignored caches used by the
+pipeline. It is not a generic drop folder: source paths are declared in
+[`_targets.R`](../_targets.R), and feature roles are declared in
+[`config/feature_dictionary.csv`](../config/feature_dictionary.csv).
+
+Run the dependency graph from the repository root:
+
+```bash
+Rscript 00_requirements.R
+Rscript run_analysis.R
+```
+
+Do not manually sequence the old numbered `02*` stages. `{targets}` runs the
+source-specific scripts below in dependency order and rebuilds affected
+downstream artifacts when an input, method, or analysis cutoff changes.
+
+## Current Source Inventory
+
+| Domain | Pipeline source | Current status |
+| --- | --- | --- |
+| Residential units | Hays, Travis, and Williamson appraisal records plus reviewed direct-unit sources and modeled estimates | Promoted parcel-unit surface |
+| ACS demographics | ACS 5-year estimates, 2020 Census blocks, and residential-parcel support | Current Part 1 vulnerability |
+| Rent | ACS gross-rent vintages; CoStar only where matched properties exist | ACS citywide Part 1 input; CoStar sensitivity input |
+| Evictions | Travis County JP filing extracts | Current and hex-year outputs implemented |
+| Demolitions | Austin issued construction permits | Current Part 1 feature implemented; Part 3 hex-year artifact pending |
+| 311 | Austin 311 Socrata API | Current Part 1 smoke signal implemented |
+| Appraisal values | County appraisal histories, 2021-2025 | Current trends and hex-year panel implemented |
+| Ownership and sales | Current county ownership plus available deed and sales histories | Current ownership and partial change measures implemented |
+| Amenity change | Texas Comptroller sales-tax locations with corroborating sources | Current sensitivity feature implemented |
 
 ## Census/ACS Spatial Allocation
 
-Run `scripts/data/parcel_units_calibrate.R`,
-`scripts/data/parcel_units_validate.R`, and
-`scripts/data/corporate_ownership.R` before the ACS scripts. After a promotion,
-rerun `02c` and `02f` so ownership denominators and ACS dasymetric support use
-the promoted surface.
+Targets `unit_calibration`, `unit_validation`, `promoted_unit_surface`, and
+`corporate_features` establish the residential support before
+`acs_demographics` and `acs_rent_history` run. When a unit source changes,
+`{targets}` rebuilds the dependent ownership denominators and ACS allocation
+automatically.
 
 `scripts/data/acs_demographics.R` uses ACS block groups as source zones and
 2020 Census blocks as control zones. Within each Census block, population and
@@ -85,50 +113,49 @@ are tracked in `config/residual_unit_parcel_reviews.csv`. The current repair
 adds 408 records and writes `output/williamson_certified_residential_*` source
 and audit tables.
 
-Run `scripts/data/unit_counts/prepare_sources.R` after parcel calibration. It reuses the WCAD eligibility
-helper, extracts a compact set of TCAD unit and improvement fields from the
-configured property-profile input, applies explicit Hays account
-classifications, and ingests City Affordable Housing Inventory and Universal
-Recycling Ordinance records. Source totals and parcel links are stored in
-separate tables so a project total cannot be counted once per linked parcel.
+Target `unit_sources` runs `scripts/data/unit_counts/prepare_sources.R`. It
+reuses the WCAD eligibility helper, extracts a compact set of TCAD unit and
+improvement fields from the configured property-profile input, applies explicit
+Hays account classifications, and ingests City Affordable Housing Inventory
+and Universal Recycling Ordinance records. Source totals and parcel links are
+stored in separate tables so a project total cannot be counted once per linked
+parcel.
 
-Run `scripts/data/unit_counts/build_projects.R` next. It groups parcels conservatively,
-holds conflicting direct sources out of training, sums complete appraisal
-account enumerations, and writes strict labels and unresolved multifamily model
-candidates. Cross-county properties remain one project but carry explicit
-county-membership fields. Apartment signals from historical comments are
-distinguished from legal, DBA, and use evidence. Source hierarchy and model
-candidate outputs remain separately auditable before promotion.
+Target `unit_projects` groups parcels conservatively, holds conflicting direct
+sources out of training, sums complete appraisal account enumerations, and
+writes strict labels and unresolved multifamily model candidates. Cross-county
+properties remain one project but carry explicit county-membership fields.
+Apartment signals from historical comments are distinguished from legal, DBA,
+and use evidence.
 
-Run `scripts/data/unit_counts/fit_models.R` after project construction to compare global and stratified
-square-feet-per-unit ratios, a negative-binomial GAM, and monotonic gradient
-boosting. The script uses project, spatial, and source holdouts; writes
-prediction intervals and transfer flags. Predictions enter the production
-denominator only through the reviewed `02v` promotion stage.
+Target `unit_models` compares global and stratified square-feet-per-unit ratios,
+a negative-binomial GAM, and monotonic gradient boosting. It uses project,
+spatial, and source holdouts and writes prediction intervals and transfer flags.
+Predictions enter the production denominator only through
+`promoted_unit_surface`.
 
-Run `scripts/data/unit_counts/validate_williamson.R` after model fitting. It treats appraisal rows as
-accounts rather than automatically treating each row as a separate physical
-development, applies the reviewed groupings in
-`config/williamson_project_groups.csv`, and reads documented validation records
+Target `williamson_validation` treats appraisal rows as accounts rather than
+automatically treating each row as a separate physical development and applies
+the reviewed groupings in
+`config/williamson_project_groups.csv`. It reads documented validation records
 from `config/williamson_unit_validation_sources.csv`. It also checks the
 limited-coverage AEGB and TDHCA inventories, records nonmatches without
 interpreting them as zero units, and tests a main/living-area ratio
 specification on the existing folds. HUD's official multifamily API is listed
 in the coverage manifest but is not used after repeated service timeouts.
 
-Run `scripts/data/unit_counts/build_integration.R` after Williamson validation. It gives strict selected
-direct project totals first priority, then documented unresolved-project
-counts, the validated main/living-area stratified estimate for comparable
-Williamson and other in-domain candidates, and the targeted parcel total for
-review or out-of-domain projects. Reviewed companion accounts and cross-county
-duplicates are allocated to one configured parcel representation before
-aggregation. The resulting parcel and hex files have `unit_shadow` in their
-names and remain validation artifacts.
+Target `unit_integration` gives strict selected direct project totals first
+priority, then documented unresolved-project counts, the validated
+main/living-area stratified estimate for comparable Williamson and other
+in-domain candidates, and the targeted parcel total for review or out-of-domain
+projects. Reviewed companion accounts and cross-county duplicates are allocated
+to one configured parcel representation before aggregation. The resulting
+parcel and hex files have `unit_shadow` in their names and remain validation
+artifacts.
 
-Run `scripts/data/unit_counts/promote_integration.R` after approving the integration results. It
-checks every shadow parcel against the current `02e` baseline, archives the
-pre-promotion analytical outputs once, and writes
-`output/residential_parcels_unit_promoted.rds`. `02c` requires that promoted
+Target `promoted_unit_surface` checks every shadow parcel against the targeted
+baseline, archives the pre-promotion analytical outputs once, and writes
+`output/residential_parcels_unit_promoted.rds`. Downstream targets use that
 surface by default; use `EWS_UNIT_SURFACE=baseline` only for an explicit
 historical or bootstrap run.
 
@@ -136,84 +163,60 @@ The current hierarchy, caveats, validation gates, and complete output list are
 documented in `UNIT_COUNT_MODELING.md`. Raw and compact source extracts remain
 ignored under `data/raw_parcels/unit_sources/`.
 
-## Optional Data Files
+## Displacement Proxies
 
-### 1. Building Demolitions (`demolitions.csv`)
+### Rent Pressure
 
-**Purpose**: Track building demolitions that directly displace residents.
+The citywide Part 1 rent feature comes from target `acs_rent_history`. It uses
+ACS 5-year median gross-rent estimates for configured non-overlapping vintages
+(currently 2014, 2019, and 2024), converts them to constant dollars, and
+combines the current level, reliable recent change, and acceleration. Each hex
+receives the median from its dominant residential block group, with tract
+fallback for suppressed estimates; medians are never averaged across source
+geographies.
 
-**Format**:
-```csv
-demo_id,latitude,longitude,demo_date,building_type
-1,30.267153,-97.743061,2021-06-15,Single Family
-2,30.268422,-97.744318,2021-08-22,Multi-Family
-3,30.269134,-97.745927,2021-10-03,Commercial
-```
+CoStar is not the citywide backfill. `data/CoStarHistoric-clean.csv` and
+`data/geocoded_buildings.csv` produce a separate
+`costar_rent_pressure_index` only where matched properties exist.
+`costar_present` records that coverage. Missing CoStar observations remain
+missing, and Zillow rent data are not used.
 
-**Required Columns**:
-- `demo_id`: Unique identifier for each demolition
-- `latitude`: Latitude in decimal degrees (WGS84)
-- `longitude`: Longitude in decimal degrees (WGS84)
-- `demo_date`: Date of demolition (YYYY-MM-DD format)
-- `building_type`: Type of building (e.g., "Single Family", "Multi-Family", "Commercial")
+Key outputs are:
 
-**Data Sources**:
-- City building permit databases
-- Demolition permit records
-- Property assessment records
+- `output/acs_rent_by_hex_vintage.rds/.csv`;
+- `output/acs_rent_trends_by_hex.rds/.csv`; and
+- the CoStar fields in `output/hex_features.rds`.
 
----
+### Eviction Filings
 
-### 2. Rent Prices (`rent_prices.csv`)
+Targets `prepared_evictions` and `eviction_features` ingest the Travis County
+JP defendant extracts, standardize and geocode filing addresses, assign filings
+to hexes, and truncate records at `EWS_ANALYSIS_AS_OF_DATE`. The current feature
+uses recent filings per 100 residential units and change from an equal prior
+window. Confirmed zeros are retained; rates require a valid unit denominator.
 
-**Purpose**: Track rent price changes over time to identify areas of rapid rent growth.
+Key outputs are:
 
-**Format**:
-```csv
-hex_id,date,median_rent
-1,2021-01-01,1200
-1,2021-04-01,1250
-1,2021-07-01,1300
-2,2021-01-01,1500
-2,2021-04-01,1550
-```
+- `output/eviction_filings_prepared_for_geocoding.csv`;
+- `output/eviction_filings_by_hex_summary.rds/.csv`; and
+- `output/eviction_filings_by_hex_year.csv`.
 
-**Required Columns**:
-- `hex_id`: Hexagon ID from the grid (generated by `01_create_hex_grid.R`)
-- `date`: Date of observation (YYYY-MM-DD format)
-- `median_rent`: Median rent in dollars
+Eviction ingestion is implemented. The existing hex-year file still needs
+completeness and outcome-definition validation before Part 3 forecasting.
 
-**Alternative Format** (if you have point-level data):
-```csv
-property_id,latitude,longitude,date,rent
-1,30.267153,-97.743061,2021-01-01,1200
-1,30.267153,-97.743061,2021-04-01,1250
-```
+### Residential Demolitions
 
-**Data Sources**:
-- Zillow Rent Index
-- CoStar rental data
-- Apartment listing websites (scraped with permission)
-- Fair Market Rent (FMR) from HUD
+Target `current_features` reads
+`data/Issued_Construction_Permits_20260401.csv`, retains geocoded permits whose
+mapped class is residential, truncates them at the analysis cutoff, and compares
+equal recent and prior 24-month windows. The resulting
+`demolition_pressure_index` is a current Part 1 displacement proxy.
 
----
+Part 3 still requires a dedicated, validated
+`output/demolition_permits_by_hex_year.csv` outcome artifact. There is no
+generic `demolitions.csv` input contract.
 
-### 3. Eviction Filings (`evictions.csv`) - COMING SOON
-
-**Purpose**: Track eviction filings as an indicator of housing insecurity.
-
-**Planned Format**:
-```csv
-eviction_id,latitude,longitude,filing_date,case_type,outcome
-1,30.267153,-97.743061,2021-03-15,Non-payment,Granted
-2,30.268422,-97.744318,2021-04-22,Lease violation,Dismissed
-```
-
-**Integration**: Add to `02_process_data.R` Section 7
-
----
-
-### 4. County Appraisal Values
+### County Appraisal Values
 
 **Purpose**: Track changes in land values that may signal gentrification pressure.
 
@@ -252,9 +255,24 @@ For the current level denominator, calibrated parcel land area is preferred.
 Where Williamson acreage is absent, projected parcel-polygon area is used and
 reconciled against the reported-acre subset in the QA output.
 
----
+## Smoke Signals
 
-### 5. Ownership and Transaction History
+### Austin 311 Requests
+
+Target `requests_311` queries Austin's Socrata endpoint `xwdj-i9he`, truncates
+requests at the analysis cutoff, assigns geocoded records to hexes, and
+separately counts service-request types classified as plausible displacement
+smoke signals. The Part 1 feature is normalized by residential units;
+all-request counts remain available for context.
+
+The API requires `AUSTIN_DATA_API_KEY` and `AUSTIN_DATA_API_SECRET`. Key outputs
+are:
+
+- `output/311_requests_by_hex_summary.rds/.csv`;
+- `output/311_requests_by_hex_year.csv`; and
+- `output/311_service_request_counts.csv`.
+
+### Ownership and Transaction History
 
 **Purpose**: Track current corporate ownership, ownership turnover, and parcel
 transaction activity without confusing missing history with zero activity.
@@ -302,9 +320,7 @@ field named `OwnerQuickRefID` duplicates the parcel reference and is not a
 comparable owner identity. Williamson owner-change measures therefore begin in
 2023.
 
----
-
-### 6. Amenity Change
+### Amenity Change
 
 **Purpose**: Measure dated commercial reorientation without treating static
 amenity density as displacement pressure.
@@ -341,59 +357,27 @@ Generated raw API extracts and geocode caches remain ignored under
 - `output/amenity_geocoding_qa.csv`; and
 - `output/amenity_change_features_by_hex.rds/.csv`.
 
----
+## Part 3 Readiness
 
-## Data Preparation Tips
+Part 3 forecasting is not yet implemented. The available source data should not
+be confused with modeling-ready outcome panels. Target
+`part3_forecast_readiness` checks the four displacement-proxy outcomes:
 
-### Geocoding Addresses
+- eviction filings: the hex-year artifact exists; construct and validate the
+  complete outcome panel;
+- residential demolitions: build the historical hex-year artifact;
+- rent growth: the ACS vintage artifact exists, with CoStar context; define and
+  validate the forecasting outcome without treating missing CoStar as zero;
+- land-value growth: the appraisal hex-year artifact exists; construct and
+  validate a comparable county-adjusted outcome panel.
 
-If your data has addresses instead of coordinates:
+See [`config/forecast_outcomes.csv`](../config/forecast_outcomes.csv) and
+`output/part3/forecast_readiness.csv` for the machine-readable specification and
+current check.
 
-```r
-library(tidygeocoder)
+## Data Privacy
 
-data_with_coords <- your_data %>%
-  geocode(
-    address = address_column,
-    method = "osm",  # or "census", "google", etc.
-    lat = latitude,
-    lon = longitude
-  )
-```
-
-### Aggregating to Hexagons
-
-If you have point-level data to aggregate:
-
-```r
-# Load hex grid
-hex_grid <- readRDS("output/hex_grid.rds")
-
-# Convert your data to spatial
-your_data_sf <- your_data %>%
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
-
-# Spatial join
-aggregated <- hex_grid %>%
-  st_join(your_data_sf) %>%
-  group_by(hex_id) %>%
-  summarise(
-    count = n(),
-    mean_value = mean(value_column, na.rm = TRUE)
-  )
-```
-
-## Data Privacy Considerations
-
-**Important**: When using sensitive data (evictions, individual addresses):
-- Aggregate to hexagon level before sharing
-- Never publish individual addresses or personally identifiable information
-- Follow local data privacy regulations
-- Consider differential privacy techniques for public releases
-
-## Getting Help
-
-If you have data in a different format:
-1. See `02_process_data.R` for examples of data processing
-2. Consult the main README.md for integration instructions
-3. Open an issue on GitHub with your data format question
+Eviction records, owner names, and individual addresses can contain sensitive
+or personally identifiable information. Raw and row-level inputs remain local
+and ignored by Git. Share only reviewed aggregate outputs, and inspect every
+export for address or name fields before release.

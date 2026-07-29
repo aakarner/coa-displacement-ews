@@ -43,8 +43,8 @@ targets::tar_progress()
 used by every stage. Updating a raw source or the analysis cutoff invalidates
 only the affected branches.
 
-The seven lightweight source-manifest targets intentionally check file
-metadata on every run; unchanged manifests do not rebuild downstream stages.
+The lightweight source-manifest targets intentionally check file metadata on
+every run; unchanged manifests do not rebuild downstream stages.
 
 An existing reviewed workspace can initialize the metadata store once with
 `EWS_TARGETS_ADOPT_EXISTING=true Rscript run_analysis.R`; subsequent runs should
@@ -105,6 +105,27 @@ Part 3 does not yet train a model. Its current output,
 still required for the four future displacement-proxy outcomes. The former
 same-year cluster classifiers were removed from the active tree because they do
 not implement the methods-report architecture; Git history preserves them.
+
+## Implemented Evidence
+
+The versioned feature dictionary is
+[`config/feature_dictionary.csv`](config/feature_dictionary.csv). The current
+source roles are:
+
+| Domain | Current source and status | Analytical role |
+| --- | --- | --- |
+| Demographics | ACS 5-year estimates allocated with Census-block controls and residential-parcel support | Part 1 vulnerability |
+| Rent | ACS gross-rent vintages are the citywide backbone; CoStar is coverage-limited enrichment | ACS is a Part 1 input; CoStar is a sensitivity input and coverage flag |
+| Evictions | Travis County JP filing extracts are processed to current and hex-year outputs | Part 1 displacement proxy; historical panel requires Part 3 validation |
+| Demolitions | Austin issued construction permits are filtered to residential demolitions | Part 1 displacement proxy; the Part 3 hex-year outcome artifact remains to be built |
+| Land value | Hays, Travis, and Williamson appraisal histories | Part 1 sensitivity input; historical panel requires Part 3 validation |
+| 311 requests | Austin 311 API requests filtered to displacement-related service types | Part 1 smoke signal |
+| Ownership and sales | County appraisal ownership plus available deed and sales histories | Current ownership is a Part 1 input; change and transaction measures are sensitivity inputs |
+| Amenity change | Texas Comptroller openings, with mixed-beverage and Austin inspection corroboration | Part 1 sensitivity input |
+
+Zillow rent data are not used by the pipeline. See
+[`data/README.md`](data/README.md) for source files, coverage limits, and
+generated artifacts.
 
 ## Data and Secrets
 

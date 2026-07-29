@@ -52,10 +52,19 @@ list(
     eviction_input_manifest,
     build_file_manifest(
       c(
-        "data/Eviction Case Data 01.01.2020 - 04.29.2026.csv",
+        "data/Alex Karner Eviction Report 1-1-20 to 5-22-26 (1).xlsx",
+        paste0(
+          "data/Odyssey-JobOutput-May 20, 2026 ",
+          "16-54-45-3728695-1 (1).xlsx"
+        ),
         "output/eviction_addresses_geocoded.csv"
       )
     ),
+    cue = tar_cue(mode = "always")
+  ),
+  tar_target(
+    demolition_input_manifest,
+    build_file_manifest("data/Issued_Construction_Permits_20260401.csv"),
     cue = tar_cue(mode = "always")
   ),
   tar_target(
@@ -528,6 +537,7 @@ list(
         appraisal_adjusted_features,
         ownership_transaction_features,
         amenity_features,
+        demolition_input_manifest,
         method_config_manifest
       )
     ),
