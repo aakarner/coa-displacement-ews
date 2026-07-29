@@ -17,7 +17,7 @@
 # OUTPUTS:
 #   - output/hex_counts_by_county.csv
 #   - output/hex_counts_by_county_intersections.csv
-#   - figures/08_austin_county_boundaries_hex_counts.png
+#   - figures/audit_austin_county_boundaries_hex_counts.png
 #
 ################################################################################
 
@@ -31,7 +31,7 @@ suppressPackageStartupMessages({
   library(ggthemes)
 })
 
-print_header("08 - AUSTIN COUNTY BOUNDARIES AND HEX COUNTS")
+print_header("AUSTIN COUNTY BOUNDARIES AND HEX COUNTS")
 
 OUTPUT_DIR <- here::here("output")
 DATA_DIR <- here::here("data")
@@ -166,7 +166,7 @@ p_county_city <- ggplot() +
   )
 
 ggsave(
-  filename = file.path(FIGURES_DIR, "08_austin_county_boundaries_hex_counts.png"),
+  filename = file.path(FIGURES_DIR, "audit_austin_county_boundaries_hex_counts.png"),
   plot = p_county_city,
   width = 10,
   height = 8,
@@ -174,8 +174,8 @@ ggsave(
   bg = "white"
 )
 
-print_header("STEP 08 COMPLETE")
+print_header("CITY/COUNTY HEX AUDIT COMPLETE")
 cat("✓ County and city boundary map generated\n")
 cat("✓ Hex counts by county saved\n")
-cat(paste0("✓ Map: ", file.path(FIGURES_DIR, "08_austin_county_boundaries_hex_counts.png"), "\n"))
+cat(paste0("✓ Map: ", file.path(FIGURES_DIR, "audit_austin_county_boundaries_hex_counts.png"), "\n"))
 cat(paste0("✓ Counts: ", file.path(OUTPUT_DIR, "hex_counts_by_county.csv"), "\n"))
