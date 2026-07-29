@@ -33,17 +33,18 @@ suppressPackageStartupMessages({
   library(sf)
 })
 
-print_header("03e - VISUALIZE AMENITY-AUGMENTED CLUSTERS")
+print_header("PART 1 - VISUALIZE BASELINE CLUSTERS")
 
 OUTPUT_DIR <- project_path("output")
 FIGURES_DIR <- project_path("figures")
 LABEL_FILE <- project_path("config", "amenity_cluster_labels_k6.csv")
 
 required_files <- c(
-  file.path(OUTPUT_DIR, "hex_features.rds"),
-  file.path(OUTPUT_DIR, "amenity_cluster_assignments.csv"),
-  file.path(OUTPUT_DIR, "amenity_cluster_recommendations.csv"),
-  LABEL_FILE
+    file.path(OUTPUT_DIR, "hex_features.rds"),
+    file.path(OUTPUT_DIR, "amenity_cluster_assignments.csv"),
+    file.path(OUTPUT_DIR, "amenity_cluster_recommendations.csv"),
+    file.path(OUTPUT_DIR, "amenity_cluster_population_coverage.csv"),
+    LABEL_FILE
 )
 missing_files <- required_files[!file.exists(required_files)]
 if (length(missing_files) > 0) {
@@ -66,6 +67,26 @@ recommendations <- read_csv(
   show_col_types = FALSE
 )
 cluster_labels <- read_csv(LABEL_FILE, show_col_types = FALSE)
+population_coverage <- read_csv(
+  file.path(OUTPUT_DIR, "amenity_cluster_population_coverage.csv"),
+  show_col_types = FALSE
+)
+
+required_label_columns <- c(
+  "solution_k", "cluster", "tentative_name", "concern_level",
+  "map_color", "interpretation", "profile_anchor"
+)
+missing_label_columns <- setdiff(required_label_columns, names(cluster_labels))
+if (length(missing_label_columns) > 0) {
+  stop(
+    "Cluster label configuration is missing: ",
+    paste(missing_label_columns, collapse = ", "),
+    call. = FALSE
+  )
+}
+if (anyDuplicated(cluster_labels$cluster)) {
+  stop("Cluster label configuration contains duplicate cluster IDs.", call. = FALSE)
+}
 
 selected_k <- recommendations %>%
   filter(
@@ -95,25 +116,15 @@ if (
   )
 }
 
-required_label_columns <- c(
-  "solution_k", "cluster", "tentative_name", "concern_level",
-  "map_color", "interpretation", "profile_anchor"
-)
-missing_label_columns <- setdiff(required_label_columns, names(cluster_labels))
-if (length(missing_label_columns) > 0) {
-  stop(
-    "Cluster label configuration is missing: ",
-    paste(missing_label_columns, collapse = ", "),
-    call. = FALSE
-  )
-}
-
 selected_assignments <- assignments %>%
   filter(specification == "amenity_augmented", k == selected_k) %>%
   select(hex_id, cluster)
 
 if (nrow(selected_assignments) == 0) {
   stop("No assignments found for the selected amenity solution.", call. = FALSE)
+}
+if (anyDuplicated(selected_assignments$hex_id)) {
+  stop("Selected Part 1 assignments contain duplicate hex IDs.", call. = FALSE)
 }
 
 assigned_clusters <- sort(unique(selected_assignments$cluster))
@@ -209,6 +220,15 @@ if (nrow(map_data) != nrow(selected_assignments) ||
 
 cluster_levels <- levels(map_data$cluster_label)
 cluster_colors <- setNames(cluster_labels$map_color, cluster_levels)
+classified_coverage <- population_coverage %>%
+  filter(coverage_status == "classified")
+if (nrow(classified_coverage) != 1L) {
+  stop("Could not identify classified population coverage.", call. = FALSE)
+}
+analysis_as_of <- unique(as.Date(hex_features$analysis_as_of_date))
+if (length(analysis_as_of) != 1L || is.na(analysis_as_of)) {
+  stop("Engineered features do not contain one analysis cutoff.", call. = FALSE)
+}
 
 ################################################################################
 # Static map
@@ -236,10 +256,15 @@ p_static <- ggplot() +
   ) +
   coord_sf(datum = NA) +
   labs(
-    title = "Amenity-Augmented Displacement Pressure Patterns",
+    title = "Current Displacement Pressure Typology",
     subtitle = paste0(
-      "Substantively selected k = ", selected_k,
-      "; ", format(nrow(map_data), big.mark = ","), " eligible hexes"
+      "Part 1 as of ", analysis_as_of, " | selected seven-domain k = ",
+      selected_k, " solution | ",
+      format(nrow(map_data), big.mark = ","), " classified hexes | ",
+      sprintf(
+        "%.1f%% of allocated population",
+        100 * classified_coverage$total_population_share
+      )
     ),
     caption = paste0(
       "Names and concern levels are interpretive labels, not an ordinal risk score. ",
@@ -288,7 +313,8 @@ interactive_data <- map_data %>%
       "Demolition pressure: ", round(demolition_pressure_index, 1), "<br>",
       "Eviction pressure: ", round(eviction_pressure_index, 1), "<br>",
       "311 pressure: ", round(sr_311_pressure_index, 1), "<br>",
-      "Ownership pressure: ", round(ownership_pressure_index, 1), "<br>",
+      "Corporate ownership pressure: ",
+      round(ownership_pressure_index, 1), "<br>",
       "Amenity pressure: ", round(amenity_change_index, 1),
       "</div>"
     )
@@ -359,8 +385,9 @@ interactive_map <- interactive_map %>%
       paste0(
         "<div style='background:rgba(255,255,255,.94);padding:8px 10px;",
         "border:1px solid #bbb;max-width:300px'>",
-        "<strong>Amenity-Augmented Clusters</strong><br>",
-        "<span style='font-size:11px'>Tentative k = ", selected_k,
+        "<strong>Part 1 Baseline Clusters</strong><br>",
+        "<span style='font-size:11px'>As of ", analysis_as_of,
+        "; tentative k = ", selected_k,
         " pattern names and concern levels</span></div>"
       )
     ),
@@ -380,4 +407,4 @@ saveWidget(
 
 cat("\nStatic map: ", static_path, "\n", sep = "")
 cat("Interactive map: ", interactive_path, "\n", sep = "")
-cat("03e visualization complete.\n")
+cat("Part 1 cluster visualization complete.\n")

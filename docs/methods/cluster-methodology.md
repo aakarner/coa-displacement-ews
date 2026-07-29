@@ -19,11 +19,12 @@ indices:
 - corporate ownership pressure;
 - amenity change pressure.
 
-CoStar availability is represented within the rent construction rather than
-used to remove non-CoStar hexes. `config/feature_dictionary.csv` records source
-coverage and missingness rules. Land-value and transaction indices remain
-available for sensitivity work and should be reconsidered before the baseline
-is formally adopted by project partners.
+ACS rent is the selected citywide rent domain. CoStar coverage and its separate
+rent-pressure index remain profile and sensitivity fields; missing CoStar data
+neither remove a hex nor get backfilled with zero. `config/feature_dictionary.csv`
+records source coverage and missingness rules. Land-value and transaction
+indices remain available for sensitivity work and should be reconsidered
+before the baseline is formally adopted by project partners.
 
 ## Selecting the Solution
 
@@ -39,6 +40,30 @@ These statistics inform, but do not mechanically replace, substantive review.
 The current shared solution uses `k = 6`, configured in
 `R/analysis_config.R`, with tentative labels in
 `config/amenity_cluster_labels_k6.csv`.
+
+## In-Progress Presentation Snapshot
+
+The locked run uses an analysis cutoff of April 1, 2026. It classifies 3,261
+hexes containing 92.1% of allocated population and 93.6% of allocated housing
+units. At `k = 6`, average silhouette width is 0.245, repeated-subsample
+adjusted Rand index is 0.907, the smallest cluster has 178 hexes, and the
+largest has 1,226.
+
+| Cluster | Tentative interpretation | Concern | Hexes |
+| --- | --- | --- | ---: |
+| 1 | Demolition-Led Redevelopment | Very high - physical | 307 |
+| 2 | Corporate Ownership + Vulnerability | High - structural | 426 |
+| 3 | Lower-Pressure / Watch | Low | 1,226 |
+| 4 | High-Cost / Lower-Vulnerability | Moderate - ambiguous | 659 |
+| 5 | Eviction + Vulnerable Renters | Very high - immediate | 465 |
+| 6 | Amenity-Led Emerging Pressure | High - rising | 178 |
+
+Silhouette favors `k = 3`, while gap statistics favor larger solutions.
+`k = 6` is therefore a substantive choice that preserves interpretable
+variation, not a mechanical statistical optimum. About 6.6% of population in
+eligible hexes is in Hays- or Williamson-dominant cells without equivalent
+eviction-filing coverage; this remains a presentation caveat and a blocker to
+formal baseline adoption.
 
 ## Frozen Baseline Artifact
 
@@ -83,8 +108,11 @@ eligibility rule or missing a required cluster feature receive an explicit
 
 ## Validation
 
-Part 1 validation includes spatial holdout stability, silhouette and gap
-diagnostics, mapped geographic review, and expert/community interpretation.
+Current automated Part 1 validation includes repeated random-subsample
+stability, silhouette and gap diagnostics, exact frozen-model reproduction,
+mapped geographic review, and a version/runtime lock manifest. The proposed
+geographically structured holdout and expert/community interpretation remain
+review steps rather than completed diagnostics.
 Part 2 validation includes:
 
 - exact baseline self-reproduction;
@@ -93,5 +121,6 @@ Part 2 validation includes:
 - transition tables between vintages;
 - global drift monitoring.
 
-The current baseline self-check is written to
-`output/part2/baseline_fixed_cluster_assignment_summary.csv`.
+The current baseline lock checks are written to
+`output/part1/baseline_cluster_validation.csv`; the compact metrics and
+assignment checksum are in `output/part1/baseline_cluster_summary.csv`.

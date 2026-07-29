@@ -193,9 +193,18 @@ Key outputs are:
 
 Targets `prepared_evictions` and `eviction_features` ingest the Travis County
 JP defendant extracts, standardize and geocode filing addresses, assign filings
-to hexes, and truncate records at `EWS_ANALYSIS_AS_OF_DATE`. The current feature
-uses recent filings per 100 residential units and change from an equal prior
-window. Confirmed zeros are retained; rates require a valid unit denominator.
+with ArcGIS match scores of at least 90 to hexes, and truncate records at
+`EWS_ANALYSIS_AS_OF_DATE`. The current feature uses recent filings per 100
+residential units and change from an equal prior window. Confirmed zeros are
+retained; rates require a valid unit denominator.
+
+The filing extracts cover Travis County. The current in-progress Part 1 surface
+therefore understates eviction pressure in the portions of Austin in Hays and
+Williamson Counties, where no equivalent filing source is yet integrated. This
+geographic source gap must remain visible when interpreting the presentation
+results and be resolved or neutralized before a formally adopted baseline. A
+parcel-unit-dominant county audit of the locked run assigns about 6.6% of the
+population in cluster-eligible hexes to Hays- or Williamson-dominant cells.
 
 Key outputs are:
 
@@ -262,17 +271,22 @@ reconciled against the reported-acre subset in the QA output.
 ### Austin 311 Requests
 
 Target `requests_311` queries Austin's Socrata endpoint `xwdj-i9he`, truncates
-requests at the analysis cutoff, assigns geocoded records to hexes, and
-separately counts service-request types classified as plausible displacement
-smoke signals. The Part 1 feature is normalized by residential units;
-all-request counts remain available for context.
+requests at the analysis cutoff, and retrieves only the exact code-enforcement
+intake descriptions versioned in `config/311_smoke_signal_types.csv`. Follow-up
+workflow records, general 311 activity, drainage, debris, water, park
+maintenance, and other unrelated requests do not enter the Part 1 index. The
+index combines the selected requests' recent rate per 100 residential units,
+spatial density, and change from the equal prior window.
 
-The API requires `AUSTIN_DATA_API_KEY` and `AUSTIN_DATA_API_SECRET`. Key outputs
-are:
+The selected request-level extract is cached under `data/raw_311/`, so later
+feature or clustering runs do not need to restream it. Anonymous public access
+is supported; `AUSTIN_DATA_API_KEY` and `AUSTIN_DATA_API_SECRET` are optional.
+Key outputs are:
 
 - `output/311_requests_by_hex_summary.rds/.csv`;
 - `output/311_requests_by_hex_year.csv`; and
-- `output/311_service_request_counts.csv`.
+- `output/311_service_request_counts.csv`;
+- `output/311_service_request_selection.csv`.
 
 ### Corporate Ownership and Transaction History
 

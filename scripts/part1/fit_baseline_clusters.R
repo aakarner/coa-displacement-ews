@@ -57,7 +57,7 @@ suppressPackageStartupMessages({
   library(tidyr)
 })
 
-print_header("03d - AMENITY CLUSTER SENSITIVITY ANALYSIS")
+print_header("PART 1 - BASELINE CLUSTER ESTIMATION")
 
 OUTPUT_DIR <- project_path("output")
 FIGURES_DIR <- project_path("figures")
@@ -118,6 +118,26 @@ baseline_vars <- c(
 )
 amenity_var <- "amenity_change_index"
 all_vars <- c(baseline_vars, amenity_var)
+feature_dictionary <- read_csv(
+  project_path("config", "feature_dictionary.csv"),
+  show_col_types = FALSE
+)
+configured_cluster_vars <- feature_dictionary %>%
+  filter(role == "cluster_input") %>%
+  pull(feature)
+if (
+  anyDuplicated(configured_cluster_vars) ||
+    !setequal(configured_cluster_vars, all_vars)
+) {
+  stop(
+    "Part 1 clustering variables do not match config/feature_dictionary.csv. ",
+    "Code-only: ", paste(setdiff(all_vars, configured_cluster_vars), collapse = ", "),
+    "; dictionary-only: ",
+    paste(setdiff(configured_cluster_vars, all_vars), collapse = ", "),
+    ".",
+    call. = FALSE
+  )
+}
 
 missing_vars <- setdiff(all_vars, names(hex_features))
 if (length(missing_vars) > 0) {
@@ -132,6 +152,12 @@ eligibility_col <- if ("primary_cluster_eligible" %in% names(hex_features)) {
   "primary_cluster_eligible"
 } else {
   "sufficient_data"
+}
+if (!eligibility_col %in% names(hex_features)) {
+  stop("No Part 1 eligibility field is available.", call. = FALSE)
+}
+if (anyDuplicated(hex_features$hex_id)) {
+  stop("Engineered features contain duplicate hex IDs.", call. = FALSE)
 }
 
 analysis_data <- hex_features %>%
@@ -782,16 +808,23 @@ p_diagnostics <- ggplot(
     color = NA,
     na.rm = TRUE
   ) +
+  geom_vline(
+    xintercept = selected_solution_k,
+    color = "#555555",
+    linetype = "dashed",
+    linewidth = 0.5
+  ) +
   geom_line(linewidth = 0.8) +
   geom_point(size = 1.8) +
   facet_wrap(~diagnostic, scales = "free_y", ncol = 2) +
   scale_x_continuous(breaks = k_values) +
   labs(
-    title = "Amenity Domain Cluster Sensitivity",
+    title = "Part 1 Cluster-Count Diagnostics",
     subtitle = paste0(
       format(nrow(analysis_data), big.mark = ","),
       " shared hexes; gap B = ", gap_bootstraps,
-      "; stability replicates = ", stability_replicates
+      "; stability replicates = ", stability_replicates,
+      "; selected k = ", selected_solution_k
     ),
     x = "Number of clusters (k)",
     y = NULL,
@@ -871,7 +904,7 @@ feature_labels <- c(
   demolition_pressure_index = "Demolition pressure",
   eviction_pressure_index = "Eviction pressure",
   sr_311_pressure_index = "311 pressure",
-  ownership_pressure_index = "Ownership pressure",
+  ownership_pressure_index = "Corporate ownership pressure",
   amenity_change_index = "Amenity pressure"
 )
 feature_means <- vapply(analysis_data[all_vars], mean, numeric(1))
@@ -961,4 +994,4 @@ print(
     )
 )
 
-cat("\n03d analysis complete. Canonical 03b outputs were not changed.\n")
+cat("\nPart 1 baseline cluster estimation complete.\n")

@@ -24,7 +24,8 @@ export EWS_AMENITY_CLUSTER_K="6"
 export EWS_BASELINE_CLUSTER_SPECIFICATION="amenity_augmented"
 ```
 
-For the Austin 311 source:
+Austin's public 311 endpoint supports anonymous access. Optional authenticated
+access can be configured with:
 
 ```bash
 export AUSTIN_DATA_API_KEY="..."
@@ -63,7 +64,7 @@ Rscript run_analysis.R
 Run only a final artifact and its prerequisites:
 
 ```bash
-Rscript run_analysis.R part1_visualizations
+Rscript run_analysis.R part1_validation
 Rscript run_analysis.R part2_baseline_assignment
 Rscript run_analysis.R part3_forecast_readiness
 ```
@@ -90,6 +91,9 @@ targets::tar_make(part1_baseline_model)
 - `output/hex_features.rds`: current shared feature surface.
 - `output/amenity_cluster_sensitivity.rds`: Part 1 cluster diagnostics.
 - `output/part1/baseline_cluster_model.rds`: frozen Part 1 model.
+- `output/part1/baseline_cluster_validation.csv`: Part 1 lock checks.
+- `output/part1/baseline_cluster_summary.csv`: presentation-run metrics.
+- `output/part1/baseline_cluster_assignments.csv`: canonical labeled results.
 - `output/part2/baseline_fixed_cluster_assignments.csv`: Part 2 self-check.
 - `output/part3/forecast_readiness.csv`: historical outcome-panel status.
 - `figures/03e_amenity_clusters_interactive.html`: interactive baseline map.

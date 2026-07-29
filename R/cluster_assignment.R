@@ -126,6 +126,15 @@ freeze_baseline_cluster_model <- function(
       results$assignments$k == selected_k,
     c("hex_id", "cluster")
   ]
+  if (
+    nrow(selected_assignments) != nrow(complete_features) ||
+      anyDuplicated(selected_assignments$hex_id)
+  ) {
+    stop(
+      "Selected Part 1 assignments do not match the unique training hexes.",
+      call. = FALSE
+    )
+  }
   assignment_check <- data.frame(
     hex_id = complete_features$hex_id,
     reassigned_cluster = assigned_cluster
@@ -181,14 +190,30 @@ freeze_baseline_cluster_model <- function(
     names = FALSE
   )
 
+  required_label_columns <- c(
+    "solution_k", "cluster", "tentative_name", "concern_level",
+    "map_color", "interpretation", "profile_anchor"
+  )
+  missing_label_columns <- setdiff(required_label_columns, names(labels))
+  if (length(missing_label_columns) > 0L) {
+    stop(
+      "Cluster label configuration is missing: ",
+      paste(missing_label_columns, collapse = ", "),
+      call. = FALSE
+    )
+  }
   labels <- labels[
     labels$solution_k == selected_k,
     ,
     drop = FALSE
   ]
-  if (!setequal(labels$cluster, seq_len(selected_k))) {
+  if (
+    nrow(labels) != selected_k ||
+      anyDuplicated(labels$cluster) ||
+      !setequal(labels$cluster, seq_len(selected_k))
+  ) {
     stop(
-      "Cluster labels do not cover the selected Part 1 solution.",
+      "Cluster labels do not uniquely cover the selected Part 1 solution.",
       call. = FALSE
     )
   }

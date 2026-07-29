@@ -73,7 +73,7 @@ run_r_script_stage <- function(
   command <- file.path(R.home("bin"), "Rscript")
   status <- system2(
     command,
-    args = c("--vanilla", script),
+    args = script,
     stdout = "",
     stderr = "",
     env = environment
@@ -97,65 +97,4 @@ run_r_script_stage <- function(
     )
   }
   outputs
-}
-
-run_cached_api_stage <- function(
-  script,
-  outputs,
-  dependencies = NULL,
-  required_environment,
-  expected_as_of = NULL,
-  as_of_field = NULL
-) {
-  missing_environment <- required_environment[
-    !nzchar(Sys.getenv(required_environment, unset = ""))
-  ]
-  if (length(missing_environment) > 0L) {
-    if (all(file.exists(outputs))) {
-      if (!is.null(expected_as_of) && !is.null(as_of_field)) {
-        cached <- readRDS(outputs[[1]])
-        if (!as_of_field %in% names(cached)) {
-          stop(
-            "Cached API output does not record ",
-            as_of_field,
-            ": ",
-            outputs[[1]],
-            call. = FALSE
-          )
-        }
-        cached_as_of <- unique(as.Date(cached[[as_of_field]]))
-        if (
-          length(cached_as_of) != 1L ||
-            is.na(cached_as_of) ||
-            cached_as_of != as.Date(expected_as_of)
-        ) {
-          stop(
-            "Cached API output uses cutoff ",
-            paste(cached_as_of, collapse = ", "),
-            " but the pipeline requires ",
-            as.Date(expected_as_of),
-            ". Set the required API credentials and rerun.",
-            call. = FALSE
-          )
-        }
-      }
-      message(
-        "Using cached outputs for ",
-        script,
-        " because API credentials are not set."
-      )
-      return(outputs)
-    }
-    stop(
-      "Missing API environment variable(s): ",
-      paste(missing_environment, collapse = ", "),
-      call. = FALSE
-    )
-  }
-
-  run_r_script_stage(
-    script = script,
-    outputs = outputs,
-    dependencies = dependencies
-  )
 }

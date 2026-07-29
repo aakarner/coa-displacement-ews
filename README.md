@@ -27,7 +27,7 @@ Rscript run_analysis.R
 Or run a named target and everything upstream of it:
 
 ```bash
-Rscript run_analysis.R part1_baseline_model
+Rscript run_analysis.R part1_validation
 Rscript run_analysis.R part2_baseline_assignment
 Rscript run_analysis.R part3_forecast_readiness
 ```
@@ -75,6 +75,7 @@ scripts/
   exploratory/                Non-pipeline research
 
 config/
+  311_smoke_signal_types.csv  Exact 311 descriptions used in Part 1
   feature_dictionary.csv      Feature domains, roles, and missingness rules
   forecast_outcomes.csv       Part 3 displacement-proxy outcomes
   amenity_cluster_labels_k6.csv
@@ -97,9 +98,18 @@ The selected Part 1 solution is the six-cluster amenity-augmented typology.
 - substantive cluster labels;
 - baseline distance and boundary thresholds.
 
-`output/part2/baseline_fixed_cluster_assignments.csv` checks that the frozen
-model exactly reproduces the original Part 1 assignments. Future feature
+`output/part1/baseline_cluster_validation.csv` checks the complete Part 1
+feature contract, labels, scaling, centroids, population coverage, and exact
+frozen-model reassignment. The accompanying summary, canonical assignments,
+and lock manifest preserve the reviewed presentation run. Future feature
 vintages will use the same assignment function.
+
+The locked in-progress run classifies 3,261 hexes, representing 92.1% of
+allocated population and 93.6% of allocated housing units. At the substantively
+selected `k = 6`, average silhouette width is 0.245 and repeated-subsample
+stability is 0.907. These are presentation results, not a formally adopted
+baseline; the Travis-only eviction source remains the principal geographic
+coverage caveat.
 
 Part 3 does not yet train a model. Its current output,
 `output/part3/forecast_readiness.csv`, records the historical hex-year panels
@@ -120,9 +130,9 @@ source roles are:
 | Evictions | Travis County JP filing extracts are processed to current and hex-year outputs | Part 1 displacement proxy; historical panel requires Part 3 validation |
 | Demolitions | Austin issued construction permits are filtered to residential demolitions | Part 1 displacement proxy; the Part 3 hex-year outcome artifact remains to be built |
 | Land value | Hays, Travis, and Williamson appraisal histories | Part 1 sensitivity input; historical panel requires Part 3 validation |
-| 311 requests | Austin 311 API requests filtered to displacement-related service types | Part 1 smoke signal |
+| 311 requests | Austin 311 code-enforcement intake requests selected by exact versioned descriptions | Part 1 smoke signal; general 311 activity is excluded |
 | Corporate ownership and property sales | County appraisal corporate-ownership classifications plus available deed and sales histories | Current corporate ownership is a Part 1 input; corporate-ownership change and transaction measures are sensitivity inputs |
-| Amenity change | Texas Comptroller openings, with mixed-beverage and Austin inspection corroboration | Part 1 sensitivity input |
+| Amenity change | Texas Comptroller openings, with mixed-beverage and Austin inspection corroboration | Part 1 input in the selected amenity-augmented specification |
 
 See [`data/README.md`](data/README.md) for source files, coverage limits, and
 generated artifacts.
@@ -130,8 +140,8 @@ generated artifacts.
 ## Data and Secrets
 
 Large raw appraisal files and API caches remain local and are excluded from
-Git. API credentials must be supplied through environment variables, never
-committed:
+Git. Austin's public 311 endpoint can be queried anonymously. Optional
+authenticated access uses environment variables that must never be committed:
 
 ```bash
 export AUSTIN_DATA_API_KEY="..."

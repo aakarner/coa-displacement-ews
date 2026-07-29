@@ -117,7 +117,7 @@ eviction_geocode_qc <- eviction_filings %>%
 write_csv(eviction_geocode_qc, file.path(OUTPUT_DIR, "eviction_full_geocode_qc.csv"))
 
 eviction_filings_for_join <- eviction_filings %>%
-  filter(geocoded) %>%
+  filter(reliable_geocode) %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = FALSE) %>%
   st_transform(st_crs(hex_grid))
 
@@ -127,7 +127,7 @@ eviction_filings_hex <- eviction_filings_for_join %>%
 save_output(
   eviction_filings_hex,
   file.path(OUTPUT_DIR, "eviction_filings_full_geocoded_hex.rds"),
-  "full geocoded eviction filing-defendant rows assigned to hexagons"
+  "reliably geocoded eviction filing-defendant rows assigned to hexagons"
 )
 
 eviction_filings_hex %>%

@@ -38,8 +38,8 @@ The current feature surface combines:
   appraisal value pressure;
 - vulnerability: income, poverty, tenure, race/ethnicity, education, and rent
   burden;
-- smoke signals: 311 activity, corporate ownership, transactions, and amenity
-  change;
+- smoke signals: configured code-enforcement 311 intake, corporate ownership,
+  transactions, and amenity change;
 - denominators and coverage indicators needed to distinguish zero from missing.
 
 Time-indexed features must retain their observation cutoff and source vintage.

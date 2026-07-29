@@ -27,11 +27,22 @@
 #
 ################################################################################
 
-print_header("01 - CREATING HEXAGONAL GRID")
-
-# Source utilities (enables standalone execution; also sourced by run_analysis.R)
+# Source utilities before using the shared console helpers.
 source(here::here("R/utils.R"))
 source(here::here("R/analysis_config.R"))
+
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(ggplot2)
+  library(ggthemes)
+  library(h3jsr)
+  library(htmlwidgets)
+  library(mapview)
+  library(scales)
+  library(sf)
+})
+
+print_header("01 - CREATING HEXAGONAL GRID")
 
 # Configuration
 H3_RESOLUTION <- EWS_CONFIG$h3_resolution
@@ -62,9 +73,9 @@ print_progress(paste0("Austin boundary loaded. Area: ",
 
 print_progress(paste0("Creating H3 hexagonal grid at resolution ", H3_RESOLUTION, "..."))
 
-# Use polygon_to_cells to get all H3 hexagons that cover Austin
-# This approach captures all hexagons that overlap with the boundary,
-# including those partially outside, ensuring no internal gaps
+# Use H3's polygon fill for the fixed Austin boundary. Boundary cells remain
+# complete H3 polygons, so the grid extends slightly beyond the legal boundary
+# in some places and omits small boundary slivers in others.
 h3_indices_sf <- polygon_to_cells(austin_boundary, res = H3_RESOLUTION, simple = FALSE)
 
 # Extract H3 indices as a character vector
@@ -73,20 +84,26 @@ h3_indices <- unlist(h3_indices_sf$h3_address, use.names = FALSE)
 if (length(h3_indices) == 0) {
   stop("polygon_to_cells() returned no H3 indexes.", call. = FALSE)
 }
+if (anyDuplicated(h3_indices)) {
+  stop("polygon_to_cells() returned duplicate H3 indexes.", call. = FALSE)
+}
+h3_indices <- sort(as.character(h3_indices))
 
 print_progress(paste0("Generated ", length(h3_indices), " H3 hexagons covering Austin"))
 
 # Convert H3 indices to polygon geometries
 print_progress("Converting H3 indices to polygon geometries...")
 hex_grid <- cell_to_polygon(h3_indices, simple = FALSE) |>
-  st_as_sf()
+  st_as_sf() %>%
+  rename(h3_index = h3_address) %>%
+  arrange(h3_index)
 
-if (nrow(hex_grid) != length(h3_indices)) {
+if (
+  nrow(hex_grid) != length(h3_indices) ||
+    !identical(hex_grid$h3_index, h3_indices)
+) {
   stop("H3 index and polygon counts do not match.", call. = FALSE)
 }
-
-# Add H3 index as a column
-hex_grid$h3_index <- h3_indices
 
 print_progress(paste0("Final grid contains ", nrow(hex_grid), " hexagons"))
 

@@ -924,6 +924,10 @@ hex_summary[, ownership_change_index := rowMeans(cbind(
   )),
   normalize_robust(corporate_acquisition_recent_share)
 ), na.rm = TRUE)]
+hex_summary[
+  !is.finite(ownership_change_index),
+  ownership_change_index := NA_real_
+]
 
 all_hexes <- as.data.table(st_drop_geometry(hex_grid))[, .(hex_id)]
 all_hexes[, hex_id := as.character(hex_id)]
@@ -1038,8 +1042,24 @@ if (any(!is.na(hex_summary[
 ]))) {
   stop("Incomplete transaction windows must retain missing indices.", call. = FALSE)
 }
-if (any(!is.finite(hex_summary$ownership_change_index))) {
-  stop("Ownership change index contains non-finite values.", call. = FALSE)
+ownership_index_covered <- (
+  hex_summary$corporate_acquisition_source_parcels > 0
+)
+if (any(!is.finite(
+  hex_summary$ownership_change_index[ownership_index_covered]
+))) {
+  stop(
+    "Covered ownership change indices contain non-finite values.",
+    call. = FALSE
+  )
+}
+if (any(!is.na(
+  hex_summary$ownership_change_index[!ownership_index_covered]
+))) {
+  stop(
+    "Hexes without ownership acquisition coverage must retain missing indices.",
+    call. = FALSE
+  )
 }
 
 save_output(

@@ -57,7 +57,7 @@ EWS_PACKAGE_GROUPS <- list(
     "gridExtra", "htmlwidgets", "ggthemes", "classInt", "ggspatial", "rosm"
   ),
   pipeline = c("targets"),
-  utilities = c("here", "tictoc")
+  utilities = c("here", "tictoc", "digest")
 )
 
 EWS_REQUIRED_PACKAGES <- unique(unlist(EWS_PACKAGE_GROUPS, use.names = FALSE))

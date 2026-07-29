@@ -128,11 +128,11 @@ if (unit_surface == "promoted") {
           promotion_validation$promotion_baseline_targeted_units -
             promotion_validation$current_baseline_targeted_units
         ) > 1e-9
-      )
+    )
   ) {
     stop(
-      "Promoted units do not match the current 02e targeted baseline. ",
-      "Re-run 02p through 02t and 02v before rebuilding canonical outputs.",
+      "Promoted units do not match the current targeted baseline. ",
+      "Run target promoted_unit_surface before rebuilding corporate_features.",
       call. = FALSE
     )
   }
@@ -174,7 +174,7 @@ if (unit_surface == "promoted") {
       )
     )
 
-  print_progress("Using explicit baseline targeted parcel units from 02e.")
+  print_progress("Using the targeted parcel-unit baseline.")
 } else if (file.exists(calibrated_units_file)) {
   residential_parcels_raw <- load_output(
     calibrated_units_file,
@@ -189,7 +189,7 @@ if (unit_surface == "promoted") {
       )
     )
 
-  print_progress("Using calibrated parcel unit counts from 02d output.")
+  print_progress("Using calibrated parcel-unit counts.")
 } else {
   missing_residential_files <- residential_parcel_files[!file.exists(residential_parcel_files)]
 

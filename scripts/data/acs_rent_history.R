@@ -58,7 +58,7 @@ if (!file.exists(residential_parcel_support_file)) {
   stop(
     "Missing residential parcel support: ",
     residential_parcel_support_file,
-    ". Run 02d, 02e, and 02c before 02h.",
+    ". Run target corporate_features before acs_rent_history.",
     call. = FALSE
   )
 }

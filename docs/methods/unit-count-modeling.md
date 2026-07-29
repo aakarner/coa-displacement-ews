@@ -297,9 +297,9 @@ falls from 169,593 targeted units to 144,444 shadow units. Together, those
 changes reduce the full regional parcel total from 519,504 to 514,648 units, a
 0.9 percent change. Hays is unchanged; Travis accounts for 4,794 fewer units
 and Williamson for 62 fewer units. The hierarchy changes 2,075 parcel rows and
-967 mapped hex totals.
+933 mapped hex totals.
 
-The pre-promotion unit-threshold comparison gained 56 eligible hexes and lost
+The pre-promotion unit-threshold comparison gained 52 eligible hexes and lost
 3. After all seven clustering domains were required, the candidate solution
 contained 3,261 assigned hexes versus 3,212 under the prior surface. Among
 3,209 hexes classified in both scenarios, 96.9 percent retained the same
@@ -314,8 +314,8 @@ analytical outputs, and writes the promoted parcel table consumed by target
 `corporate_features`.
 
 The rebuilt canonical amenity solution now contains 3,261 hexes. At the
-substantively selected k=6, repeated-subsample stability is 0.974 and the
-smallest cluster contains 173 hexes. Silhouette still favors k=3 and gap
+substantively selected k=6, repeated-subsample stability is 0.907 and the
+smallest cluster contains 178 hexes. Silhouette still favors k=3 and gap
 statistics favor larger solutions, so k=6 remains an explicit substantive
 choice rather than an automatic optimum.
 

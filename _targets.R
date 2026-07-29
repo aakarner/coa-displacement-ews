@@ -95,15 +95,54 @@ list(
     cue = tar_cue(mode = "always")
   ),
   tar_target(
-    method_config_manifest,
-    build_file_manifest(
-      c(
-        "R/analysis_config.R",
-        "config/feature_dictionary.csv",
-        "config/amenity_cluster_labels_k6.csv",
-        "config/forecast_outcomes.csv"
+    feature_dictionary,
+    "config/feature_dictionary.csv",
+    format = "file"
+  ),
+  tar_target(
+    cluster_labels,
+    "config/amenity_cluster_labels_k6.csv",
+    format = "file"
+  ),
+  tar_target(
+    pipeline_code_files,
+    sort(unique(c(
+      "00_requirements.R",
+      "01_create_hex_grid.R",
+      "run_analysis.R",
+      "_targets.R",
+      list.files(
+        "R",
+        pattern = "[.]R$",
+        recursive = TRUE,
+        full.names = TRUE
+      ),
+      list.files(
+        "scripts/data",
+        pattern = "[.]R$",
+        recursive = TRUE,
+        full.names = TRUE
+      ),
+      list.files(
+        "scripts/features",
+        pattern = "[.]R$",
+        recursive = TRUE,
+        full.names = TRUE
+      ),
+      list.files(
+        "scripts/part1",
+        pattern = "[.]R$",
+        recursive = TRUE,
+        full.names = TRUE
+      ),
+      list.files(
+        "scripts/audits",
+        pattern = "[.]R$",
+        recursive = TRUE,
+        full.names = TRUE
       )
-    ),
+    ))),
+    format = "file",
     cue = tar_cue(mode = "always")
   ),
 
@@ -136,8 +175,7 @@ list(
       "output/residential_parcels_unit_calibrated.rds",
       dependencies = list(
         hex_grid,
-        parcel_input_manifest,
-        method_config_manifest
+        parcel_input_manifest
       )
     ),
     format = "file"
@@ -154,8 +192,7 @@ list(
       "output/residential_parcels_unit_targeted.rds",
       dependencies = list(
         unit_calibration,
-        parcel_input_manifest,
-        method_config_manifest
+        parcel_input_manifest
       )
     ),
     format = "file"
@@ -196,7 +233,7 @@ list(
         "output/residential_unit_projects.rds",
         "output/residential_unit_training_table.rds"
       ),
-      dependencies = list(unit_sources, method_config_manifest)
+      dependencies = unit_sources
     ),
     format = "file"
   ),
@@ -230,8 +267,7 @@ list(
       dependencies = list(
         unit_projects,
         unit_models,
-        parcel_input_manifest,
-        method_config_manifest
+        parcel_input_manifest
       )
     ),
     format = "file"
@@ -254,7 +290,8 @@ list(
         unit_validation,
         unit_projects,
         unit_models,
-        williamson_validation
+        williamson_validation,
+        analysis_config
       )
     ),
     format = "file"
@@ -380,25 +417,29 @@ list(
     format = "file"
   ),
   tar_target(
+    requests_311_type_config,
+    "config/311_smoke_signal_types.csv",
+    format = "file"
+  ),
+  tar_target(
     requests_311_script,
     "scripts/data/austin_311.R",
     format = "file"
   ),
   tar_target(
     requests_311,
-    run_cached_api_stage(
+    run_r_script_stage(
       requests_311_script,
       c(
         "output/311_requests_by_hex_summary.rds",
-        "output/311_requests_by_hex_year.csv"
+        "output/311_requests_by_hex_year.csv",
+        "output/311_service_request_selection.csv"
       ),
-      dependencies = list(hex_grid, analysis_config),
-      required_environment = c(
-        "AUSTIN_DATA_API_KEY",
-        "AUSTIN_DATA_API_SECRET"
-      ),
-      expected_as_of = analysis_config$analysis_as_of_date,
-      as_of_field = "sr_311_analysis_as_of"
+      dependencies = list(
+        hex_grid,
+        requests_311_type_config,
+        analysis_config
+      )
     ),
     format = "file"
   ),
@@ -450,7 +491,8 @@ list(
       dependencies = list(
         unit_validation,
         appraisal_input_manifest,
-        landlord_mapper_manifest
+        landlord_mapper_manifest,
+        analysis_config
       )
     ),
     format = "file"
@@ -487,7 +529,6 @@ list(
       "output/amenity_source_candidates.rds",
       dependencies = list(
         amenity_input_manifest,
-        method_config_manifest,
         analysis_config
       )
     ),
@@ -538,7 +579,7 @@ list(
         ownership_transaction_features,
         amenity_features,
         demolition_input_manifest,
-        method_config_manifest
+        analysis_config
       )
     ),
     format = "file"
@@ -553,7 +594,11 @@ list(
     run_r_script_stage(
       feature_audit_script,
       "output/feature_coverage_audit.csv",
-      dependencies = list(current_features, method_config_manifest)
+      dependencies = list(
+        current_features,
+        feature_dictionary,
+        analysis_config
+      )
     ),
     format = "file"
   ),
@@ -571,13 +616,25 @@ list(
       part1_cluster_script,
       c(
         "output/amenity_cluster_sensitivity.rds",
+        "output/amenity_cluster_metrics.csv",
+        "output/amenity_cluster_gap_statistics.csv",
+        "output/amenity_cluster_stability.csv",
+        "output/amenity_cluster_agreement.csv",
         "output/amenity_cluster_assignments.csv",
-        "output/amenity_cluster_recommendations.csv"
+        "output/amenity_cluster_recommendations.csv",
+        "output/amenity_cluster_profiles.csv",
+        "output/amenity_cluster_crosswalk.csv",
+        "output/amenity_cluster_selected_crosswalk.csv",
+        "output/amenity_cluster_selected_label_mapping.csv",
+        "output/amenity_cluster_population_coverage.csv",
+        "figures/03d_amenity_cluster_diagnostics.png",
+        "figures/03d_amenity_cluster_selected_maps.png",
+        "figures/03d_amenity_cluster_selected_profiles.png"
       ),
       dependencies = list(
         current_features,
         feature_audit,
-        method_config_manifest,
+        feature_dictionary,
         analysis_config
       )
     ),
@@ -588,7 +645,7 @@ list(
     {
       current_features
       part1_cluster_analysis
-      method_config_manifest
+      cluster_labels
       freeze_baseline_cluster_model(
         feature_file = "output/hex_features.rds",
         cluster_results_file = "output/amenity_cluster_sensitivity.rds",
@@ -615,19 +672,49 @@ list(
       dependencies = list(
         current_features,
         part1_cluster_analysis,
-        method_config_manifest
+        cluster_labels,
+        analysis_config
+      )
+    ),
+    format = "file"
+  ),
+  tar_target(
+    part1_validation_script,
+    "scripts/audits/part1.R",
+    format = "file"
+  ),
+  tar_target(
+    part1_validation,
+    run_r_script_stage(
+      part1_validation_script,
+      c(
+        "output/part1/baseline_cluster_validation.csv",
+        "output/part1/baseline_cluster_summary.csv",
+        "output/part1/baseline_cluster_assignments.csv",
+        "output/part1/baseline_cluster_lock.csv"
+      ),
+      dependencies = list(
+        current_features,
+        part1_cluster_analysis,
+        part1_baseline_model,
+        part1_visualizations,
+        feature_dictionary,
+        cluster_labels,
+        pipeline_code_files,
+        analysis_config
       )
     ),
     format = "file"
   ),
 
-  # Part 2: self-reassignment is the first validation of the frozen model.
-  # Future-vintage feature targets will feed the same assignment function.
+  # Part 2: retain the baseline self-reassignment artifact as the template for
+  # future vintages after the stricter Part 1 lock audit has passed.
   tar_target(
     part2_baseline_assignment,
     {
       current_features
       part1_cluster_analysis
+      part1_validation
       write_baseline_assignment_audit(
         feature_file = "output/hex_features.rds",
         model_file = part1_baseline_model,

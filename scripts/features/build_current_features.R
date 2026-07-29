@@ -257,7 +257,19 @@ build_current_stream_features <- function() {
     previous_demo_start <- latest_demo_start %m-%
       years(EWS_CONFIG$demolition_recent_years)
 
-    demolitions <- read_csv(demolitions_file, show_col_types = FALSE) %>%
+    demolitions <- read_csv(
+      demolitions_file,
+      col_select = all_of(c(
+        "Permit Class Mapped", "Work Class", "Description", "Issued Date",
+        "Latitude", "Longitude"
+      )),
+      col_types = cols(
+        .default = col_character(),
+        Latitude = col_double(),
+        Longitude = col_double()
+      ),
+      show_col_types = FALSE
+    ) %>%
       mutate(
         issue_date_parsed = ymd(`Issued Date`),
         issued_year = year(issue_date_parsed),
@@ -635,7 +647,7 @@ if (file.exists(amenity_change_file)) {
     select(-hex_id_join)
 } else {
   print_progress(
-    "WARNING: Amenity-change features missing; run 02m and 02n before clustering."
+    "WARNING: Amenity-change features missing; run target amenity_features."
   )
 }
 
@@ -946,9 +958,7 @@ hex_features <- hex_features %>%
     ),
     sr_311_pressure_index = rowMeans(
       cbind(
-        normalize_robust_to_100(sr_311_latest_12mo_per_100_units),
         normalize_robust_to_100(sr_311_smoke_signal_latest_12mo_per_100_units),
-        normalize_robust_to_100(sr_311_latest_12mo_density),
         normalize_robust_to_100(sr_311_smoke_signal_latest_12mo_density),
         normalize_robust_to_100(sr_311_smoke_signal_latest_12mo_change_pct)
       ),
@@ -996,7 +1006,14 @@ safe_spatial_lag <- function(data, var_name, k = 6) {
     centroids <- suppressWarnings(st_point_on_surface(data))
     coords <- st_coordinates(centroids)
     knn <- spdep::knearneigh(coords, k = k)
-    nb <- spdep::knn2nb(knn)
+    nb <- withCallingHandlers(
+      spdep::knn2nb(knn),
+      warning = function(w) {
+        if (grepl("sub-graphs", conditionMessage(w), fixed = TRUE)) {
+          invokeRestart("muffleWarning")
+        }
+      }
+    )
     vapply(
       nb,
       function(neighbor_ids) {
