@@ -14,8 +14,8 @@
 #   output/parcel_acs_county_unit_summary.csv
 #   output/parcel_acs_block_group_unit_audit.csv
 #   output/parcel_acs_unit_audit_summary.csv
-#   figures/02o_parcel_acs_threshold_disagreement.png
-#   figures/02o_parcel_acs_unit_scatter.png
+#   figures/parcel_acs_threshold_disagreement.png
+#   figures/parcel_acs_unit_scatter.png
 ################################################################################
 
 project_path <- function(...) {
@@ -38,7 +38,7 @@ suppressPackageStartupMessages({
   library(tidyr)
 })
 
-print_header("02o - PARCEL AND ACS HOUSING-UNIT AUDIT")
+print_header("PARCEL AND ACS HOUSING-UNIT AUDIT")
 
 OUTPUT_DIR <- project_path("output")
 FIGURES_DIR <- project_path("figures")
@@ -935,7 +935,7 @@ p_map <- ggplot(plot_data) +
   )
 
 ggsave(
-  file.path(FIGURES_DIR, "02o_parcel_acs_threshold_disagreement.png"),
+  file.path(FIGURES_DIR, "parcel_acs_threshold_disagreement.png"),
   p_map,
   width = 9,
   height = 9,
@@ -980,7 +980,7 @@ p_scatter <- ggplot(
   )
 
 ggsave(
-  file.path(FIGURES_DIR, "02o_parcel_acs_unit_scatter.png"),
+  file.path(FIGURES_DIR, "parcel_acs_unit_scatter.png"),
   p_scatter,
   width = 9,
   height = 7,
@@ -988,7 +988,7 @@ ggsave(
   bg = "white"
 )
 
-print_header("02o AUDIT RESULTS")
+print_header("PARCEL AND ACS HOUSING-UNIT AUDIT RESULTS")
 cat(
   "H3 targeted parcel units:",
   scales::comma(round(grid_totals$parcel_targeted_units)),

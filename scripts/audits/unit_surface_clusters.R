@@ -19,7 +19,7 @@ suppressPackageStartupMessages({
 source(here::here("R", "utils.R"))
 source(here::here("R", "analysis_config.R"))
 
-print_header("03f - COMPARE UNIT-SHADOW CLUSTER EFFECTS")
+print_header("COMPARE UNIT-SHADOW CLUSTER EFFECTS")
 
 OUTPUT_DIR <- here::here("output")
 CURRENT_FEATURE_FILE <- file.path(OUTPUT_DIR, "hex_features.rds")
@@ -44,7 +44,7 @@ required_files <- c(
 missing_files <- required_files[!file.exists(required_files)]
 if (length(missing_files) > 0L) {
   stop(
-    "Build shadow features before 03f. Missing: ",
+    "Build the shadow feature surface before running this audit. Missing: ",
     paste(missing_files, collapse = ", "),
     call. = FALSE
   )

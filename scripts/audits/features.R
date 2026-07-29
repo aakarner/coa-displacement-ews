@@ -4,7 +4,8 @@
 #
 # Verifies that the repaired Part 1 clustering inputs exist, reports their
 # coverage, and keeps planned and profile-only fields out of the clustering
-# matrix. Run after 03_feature_engineering.R and before any clustering script.
+# matrix. Target `feature_audit` runs after `current_features` and before the
+# Part 1 clustering target.
 
 project_path <- function(...) {
   if (requireNamespace("here", quietly = TRUE)) {
@@ -23,7 +24,7 @@ suppressPackageStartupMessages({
   library(sf)
 })
 
-print_header("03a - FEATURE COVERAGE AND ROLE AUDIT")
+print_header("FEATURE COVERAGE AND ROLE AUDIT")
 
 OUTPUT_DIR <- project_path("output")
 feature_spec_file <- project_path("config", "feature_dictionary.csv")

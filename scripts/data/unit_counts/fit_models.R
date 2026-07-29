@@ -22,7 +22,7 @@ suppressPackageStartupMessages({
 source(here::here("R", "utils.R"))
 source(here::here("R", "unit_count_modeling.R"))
 
-print_header("02r - FIT AND COMPARE RESIDENTIAL UNIT COUNT MODELS")
+print_header("FIT AND COMPARE RESIDENTIAL UNIT COUNT MODELS")
 
 OUTPUT_DIR <- here::here("output")
 FIGURE_DIR <- here::here("figures")
@@ -698,7 +698,7 @@ project_cv_plot <- cv_predictions %>%
     strip.text = element_text(face = "bold")
   )
 ggsave(
-  file.path(FIGURE_DIR, "02r_unit_model_cv_observed_predicted.png"),
+  file.path(FIGURE_DIR, "unit_model_cv_observed_predicted.png"),
   project_cv_plot,
   width = 10,
   height = 8,
@@ -737,7 +737,7 @@ performance_plot <- pooled_metrics %>%
   theme_minimal(base_size = 11) +
   theme(panel.grid.major.y = element_blank())
 ggsave(
-  file.path(FIGURE_DIR, "02r_unit_model_validation_wape.png"),
+  file.path(FIGURE_DIR, "unit_model_validation_wape.png"),
   performance_plot,
   width = 10,
   height = 6,
@@ -762,4 +762,4 @@ print_progress(
   )
 )
 
-print_header("02r COMPLETE")
+print_header("RESIDENTIAL UNIT MODELING COMPLETE")

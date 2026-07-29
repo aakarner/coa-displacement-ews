@@ -20,10 +20,11 @@ engineering, rate denominators, eligibility, or cluster assignments.
 
 ## Current Populated Zero-Unit Residual
 
-`02u` evaluates the promoted canonical surface after project modeling and
-strict direct-project integration. Of 7,026 study hexes, 2,953 have zero
-parcel units, but 2,660 of those also have zero allocated population. The
-promotion changed the population-weighted residual as follows:
+`scripts/audits/populated_zero_unit_hexes.R` evaluates the promoted canonical
+surface after project modeling and strict direct-project integration. Of 7,026
+study hexes, 2,953 have zero parcel units, but 2,660 of those also have zero
+allocated population. The promotion changed the population-weighted residual
+as follows:
 
 | Measure | Pre-promotion target | Promoted canonical |
 |---|---:|---:|
@@ -53,21 +54,21 @@ The mutually exclusive audit categories are:
 | Other zero-unit parcel | 1 | 1 | 1 |
 
 The earlier candidate-only run omitted 16 strict selected project labels
-totaling 4,148 units. `02t` now applies all 892 selected direct project totals
-before unresolved-candidate predictions. The revised audit compares selected
-and allocated totals at the project level and finds zero direct-project
-integration mismatches. This project-level check matters for linked projects
-whose total is legitimately concentrated on the member parcel carrying the
-building area.
+totaling 4,148 units. Target `unit_integration` now applies all 892 selected
+direct project totals before unresolved-candidate predictions. The revised
+audit compares selected and allocated totals at the project level and finds
+zero direct-project integration mismatches. This project-level check matters
+for linked projects whose total is legitimately concentrated on the member
+parcel carrying the building area.
 
 The Williamson review exposed a version mismatch between the broad parcel
 input and the current certified property roll. The certified roll identifies
 407 active, uniquely addressed residential parcels with positive living area
 inside the study grid that were absent from the input. A reviewed legacy
 geometry supplies the location for one additional active certified property.
-`02d` now adds all 408 as one-unit records, including 16 corporate-owned
-parcels. This resolves all 84 initially flagged proxy records and reduces the
-full-residential-proxy gap count to zero.
+Target `unit_calibration` now adds all 408 as one-unit records, including 16
+corporate-owned parcels. This resolves all 84 initially flagged proxy records
+and reduces the full-residential-proxy gap count to zero.
 
 The ten former multifamily-signal cases contain 18 TCAD records. The property
 profile confirms `landOnly = 1`, zero improvement units, and zero improvement
@@ -78,14 +79,15 @@ The remaining residual is therefore dominated by ACS point fallback,
 low-housing-control population, or geometry support limitations. Those cases
 should remain zero unless independent parcel or project evidence is found.
 
-`02u` writes:
+`scripts/audits/populated_zero_unit_hexes.R` writes:
 
 - `output/populated_zero_unit_hex_audit.rds/.csv`;
 - category, jurisdiction, transition, and summary tables;
 - parcel, direct-project, exclusion, and full-parcel review tables; and
-- `figures/02u_populated_zero_unit_hex_audit.png`.
+- `figures/populated_zero_unit_hex_audit.png`.
 
-The sections below document the refreshed canonical `02o` comparison.
+The sections below document the refreshed canonical comparison from
+`scripts/audits/parcel_acs_housing_units.R`.
 
 ## Comparable Totals
 

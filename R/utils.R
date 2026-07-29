@@ -30,7 +30,7 @@ print_progress <- function(text) {
 #' 
 #' NOTE: This function is currently unused and requires the 'nngeo' package
 #' which is not loaded. The actual pipeline uses safe_spatial_lag() in
-#' 03_feature_engineering.R which uses spdep::knearneigh instead.
+#' scripts/features/build_current_features.R with spdep::knearneigh instead.
 #' Kept here for reference but commented out to avoid dependency issues.
 #' 
 # calculate_spatial_lag <- function(sf_data, value_col, k = 6) {

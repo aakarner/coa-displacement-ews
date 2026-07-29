@@ -7,7 +7,7 @@
 #   * checks official source coverage without treating noncoverage as zero;
 #   * adds documented project counts for selected validation gaps/anomalies; and
 #   * tests whether a comparable main/living-area measure transfers better than
-#     the total-improvement-area predictor used by the shadow 02r model.
+#     the total-improvement-area predictor used by the fitted unit models.
 #
 # This is a shadow validation stage. It does not replace production parcel
 # counts or clustering inputs.
@@ -29,7 +29,7 @@ source(here::here("R", "utils.R"))
 source(here::here("R", "unit_count_helpers.R"))
 source(here::here("R", "unit_count_modeling.R"))
 
-print_header("02s - VALIDATE WILLIAMSON RESIDENTIAL UNIT COUNTS")
+print_header("VALIDATE WILLIAMSON RESIDENTIAL UNIT COUNTS")
 
 OUTPUT_DIR <- here::here("output")
 UNIT_SOURCE_DIR <- here::here("data", "raw_parcels", "unit_sources")
@@ -108,7 +108,8 @@ required_files <- c(
 missing_files <- required_files[!file.exists(required_files)]
 if (length(missing_files) > 0L) {
   stop(
-    "Run 02p, 02q, and 02r before 02s. Missing: ",
+    "Run targets unit_sources, unit_projects, and unit_models before ",
+    "williamson_validation. Missing: ",
     paste(missing_files, collapse = ", "),
     call. = FALSE
   )

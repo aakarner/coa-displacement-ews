@@ -4,8 +4,8 @@
 #
 # Creates a source-record table and a separate parcel-link table for residential
 # unit evidence. Project totals are stored once per source record and are never
-# copied into parcel counts. This is a shadow-stage input to 02q; it does not
-# alter the production calibration or the ACS validation.
+# copied into parcel counts. This is the input to target `unit_projects`; it
+# does not alter the production calibration or the ACS validation.
 #
 # Optional environment variables:
 #   TCAD_PROPERTY_PROFILE   Existing landlord-mapper property_profile.csv
@@ -27,7 +27,7 @@ source(here::here("R", "utils.R"))
 source(here::here("R", "unit_count_helpers.R"))
 source(here::here("R", "wcad_unit_eligibility.R"))
 
-print_header("02p - PREPARE RESIDENTIAL UNIT COUNT SOURCES")
+print_header("PREPARE RESIDENTIAL UNIT COUNT SOURCES")
 
 OUTPUT_DIR <- here::here("output")
 UNIT_SOURCE_DIR <- here::here("data", "raw_parcels", "unit_sources")

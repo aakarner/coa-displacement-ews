@@ -17,7 +17,7 @@
 #   output/populated_zero_unit_full_parcel_support.csv
 #   output/populated_zero_unit_full_residential_proxy_review.csv
 #   output/populated_zero_unit_audit_summary.csv
-#   figures/02u_populated_zero_unit_hex_audit.png
+#   figures/populated_zero_unit_hex_audit.png
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -32,7 +32,7 @@ suppressPackageStartupMessages({
 
 source(here::here("R", "utils.R"))
 
-print_header("02u - AUDIT POPULATED ZERO-UNIT HEXES")
+print_header("AUDIT POPULATED ZERO-UNIT HEXES")
 
 OUTPUT_DIR <- here::here("output")
 FIGURES_DIR <- here::here("figures")
@@ -1110,7 +1110,7 @@ audit_map <- ggplot() +
   )
 
 ggsave(
-  file.path(FIGURES_DIR, "02u_populated_zero_unit_hex_audit.png"),
+  file.path(FIGURES_DIR, "populated_zero_unit_hex_audit.png"),
   audit_map,
   width = 12,
   height = 8.5,

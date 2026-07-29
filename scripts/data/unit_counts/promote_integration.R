@@ -2,10 +2,11 @@
 # Promote the Validated Residential Unit Hierarchy
 ################################################################################
 #
-# Converts the reviewed 02t shadow parcel surface into the canonical input used
-# by 02c. The 02e targeted table remains unchanged as a reproducible baseline.
-# Promotion is rejected if the shadow table is not linked exactly to that
-# baseline by parcel ID and pre-promotion unit count.
+# Converts the reviewed `unit_integration` shadow parcel surface into the
+# canonical input used by `corporate_features`. The `unit_validation` targeted
+# table remains unchanged as a reproducible baseline. Promotion is rejected if
+# the shadow table is not linked exactly to that baseline by parcel ID and
+# pre-promotion unit count.
 #
 # Outputs:
 #   output/residential_parcels_unit_promoted.rds
@@ -21,7 +22,7 @@ suppressPackageStartupMessages({
 
 source(here::here("R", "utils.R"))
 
-print_header("02v - PROMOTE VALIDATED RESIDENTIAL UNIT HIERARCHY")
+print_header("PROMOTE VALIDATED RESIDENTIAL UNIT HIERARCHY")
 
 OUTPUT_DIR <- here::here("output")
 BASELINE_FILE <- file.path(
@@ -47,7 +48,8 @@ required_files <- c(BASELINE_FILE, SHADOW_FILE)
 missing_files <- required_files[!file.exists(required_files)]
 if (length(missing_files) > 0L) {
   stop(
-    "Run 02e and 02t before promotion. Missing: ",
+    "Run targets unit_validation and unit_integration before promotion. ",
+    "Missing: ",
     paste(missing_files, collapse = ", "),
     call. = FALSE
   )
@@ -225,7 +227,7 @@ print_progress("Promotion manifest:")
 print(manifest)
 print_progress(
   paste0(
-    "Promoted parcel hierarchy saved. Re-run 02c and downstream stages ",
-    "without a shadow override to rebuild canonical outputs."
+    "Promoted parcel hierarchy saved. Run target corporate_features or a ",
+    "downstream target to rebuild canonical outputs."
   )
 )

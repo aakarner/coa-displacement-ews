@@ -27,7 +27,7 @@ suppressPackageStartupMessages({
 source(here::here("R", "utils.R"))
 source(here::here("R", "analysis_config.R"))
 
-print_header("02t - BUILD SHADOW RESIDENTIAL UNIT INTEGRATION")
+print_header("BUILD SHADOW RESIDENTIAL UNIT INTEGRATION")
 
 OUTPUT_DIR <- here::here("output")
 SOURCE_PARCEL_FILE <- file.path(
@@ -73,7 +73,8 @@ required_files <- c(
 missing_files <- required_files[!file.exists(required_files)]
 if (length(missing_files) > 0L) {
   stop(
-    "Run 02e and 02p through 02s before 02t. Missing: ",
+    "Run targets unit_validation through williamson_validation before ",
+    "unit_integration. Missing: ",
     paste(missing_files, collapse = ", "),
     call. = FALSE
   )

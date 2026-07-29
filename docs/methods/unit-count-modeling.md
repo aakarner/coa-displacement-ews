@@ -8,11 +8,13 @@ being repeated on every parcel account and allows disagreements to remain
 visible.
 
 WCAD residential eligibility is a production preprocessing rule.
-`scripts/data/parcel_units_calibrate.R` applies it before unit calibration and writes
-excluded and review records separately. Scripts `02p` through `02t` build and
-validate the project hierarchy. `scripts/data/unit_counts/promote_integration.R` converts that
-reviewed hierarchy into the canonical parcel input while retaining the `02e`
-targeted surface as an immutable, parcel-linked baseline.
+Target `unit_calibration` applies it through
+`scripts/data/parcel_units_calibrate.R` and writes excluded and review records
+separately. Targets `unit_sources`, `unit_projects`, `unit_models`,
+`williamson_validation`, and `unit_integration` build and validate the project
+hierarchy. Target `promoted_unit_surface` converts that reviewed hierarchy into
+the canonical parcel input while retaining the `unit_validation` targeted
+surface as an immutable, parcel-linked baseline.
 
 The EWS repository owns this definition. It reads local WCAD raw files through
 `R/wcad_unit_eligibility.R`; it does not import or execute `landlord-mapper`
@@ -21,10 +23,11 @@ documented schema, not as authoritative residential classifications.
 
 ## Source hierarchy
 
-`02d` first joins the compact WCAD legal, use, unit, and property-type fields to
-the Williamson candidate parcels. It writes canonical eligibility audit,
-exclusion, review, and QA outputs before excluded rows can enter calibration,
-corporate aggregation, ACS allocation, or feature engineering.
+Target `unit_calibration` first joins the compact WCAD legal, use, unit, and
+property-type fields to the Williamson candidate parcels. It writes canonical
+eligibility audit, exclusion, review, and QA outputs before excluded rows can
+enter calibration, corporate aggregation, ACS allocation, or feature
+engineering.
 
 `scripts/data/unit_counts/prepare_sources.R` then stores each project or account count once in
 `output/residential_unit_source_records.rds` and stores parcel relationships
@@ -91,11 +94,12 @@ QA counts these projects once in each involved county, while regional project
 and unit totals count them only once.
 
 Main/living floor area is the canonical model exposure. For a cross-county
-project represented in both appraisal systems, `02q` uses the maximum
-county-specific area total instead of summing duplicate county representations.
-The raw sums and aggregation method remain in the project table for audit.
-Reviewed WCAD companion accounts for Lantern at Westwood and Lakeline Crossing
-are also connected upstream, before model candidates are constructed.
+project represented in both appraisal systems, target `unit_projects` uses the
+maximum county-specific area total instead of summing duplicate county
+representations. The raw sums and aggregation method remain in the project
+table for audit. Reviewed WCAD companion accounts for Lantern at Westwood and
+Lakeline Crossing are also connected upstream, before model candidates are
+constructed.
 
 ## Promoted hierarchy
 
@@ -148,7 +152,7 @@ Williamson. The current certified roll contains 407 active residential records
 with positive living area and unique parcel/address keys that were absent from
 the broad input despite having geometry inside the study grid. One additional
 active certified property uses a reviewed legacy parcel solely as its geometry
-proxy. `02d` now adds these 408 records through
+proxy. Target `unit_calibration` adds these 408 records through
 `R/wcad_residential_supplement.R`, assigns one unit under the existing WCAD
 rules, and writes a complete source crosswalk. The supplement includes 30
 explicit residential condominium accounts, 378 ordinary one-unit records, and
@@ -212,7 +216,8 @@ Using the stratified prediction for the 767 in-scope projects and retaining
 current primary estimates for the 86 review projects would produce 147,556
 candidate units. Using current conservative estimates for the review group
 would produce 142,281. These were pre-promotion scenario bounds. The narrower
-validated hierarchy described below was subsequently promoted through `02v`.
+validated hierarchy described below was subsequently promoted through target
+`promoted_unit_surface`.
 
 Across all 409 candidate projects with URO estimates, the main-area stratified
 ratio has 15.7 percent WAPE, boosting has 17.3 percent, and the current
@@ -229,10 +234,11 @@ Williamson needs a separate housing-production model.
 
 `scripts/data/unit_counts/validate_williamson.R` audits 23 candidate projects touching
 Williamson. Two pairs of WCAD companion accounts, Lantern at Westwood and
-Lakeline Crossing, are grouped upstream in `02q`, so each development enters
-validation and prediction once. The two cross-county projects also contain
-TCAD and WCAD appraisal records for the same development; their areas are not
-summed as though the records represented independent buildings.
+Lakeline Crossing, are grouped upstream by target `unit_projects`, so each
+development enters validation and prediction once. The two cross-county
+projects also contain TCAD and WCAD appraisal records for the same development;
+their areas are not summed as though the records represented independent
+buildings.
 
 All 23 developments now have an external unit reference: 19 have City URO
 estimates, and documented project sources fill the four remaining development
@@ -302,9 +308,10 @@ about 92.1 percent of allocated population, compared with 91.0 percent before
 promotion.
 
 These results supported promotion of the conditional hierarchy on July 28,
-2026. `02v` preserves the original targeted count and selection provenance on
-every parcel, archives the pre-promotion canonical analytical outputs, and
-writes the promoted parcel table consumed by `02c`.
+2026. Target `promoted_unit_surface` preserves the original targeted count and
+selection provenance on every parcel, archives the pre-promotion canonical
+analytical outputs, and writes the promoted parcel table consumed by target
+`corporate_features`.
 
 The rebuilt canonical amenity solution now contains 3,261 hexes. At the
 substantively selected k=6, repeated-subsample stability is 0.974 and the
@@ -325,7 +332,8 @@ and `scripts/audits/populated_zero_unit_hexes.R`.
 
 ## Outputs
 
-`02d` writes the canonical eligibility artifacts:
+Target `unit_calibration` (`scripts/data/parcel_units_calibrate.R`) writes the
+canonical eligibility artifacts:
 
 - `output/residential_unit_eligibility_audit.rds/.csv`;
 - `output/residential_unit_eligibility_exclusions.rds/.csv`;
@@ -339,7 +347,7 @@ It also writes the certified-roll source repair:
 - `output/williamson_certified_residential_supplement_audit.csv`; and
 - `output/williamson_certified_residential_supplement_summary.csv`.
 
-`02p` writes:
+Target `unit_sources` (`scripts/data/unit_counts/prepare_sources.R`) writes:
 
 - `output/residential_parcels_unit_source_attributes.rds`;
 - `output/residential_unit_source_records.rds/.csv`;
@@ -349,7 +357,7 @@ It also writes the certified-roll source repair:
 - `output/residential_unit_source_manifest.csv`; and
 - `output/residential_unit_unmatched_source_records.csv`.
 
-`02q` writes:
+Target `unit_projects` (`scripts/data/unit_counts/build_projects.R`) writes:
 
 - `output/residential_unit_project_membership.rds/.csv`;
 - `output/residential_unit_projects.rds/.csv`;
@@ -362,7 +370,7 @@ It also writes the certified-roll source repair:
 - `output/residential_unit_excluded_projects.csv`; and
 - `output/residential_unit_project_qa.csv`.
 
-`02r` writes:
+Target `unit_models` (`scripts/data/unit_counts/fit_models.R`) writes:
 
 - `output/residential_unit_count_models.rds`;
 - `output/residential_unit_model_cv_predictions.rds/.csv`;
@@ -370,10 +378,11 @@ It also writes the certified-roll source repair:
 - fold, pooled, size-band, source, interval, and recommendation diagnostics;
 - URO sensitivity diagnostics overall and by county-transfer status;
 - model-domain, review, integration-scenario, and monotonicity QA tables; and
-- `figures/02r_unit_model_cv_observed_predicted.png` and
-  `figures/02r_unit_model_validation_wape.png`.
+- `figures/unit_model_cv_observed_predicted.png` and
+  `figures/unit_model_validation_wape.png`.
 
-`02s` writes:
+Target `williamson_validation`
+(`scripts/data/unit_counts/validate_williamson.R`) writes:
 
 - `output/residential_unit_williamson_validation.rds/.csv`;
 - `output/residential_unit_williamson_candidate_audit.csv`;
@@ -386,7 +395,8 @@ It also writes the certified-roll source repair:
 - `output/residential_unit_main_area_model_cv_predictions.csv`; and
 - `output/residential_unit_floor_area_cv_comparison.csv`.
 
-`02t` writes:
+Target `unit_integration` (`scripts/data/unit_counts/build_integration.R`)
+writes:
 
 - `output/residential_parcels_unit_shadow_integrated.rds`;
 - `output/corporate_ownership_by_hex_unit_shadow.rds`;
@@ -394,24 +404,27 @@ It also writes the certified-roll source repair:
 - allocation QA and strategy/county comparisons; and
 - hex-level unit and eligibility comparisons.
 
-`02v` writes:
+Target `promoted_unit_surface`
+(`scripts/data/unit_counts/promote_integration.R`) writes:
 
 - `output/residential_parcels_unit_promoted.rds`;
 - `output/residential_unit_promotion_manifest.csv`; and
 - one-time pre-promotion canonical artifacts under
   `output/pre_unit_model_promotion/`.
 
-After `03_feature_engineering.R` creates `hex_features_unit_shadow.rds`, `03f`
-writes:
+Before promotion, the manual unit-surface sensitivity workflow used
+`output/hex_features_unit_shadow.rds` and
+`scripts/audits/unit_surface_clusters.R` to write:
 
 - `output/unit_shadow_cluster_comparison.rds`;
 - `output/unit_shadow_cluster_assignments.csv`;
 - aligned-label, transition, population-coverage, and profile tables; and
 - `output/unit_shadow_cluster_metrics.csv`.
 
-`02u` then writes the populated zero-unit residual audit:
+The manual diagnostic `scripts/audits/populated_zero_unit_hexes.R` writes the
+populated zero-unit residual audit:
 
 - `output/populated_zero_unit_hex_audit.rds/.csv`;
 - category, jurisdiction, transition, and summary tables;
 - direct-project, unit-parcel, exclusion, and full-parcel review tables; and
-- `figures/02u_populated_zero_unit_hex_audit.png`.
+- `figures/populated_zero_unit_hex_audit.png`.

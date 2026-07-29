@@ -7,8 +7,8 @@
 # direct sources agree, retains URO estimates for sensitivity testing, and
 # writes unresolved multifamily projects as future model candidates.
 #
-# This script creates shadow outputs only. It does not modify 02d, 02e, or the
-# parcel unit field used by feature engineering and clustering.
+# This script creates shadow outputs only. It does not modify the calibrated or
+# targeted parcel surfaces used by feature engineering and clustering.
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -21,7 +21,7 @@ suppressPackageStartupMessages({
 source(here::here("R", "utils.R"))
 source(here::here("R", "unit_count_helpers.R"))
 
-print_header("02q - BUILD RESIDENTIAL PROJECTS")
+print_header("BUILD RESIDENTIAL PROJECTS")
 
 OUTPUT_DIR <- here::here("output")
 PARCEL_FILE <- file.path(

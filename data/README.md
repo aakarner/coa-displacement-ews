@@ -91,7 +91,7 @@ still have zero canonical parcel units. It checks the unit-bearing parcel univer
 selected project counts, explicit eligibility exclusions, the three full
 appraisal parcel maps, ACS block-point fallback, and Austin jurisdiction
 context. It writes `output/populated_zero_unit_*` audit tables and
-`figures/02u_populated_zero_unit_hex_audit.png`; it does not backfill units or
+`figures/populated_zero_unit_hex_audit.png`; it does not backfill units or
 change eligibility.
 
 ## Residential Unit Source and Project Tables
