@@ -240,24 +240,29 @@ unit workflow resolves these differences in six steps.
 
 ### 1. Identify Residential Appraisal Records
 
-Target `unit_calibration`, implemented in
-`scripts/data/parcel_units_calibrate.R`, starts with broad parcel extracts from
-Hays, Travis, and Williamson Counties. For Williamson, local WCAD property and
-parcel files are classified with `R/wcad_unit_eligibility.R`.
-Nonresidential condominiums, reference-only master accounts, park and amenity
-parcels, vacant transitional-commercial land, and other non-housing records
-remain in audit tables but are excluded from the unit-count surface.
+The three county inputs under `data/` are residential-candidate files generated
+by county-specific scripts in the sibling `landlord-mapper` repository.
+Travis records are already filtered using residential appraisal state codes or
+single-family/multifamily zoning. Hays records are already filtered using
+residential improvement or land state codes. The files also carry the upstream
+corporate-owner and financialized-owner classifications used by the current
+EWS pipeline.
 
-The Williamson input is also checked against the current certified appraisal
-roll. The comparison found 408 active residential records inside the study
-grid that needed to be added or linked through a reviewed geometry proxy.
-`R/wcad_residential_supplement.R` adds those records under the existing WCAD
-rules. Reviewed exceptions are recorded in
+Williamson records receive an additional EWS review because WCAD uses separate
+accounts for some condominium, common-area, and reference properties. Target
+`unit_calibration`, implemented in
+`scripts/data/parcel_units_calibrate.R`, applies the local rules in
+`R/wcad_unit_eligibility.R`, retains excluded records in audit tables, and
+checks the input against the certified appraisal roll. The current supplement
+adds 408 residential records that were missing or needed a reviewed geometry
+link. Exceptions are recorded in
 `config/residual_unit_parcel_reviews.csv`.
 
-This repository owns the eligibility rules. It may read cached data produced
-for the sibling `landlord-mapper` project, but it does not import or execute
-that repository's code.
+The EWS does not execute `landlord-mapper` code, but it currently depends on
+these generated files and their embedded initial residential and ownership
+classifications. [GitHub issue #5](https://github.com/aakarner/coa-displacement-ews/issues/5)
+tracks moving the complete county parcel-ingestion and corporate-classification
+workflow into this repository.
 
 ### 2. Collect Unit-Count Evidence
 
