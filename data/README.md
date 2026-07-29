@@ -128,10 +128,19 @@ counts.
    estimates. Smaller 2020 Census blocks provide population and housing
    controls within each block group.
 2. Within each Census block, the controlled totals are distributed among hexes
-   according to mapped residential floor area. Where floor area is missing,
-   the pipeline uses calibrated unit counts and then residential parcel count.
-   A Census block point is used only when no residential parcel evidence is
-   available.
+   using appraisal-reported improvement or living-area square footage attached
+   to geocoded residential parcel points. These are parcel attributes, not
+   mapped building footprints. The Travis input uses TCAD total improvement
+   area. Hays uses reported living area with summed building-segment area as a
+   fallback. Williamson uses reported living area, then residential floor area,
+   and then building area.
+
+Where a parcel lacks positive floor area, its promoted unit count supplies the
+weight. If that is also unavailable, the residential parcel count supplies the
+weight. Each fallback unit or parcel is multiplied by 1,000 so it can be
+combined with square-footage weights; this is a scaling convention, not a
+claim that every dwelling contains exactly 1,000 square feet. A Census block
+point is used only when the block contains no residential parcel point.
 
 Population variables use the Census block's population distribution. Housing,
 tenure, rent burden, and population-in-occupied-housing variables use its
