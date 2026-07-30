@@ -89,12 +89,32 @@ changed source or method rebuilds only the affected parts of the analysis.
 The tables below describe the main analysis-facing fields in
 `output/hex_features.rds` and the promoted residential-unit surface. They omit
 identifiers, geometry, source dates, provenance fields, and detailed
-quality-control columns. Unless stated otherwise, a count is the count within
-one hex. Fields beginning with `pct_`, and coverage fields ending in `_pct`,
-are percentages measured from 0 to 100. Growth and change fields ending in
-`_pct` are percentage changes and can be negative. Fields explicitly described
-as shares are fractions from 0 to 1. The composite indices are unitless 0-100
-relative scores; they are not percentages, probabilities, or counts.
+quality-control columns.
+
+The pipeline calculates more variables than it sends to the cluster algorithm.
+The additional fields are retained because they:
+
+1. provide interpretable component measures behind each composite index;
+2. supply denominators, geographic context, eligibility, and coverage checks;
+3. allow analysts to inspect and explain why a hex receives a particular
+   domain score; and
+4. preserve candidate measures for sensitivity analysis, later updates, and
+   Part 3 forecasting.
+
+The locked six-cluster solution uses only the seven composite fields marked
+with `*` below. Using one composite index for each conceptual domain prevents a
+domain with many available component variables from receiving extra weight
+simply because it has more columns. Before clustering, the seven indices are
+standardized to a common mean and standard deviation. Component variables,
+eligibility flags, and sensitivity indices remain in the feature table but do
+not separately enter the clustering distance.
+
+Unless stated otherwise, a count is the count within one hex. Fields beginning
+with `pct_`, and coverage fields ending in `_pct`, are percentages measured
+from 0 to 100. Growth and change fields ending in `_pct` are percentage changes
+and can be negative. Fields explicitly described as shares are fractions from
+0 to 1. The composite indices are unitless 0-100 relative scores; they are not
+percentages, probabilities, or counts.
 
 ### Residential Context and Demographics
 
@@ -117,7 +137,7 @@ relative scores; they are not percentages, probabilities, or counts.
 | `pct_renter`, `pct_owner`, `pct_rent_burden_30plus` | percent | Tenure and rent-burden rates |
 | `median_income`, `median_rent`, `median_home_value` | dollars per year; dollars per month; dollars | ACS medians assigned from the dominant residential block group, with tract fallback |
 | `rent_burden_proxy` | ratio from 0 upward | Annualized median rent divided by median household income |
-| `demographic_vulnerability_index` | unitless 0-100 index | Equal-weight relative score for lower income, renter share, poverty, rent burden, and lower college attainment |
+| `demographic_vulnerability_index` `*` | unitless 0-100 index | Cluster input: equal-weight relative score for lower income, renter share, poverty, rent burden, and lower college attainment |
 | `demographic_vulnerability_equity_index` | unitless 0-100 index | Sensitivity version that also includes `pct_poc` |
 | ACS fields ending in `_moe` | same unit as the estimate | Published ACS margin of error allocated or assigned with its estimate |
 | `*_relative_moe` | fraction from 0 upward | MOE divided by the corresponding estimate; used for reliability checks |
@@ -130,7 +150,7 @@ relative scores; they are not percentages, probabilities, or counts.
 | ACS rent | `acs_rent_current`, `acs_rent_current_real` | Median gross rent in source-year dollars per month and 2025 dollars per month |
 | ACS rent | `acs_rent_growth_recent_annualized_pct`, `acs_rent_growth_prior_annualized_pct`, `acs_rent_growth_long_annualized_pct` | Inflation-adjusted annualized percent change per year |
 | ACS rent | `acs_rent_acceleration_pp` | Recent minus prior annualized growth, in percentage points |
-| ACS rent | `rent_pressure_citywide_index` | Unitless 0-100 index combining current real rent, reliable recent growth, and acceleration |
+| ACS rent | `rent_pressure_citywide_index` `*` | Cluster input: unitless 0-100 index combining current real rent, reliable recent growth, and acceleration |
 | CoStar rent | `costar_present` | Coverage flag: 1 for at least one matched CoStar property, otherwise 0 |
 | CoStar rent | `rent_current`, `rent_psf_current`, `vacancy_pct_current` | Asking rent in dollars per unit per month, asking rent in dollars per square foot per month, and vacancy percent |
 | CoStar rent | `rent_units_current`, `n_buildings_current` | CoStar inventory units and matched buildings |
@@ -142,12 +162,12 @@ relative scores; they are not percentages, probabilities, or counts.
 | Evictions | `eviction_cases_per_100_units`, `eviction_latest_12mo_per_100_units` | Filing cases per 100 promoted residential units |
 | Evictions | `eviction_cases_total_density`, `eviction_cases_latest_12mo_density` | Filing cases per square kilometer |
 | Evictions | `eviction_cases_latest_12mo_change_pct`; `eviction_recent_share` | Percent change between 12-month windows; recent cases as a 0-1 fraction of all observed cases |
-| Evictions | `eviction_pressure_index` | Unitless 0-100 index combining the recent rate, change, and recent share |
+| Evictions | `eviction_pressure_index` `*` | Cluster input: unitless 0-100 index combining the recent rate, change, and recent share |
 | Demolitions | `demo_count_total`, `demo_count_<year>`, `demo_latest_24mo`, `demo_previous_24mo` | Issued residential demolition permits |
 | Demolitions | `demo_total_demolition_count`, `demo_total_latest_24mo`, `demo_total_previous_24mo` | Permits whose descriptions indicate total demolition |
 | Demolitions | `demo_density`, `demo_recent_density`, `demo_total_recent_density` | Permits per square kilometer |
 | Demolitions | `demo_trend`, `demo_total_trend` | Difference in log-transformed counts between equal 24-month windows |
-| Demolitions | `demolition_pressure_index` | Unitless 0-100 index combining recent residential-demolition density, positive change, and recent total-demolition density |
+| Demolitions | `demolition_pressure_index` `*` | Cluster input: unitless 0-100 index combining recent residential-demolition density, positive change, and recent total-demolition density |
 | Land value | `land_value_real_per_current_land_sqft` | Median 2025 dollars of appraised land value per square foot |
 | Land value | `land_value_county_project_percentile_current` | Median parcel land-value-per-square-foot percentile within county, from 0 to 100 |
 | Land value | `land_value_growth_long_county_adjusted_pct`, `land_value_growth_recent_county_adjusted_pct`, `land_value_growth_prior_county_adjusted_pct` | Average annual real log change after subtracting the county-year background shift, in percent per year |
@@ -163,11 +183,11 @@ relative scores; they are not percentages, probabilities, or counts.
 | 311 | `sr_311_code_related_total`, `sr_311_housing_condition_total`, `sr_311_tenant_distress_total`, `sr_311_nuisance_or_disorder_total` | Selected request counts by configured smoke-signal group |
 | 311 | `sr_311_*_per_100_units`, `sr_311_*_density` | Requests per 100 promoted residential units or per square kilometer |
 | 311 | `sr_311_*_change_pct`; `sr_311_smoke_signal_share` | Percent change between equal 12-month windows; smoke-signal requests as a 0-1 fraction of selected requests |
-| 311 | `sr_311_pressure_index` | Unitless 0-100 index combining recent smoke-signal requests per 100 units, density, and change |
+| 311 | `sr_311_pressure_index` `*` | Cluster input: unitless 0-100 index combining recent smoke-signal requests per 100 units, density, and change |
 | Corporate ownership | `corporate_owned_parcels`, `corporate_owned_units`, `corporate_owned_imprv_sqft`, `corporate_owner_count`, `financialized_owner_parcels` | Parcels, promoted dwellings, square feet, distinct classified owners, and parcels |
 | Corporate ownership | `pct_corporate_parcels`, `pct_corporate_units`, `pct_corporate_improvement_sqft`, `pct_financialized_owner_parcels` | Percent of the corresponding residential parcel, unit, or floor-area denominator |
 | Corporate ownership | `corporate_owned_units_per_km2`, `corporate_owned_parcels_per_km2` | Corporate-owned dwellings or parcels per square kilometer |
-| Corporate ownership | `ownership_pressure_index` | Unitless 0-100 index combining corporate unit share, corporate-unit density, and financialized-owner parcel share |
+| Corporate ownership | `ownership_pressure_index` `*` | Cluster input: unitless 0-100 index combining corporate unit share, corporate-unit density, and financialized-owner parcel share |
 | Property transactions | `transaction_recent_count`, `transaction_previous_count`, `transaction_recent_parcels`, `transaction_previous_parcels` | Qualifying deed or sale events and affected parcels in equal 24-month windows |
 | Property transactions | `transaction_recent_per_100_parcels`, `transaction_previous_per_100_parcels`, `transaction_recent_per_100_units` | Events per 100 eligible parcels or promoted residential units |
 | Property transactions | `transaction_recent_unit_exposure_pct`, `transaction_rate_change_per_100_parcels`; `transaction_log_count_change` | Percent of units on transacting parcels; rate difference; difference in log-transformed counts |
@@ -180,7 +200,7 @@ relative scores; they are not percentages, probabilities, or counts.
 | Amenities | `<category>_recent`, `<category>_previous` | Distance-weighted opening exposure; one event at the centroid contributes 1 and its weight declines linearly to 0 at 800 meters |
 | Amenities | `amenity_<category>_weighted_change`, `amenity_<category>_score` | Difference in weighted exposure; unitless 0-100 category score |
 | Amenities | `amenity_recent_opening_events`, `amenity_previous_opening_events`; `amenity_recent_weighted_openings`, `amenity_previous_weighted_openings`, `amenity_weighted_opening_change` | Opening-event counts; summed distance-weighted event equivalents |
-| Amenities | `amenity_change_index` | Unitless 0-100 index giving equal weight to cafe, full-service restaurant, and drinking-place scores |
+| Amenities | `amenity_change_index` `*` | Cluster input: unitless 0-100 index giving equal weight to cafe, full-service restaurant, and drinking-place scores |
 
 Year-specific fields use the four-digit year in place of `<year>`. Amenity
 fields use `cafe`, `full_service_restaurant`, or `drinking_place` in place of
