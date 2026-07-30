@@ -165,7 +165,7 @@ percentages, probabilities, or counts.
 
 | Category | Variable or variables | Unit and interpretation |
 | --- | --- | --- |
-| ACS rent | `acs_rent_current`, `acs_rent_current_real` | Median gross rent in source-year dollars per month and 2025 dollars per month |
+| ACS rent | `acs_rent_current`, `acs_rent_current_real` | Median gross rent in source-year dollars per month and 2024 dollars per month |
 | ACS rent | `acs_rent_growth_recent_annualized_pct`, `acs_rent_growth_prior_annualized_pct`, `acs_rent_growth_long_annualized_pct` | Inflation-adjusted annualized percent change per year |
 | ACS rent | `acs_rent_acceleration_pp` | Recent minus prior annualized growth, in percentage points |
 | ACS rent | `rent_pressure_citywide_index` `*` | Cluster input: unitless 0-100 index combining current real rent, reliable recent growth, and acceleration |
@@ -504,8 +504,9 @@ neighborhood conditions may be changing.
 
 The citywide Part 1 rent measure comes from target `acs_rent_history`. It uses
 ACS 5-year median gross-rent estimates ending in 2014, 2019, and 2024. These
-ending years are called **vintages**. Dollar amounts are adjusted to 2025
-dollars so an increase reflects more than general inflation.
+ending years are called **vintages**. Dollar amounts are adjusted to 2024
+dollars, the latest configured ACS vintage, so an increase reflects more than
+general inflation.
 
 The rent-pressure index combines:
 
