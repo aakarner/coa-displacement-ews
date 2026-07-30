@@ -72,15 +72,33 @@ changed source or method rebuilds only the affected parts of the analysis.
 
 ## Current Source Inventory
 
+Sources are grouped below by their analytical role. Foundational sources define
+the residential denominator and socioeconomic vulnerability. Displacement
+proxies measure relatively concrete events or changes associated with
+displacement pressure. Smoke signals measure earlier or less direct signs that
+neighborhood conditions may be changing.
+
+### Foundational Context and Vulnerability
+
 | Domain | Main sources | How the source is currently used |
 | --- | --- | --- |
 | Residential units | Hays, Travis, and Williamson appraisal records; reviewed project sources; floor-area estimates | Creates the promoted parcel-level count of dwellings used for eligibility, rates, ownership shares, and ACS allocation |
 | ACS demographics | ACS 5-year estimates and 2020 Census blocks | Creates the current Part 1 demographic-vulnerability measures |
+
+### Displacement Proxies
+
+| Domain | Main sources | How the source is currently used |
+| --- | --- | --- |
 | Rent | ACS median gross-rent vintages; CoStar for matched properties only | ACS supplies the citywide Part 1 rent input; CoStar is a separate sensitivity measure and never fills missing citywide values |
 | Evictions | Travis County Justice of the Peace filing extracts | Creates current and hex-year filing measures; equivalent Hays and Williamson records are not yet integrated |
 | Demolitions | City of Austin issued construction permits | Creates the current Part 1 demolition measure; the Part 3 historical outcome panel remains to be built |
-| 311 requests | City of Austin open-data API | Creates a Part 1 smoke signal from selected code-enforcement request types |
 | Appraisal values | County appraisal histories for 2021-2025 | Creates parcel and hex trends in land and improvement values |
+
+### Smoke Signals
+
+| Domain | Main sources | How the source is currently used |
+| --- | --- | --- |
+| 311 requests | City of Austin open-data API | Creates a Part 1 smoke signal from selected code-enforcement request types |
 | Corporate ownership and sales | Current county ownership classifications plus available deed and sales histories | Measures current corporate ownership and partial changes in ownership and transaction activity |
 | Amenity change | Texas Comptroller sales-tax locations with corroborating alcohol and food-establishment sources | Measures recent openings in selected amenity categories near each hex |
 
