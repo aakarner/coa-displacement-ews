@@ -15,6 +15,31 @@ March 2026 City of Austin proposed methods report:
 
 The unit of analysis is an H3 resolution 9 hexagon covering Austin.
 
+## Three-County Study Area
+
+Austin's full-purpose municipal boundary extends into Travis, Williamson, and
+Hays Counties. The current project geography and 2024 ACS allocation produce
+the following approximate distribution:
+
+| County | Austin area, square miles | Allocated population, people | Allocated housing, units |
+| --- | ---: | ---: | ---: |
+| Travis | 268.6 (93.3%) | 902,754 (93.0%) | 448,186 (93.4%) |
+| Williamson | 13.7 (4.8%) | 67,073 (6.9%) | 31,061 (6.5%) |
+| Hays | 5.5 (1.9%) | 1,095 (0.1%) | 403 (0.1%) |
+| **Total** | **287.8** | **970,922** | **479,650** |
+
+Area is calculated from the intersection of county boundaries with Austin's
+full-purpose boundary. Population and housing are 2024 ACS 5-year estimates
+allocated through the project's Census-block and residential-parcel
+dasymetric method and attributed to the source block group's county. Counts
+are rounded, and the shares will change when the source vintage changes.
+
+Although most of Austin is in Travis County, the analysis seeks comparable
+data for all three counties wherever a domain is critical to classification or
+forecasting. When an equivalent source is not available, the pipeline should
+retain the gap as missing or as an explicit coverage flag rather than treating
+it as a zero. Travis-only eviction filings are the principal current exception.
+
 ## Pipeline
 
 The canonical dependency graph is [`_targets.R`](_targets.R). Run:
