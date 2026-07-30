@@ -26,6 +26,31 @@ records source coverage and missingness rules. Land-value and transaction
 indices remain available for sensitivity work and should be reconsidered
 before the baseline is formally adopted by project partners.
 
+### Pressure Variables
+
+Six of the seven cluster inputs describe displacement pressure or an earlier
+smoke signal. Each is a unitless index from 0 to 100, with a larger value
+indicating more of the conditions represented by that index. The component
+measures are placed on a common scale before they are averaged, so a variable
+measured in dollars does not outweigh one measured as an event rate. The six
+completed indices are then standardized equally for clustering.
+
+| Cluster input | Role | Key source and vintage | Construction |
+| --- | --- | --- | --- |
+| **Citywide rent pressure** (`rent_pressure_citywide_index`) | Displacement proxy | ACS 5-year median gross rent for Hays, Travis, and Williamson Counties, using vintages ending in 2014, 2019, and 2024 | Combines inflation-adjusted 2024 median rent, annualized real growth from 2019 to 2024, and acceleration relative to 2014-2019 growth. Growth and acceleration are included only when all three vintages meet the ACS reliability rule. Each hex receives the median from its dominant residential block group, with tract fallback; block-group medians are never averaged. |
+| **Residential demolition pressure** (`demolition_pressure_index`) | Displacement proxy | City of Austin issued construction permits through April 1, 2026 | Keeps issued permits classified as residential demolition and compares April 2, 2024-April 1, 2026 with the preceding 24 months. Combines recent demolition density, positive change between the two periods, and recent density of permits whose description identifies a total demolition. An issued permit indicates authorized activity, not necessarily a completed demolition. |
+| **Eviction pressure** (`eviction_pressure_index`) | Displacement proxy | Travis County Justice of the Peace filing records through April 1, 2026 | Compares April 2, 2025-April 1, 2026 with the preceding 12 months. Combines recent unique filings per 100 promoted residential units, percentage change between periods, and the share of all observed filings occurring recently. Rates require at least 20 residential units. Equivalent Hays and Williamson filings are not yet integrated. |
+| **Selected 311 pressure** (`sr_311_pressure_index`) | Smoke signal | Austin 311 records from January 1, 2020 through April 1, 2026 | Uses only the three versioned code-officer intake descriptions in `config/311_smoke_signal_types.csv`, not all 311 activity. Combines selected requests during the latest 12 months per 100 residential units, requests per square kilometer, and change from the preceding 12 months. A request records reported concern, not a verified violation. |
+| **Corporate ownership pressure** (`ownership_pressure_index`) | Smoke signal | Current county appraisal ownership records, primarily the 2025 certified or current rolls for Hays, Travis, and Williamson Counties | Combines the percentage of residential units owned by corporate entities, corporate-owned residential units per square kilometer, and the percentage of residential parcels associated with financialized owners. Corporate ownership means ownership by a company or other legal entity; it does not necessarily identify a large institutional investor. |
+| **Amenity change pressure** (`amenity_change_index`) | Smoke signal | Texas Comptroller permitted sales-tax locations, with mixed-beverage and Austin food-inspection records used for corroboration; events are truncated at April 1, 2026 | Compares openings during October 2, 2024-April 1, 2026 with the preceding 18 months. Measures distance-weighted exposure within 800 meters for cafes, full-service restaurants, and drinking places. Each category combines its recent opening level with positive change, and the three category scores receive equal weight. The index measures selected openings rather than overall amenity density. |
+
+The seventh input, `demographic_vulnerability_index`, is intentionally not
+listed as a pressure variable. It describes who may be more vulnerable if
+pressure occurs. It gives equal weight to lower household income, renter share,
+poverty, rent burden, and lower educational attainment. This distinction lets
+the clusters identify places where similar market or event pressure may have
+different consequences for current residents.
+
 ## Selecting the Solution
 
 `scripts/part1/fit_baseline_clusters.R` evaluates:
