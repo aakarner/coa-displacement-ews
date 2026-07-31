@@ -10,6 +10,9 @@
 # Outputs:
 #   figures/03e_amenity_clusters_tentative.png
 #   figures/03e_amenity_clusters_interactive.html
+#
+# Cartographic orientation comes from the cached TIGER/Line reference created
+# by scripts/data/map_orientation.R. It is not part of the cluster model.
 ################################################################################
 
 project_path <- function(...) {
@@ -44,6 +47,7 @@ required_files <- c(
     file.path(OUTPUT_DIR, "amenity_cluster_assignments.csv"),
     file.path(OUTPUT_DIR, "amenity_cluster_recommendations.csv"),
     file.path(OUTPUT_DIR, "amenity_cluster_population_coverage.csv"),
+    file.path(OUTPUT_DIR, "map_orientation_reference.rds"),
     LABEL_FILE
 )
 missing_files <- required_files[!file.exists(required_files)]
@@ -51,7 +55,8 @@ if (length(missing_files) > 0) {
   stop(
     "Missing required map input(s): ",
     paste(basename(missing_files), collapse = ", "),
-    ". Run scripts/part1/fit_baseline_clusters.R first.",
+    ". Run scripts/part1/fit_baseline_clusters.R and ",
+    "scripts/data/map_orientation.R first.",
     call. = FALSE
   )
 }
@@ -71,10 +76,31 @@ population_coverage <- read_csv(
   file.path(OUTPUT_DIR, "amenity_cluster_population_coverage.csv"),
   show_col_types = FALSE
 )
+orientation_reference <- readRDS(
+  file.path(OUTPUT_DIR, "map_orientation_reference.rds")
+)
+required_orientation_elements <- c("tiger_year", "source", "roads", "water")
+missing_orientation_elements <- setdiff(
+  required_orientation_elements,
+  names(orientation_reference)
+)
+if (length(missing_orientation_elements) > 0L) {
+  stop(
+    "Map-orientation reference is missing: ",
+    paste(missing_orientation_elements, collapse = ", "),
+    call. = FALSE
+  )
+}
+if (
+  !inherits(orientation_reference$roads, "sf") ||
+    !inherits(orientation_reference$water, "sf")
+) {
+  stop("Map-orientation roads and water must be sf objects.", call. = FALSE)
+}
 
 required_label_columns <- c(
   "solution_k", "cluster", "tentative_name", "concern_level",
-  "map_color", "interpretation", "profile_anchor"
+  "display_cluster", "map_color", "interpretation", "profile_anchor"
 )
 missing_label_columns <- setdiff(required_label_columns, names(cluster_labels))
 if (length(missing_label_columns) > 0) {
@@ -87,6 +113,20 @@ if (length(missing_label_columns) > 0) {
 if (anyDuplicated(cluster_labels$cluster)) {
   stop("Cluster label configuration contains duplicate cluster IDs.", call. = FALSE)
 }
+if (
+  any(is.na(cluster_labels$display_cluster)) ||
+    anyDuplicated(cluster_labels$display_cluster) ||
+    !setequal(cluster_labels$display_cluster, seq_len(nrow(cluster_labels)))
+) {
+  stop(
+    "Display cluster numbers must uniquely cover 1 through k.",
+    call. = FALSE
+  )
+}
+
+# Display numbers order the typology from low through very high vulnerability.
+# The model's numeric cluster IDs remain unchanged for analytical continuity.
+cluster_labels <- cluster_labels %>% arrange(display_cluster)
 
 selected_k <- recommendations %>%
   filter(
@@ -202,13 +242,15 @@ map_data <- hex_features %>%
   left_join(cluster_labels, by = "cluster") %>%
   mutate(
     cluster_label = paste0(
-      "Cluster ", cluster, ": ", tentative_name, "\n", concern_level
+      "Cluster ", display_cluster, " — ", tentative_name,
+      "\nRisk category: ", concern_level
     ),
     cluster_label = factor(
       cluster_label,
       levels = paste0(
-        "Cluster ", cluster_labels$cluster, ": ",
-        cluster_labels$tentative_name, "\n", cluster_labels$concern_level
+        "Cluster ", cluster_labels$display_cluster, " — ",
+        cluster_labels$tentative_name,
+        "\nRisk category: ", cluster_labels$concern_level
       )
     )
   )
@@ -229,6 +271,11 @@ analysis_as_of <- unique(as.Date(hex_features$analysis_as_of_date))
 if (length(analysis_as_of) != 1L || is.na(analysis_as_of)) {
   stop("Engineered features do not contain one analysis cutoff.", call. = FALSE)
 }
+analysis_cutoff_label <- paste0(
+  format(analysis_as_of, "%B "),
+  as.integer(format(analysis_as_of, "%d")),
+  format(analysis_as_of, ", %Y")
+)
 
 ################################################################################
 # Static map
@@ -250,15 +297,35 @@ p_static <- ggplot() +
     color = "#FFFFFF",
     linewidth = 0.05
   ) +
+  geom_sf(
+    data = orientation_reference$water,
+    fill = "#8FC7E3",
+    color = "#4F86A0",
+    linewidth = 0.16,
+    alpha = 0.82
+  ) +
+  geom_sf(
+    data = orientation_reference$roads,
+    color = "#FFFFFF",
+    linewidth = 0.56,
+    alpha = 0.84
+  ) +
+  geom_sf(
+    data = orientation_reference$roads,
+    color = "#48545D",
+    linewidth = 0.21,
+    alpha = 0.70
+  ) +
   scale_fill_manual(
     values = cluster_colors,
-    name = "Tentative cluster"
+    name = "Typology cluster (low to high vulnerability)"
   ) +
   coord_sf(datum = NA) +
   labs(
-    title = "Current Displacement Pressure Typology",
+    title = "Baseline Displacement Pressure Typology",
     subtitle = paste0(
-      "Part 1 as of ", analysis_as_of, " | selected seven-domain k = ",
+      "Analysis cutoff: ", analysis_cutoff_label,
+      " | selected seven-domain k = ",
       selected_k, " solution | ",
       format(nrow(map_data), big.mark = ","), " classified hexes | ",
       sprintf(
@@ -267,8 +334,11 @@ p_static <- ggplot() +
       )
     ),
     caption = paste0(
-      "Names and concern levels are interpretive labels, not an ordinal risk score. ",
-      "Grey hexes were outside the shared clustering sample."
+      "Cluster labels and risk categories are interpretive, not quantitative risk scores. ",
+      "Shared hues denote shared risk categories; shades distinguish clusters.\n",
+      "Grey hexes were outside the shared clustering sample. ",
+      "Orientation overlay: ", orientation_reference$tiger_year,
+      " U.S. Census Bureau TIGER/Line."
     )
   ) +
   theme_void(base_size = 11) +
@@ -302,9 +372,9 @@ interactive_data <- map_data %>%
   mutate(
     popup_html = paste0(
       "<div style='min-width:260px;line-height:1.35'>",
-      "<strong style='font-size:14px'>Cluster ", cluster, ": ",
+      "<strong style='font-size:14px'>Cluster ", display_cluster, ": ",
       tentative_name, "</strong><br>",
-      "<strong>Concern:</strong> ", concern_level, "<br>",
+      "<strong>Risk category:</strong> ", concern_level, "<br>",
       "<span>", interpretation, "</span><hr style='margin:7px 0'>",
       "<strong>Hex ID:</strong> ", hex_id, "<br>",
       "Rent pressure: ", round(rent_pressure_citywide_index, 1), "<br>",
@@ -323,6 +393,8 @@ interactive_data <- map_data %>%
 interactive_map <- leaflet(
   options = leafletOptions(preferCanvas = TRUE, minZoom = 8)
 ) %>%
+  addMapPane("orientation_water", zIndex = 410) %>%
+  addMapPane("orientation_roads", zIndex = 420) %>%
   addProviderTiles(
     providers$CartoDB.Positron,
     options = providerTileOptions(maxZoom = 19)
@@ -332,7 +404,7 @@ for (cluster_id in configured_clusters) {
   label_row <- cluster_labels %>% filter(cluster == cluster_id)
   cluster_data <- interactive_data %>% filter(cluster == cluster_id)
   layer_name <- paste0(
-    "Cluster ", cluster_id, ": ", label_row$tentative_name
+    "Cluster ", label_row$display_cluster, ": ", label_row$tentative_name
   )
 
   interactive_map <- interactive_map %>%
@@ -340,40 +412,82 @@ for (cluster_id in configured_clusters) {
       data = cluster_data,
       group = layer_name,
       fillColor = label_row$map_color,
-      fillOpacity = 0.78,
+      fillOpacity = 0.60,
       color = "#FFFFFF",
       weight = 0.35,
-      opacity = 0.8,
+      opacity = 0.68,
       smoothFactor = 0.4,
       popup = ~popup_html,
       highlightOptions = highlightOptions(
         weight = 2,
         color = "#222222",
-        fillOpacity = 0.92,
+        fillOpacity = 0.84,
         bringToFront = TRUE
       )
     )
 }
 
+interactive_map <- interactive_map %>%
+  addPolygons(
+    data = st_transform(orientation_reference$water, 4326),
+    group = "Orientation reference",
+    fillColor = "#8FC7E3",
+    fillOpacity = 0.72,
+    color = "#4F86A0",
+    weight = 0.8,
+    opacity = 0.9,
+    options = pathOptions(
+      pane = "orientation_water",
+      interactive = FALSE
+    )
+  ) %>%
+  addPolylines(
+    data = st_transform(orientation_reference$roads, 4326),
+    group = "Orientation reference",
+    color = "#FFFFFF",
+    weight = 4,
+    opacity = 0.88,
+    options = pathOptions(
+      pane = "orientation_roads",
+      interactive = FALSE
+    )
+  ) %>%
+  addPolylines(
+    data = st_transform(orientation_reference$roads, 4326),
+    group = "Orientation reference",
+    color = "#48545D",
+    weight = 1.6,
+    opacity = 0.78,
+    options = pathOptions(
+      pane = "orientation_roads",
+      interactive = FALSE
+    )
+  )
+
 layer_names <- paste0(
-  "Cluster ", cluster_labels$cluster, ": ", cluster_labels$tentative_name
+  "Cluster ", cluster_labels$display_cluster, ": ",
+  cluster_labels$tentative_name
 )
 legend_labels <- paste0(
-  "<strong>Cluster ", cluster_labels$cluster, "</strong>: ",
-  cluster_labels$tentative_name, "<br><span style='font-size:11px'>",
+  "<strong>Cluster ", cluster_labels$display_cluster, " — ",
+  cluster_labels$tentative_name, "</strong>",
+  "<br><span style='font-size:11px'><strong>Risk category:</strong> ",
   cluster_labels$concern_level, "</span>"
 )
 
 interactive_map <- interactive_map %>%
   addLayersControl(
-    overlayGroups = layer_names,
+    overlayGroups = c(layer_names, "Orientation reference"),
     options = layersControlOptions(collapsed = TRUE)
   ) %>%
   addLegend(
     position = "bottomright",
     colors = cluster_labels$map_color,
     labels = lapply(legend_labels, HTML),
-    title = "Tentative displacement patterns",
+    title = HTML(paste0(
+      "Typology clusters<br>",
+      "<span style='font-size:11px'>Low to high vulnerability</span>"
+    )),
     opacity = 0.9
   ) %>%
   addScaleBar(
@@ -386,9 +500,9 @@ interactive_map <- interactive_map %>%
         "<div style='background:rgba(255,255,255,.94);padding:8px 10px;",
         "border:1px solid #bbb;max-width:300px'>",
         "<strong>Part 1 Baseline Clusters</strong><br>",
-        "<span style='font-size:11px'>As of ", analysis_as_of,
-        "; tentative k = ", selected_k,
-        " pattern names and concern levels</span></div>"
+        "<span style='font-size:11px'>Analysis cutoff: ",
+        analysis_cutoff_label, "; selected k = ", selected_k,
+        " typology with interpretive risk categories</span></div>"
       )
     ),
     position = "topright"

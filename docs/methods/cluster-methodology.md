@@ -68,20 +68,21 @@ The current shared solution uses `k = 6`, configured in
 
 ## In-Progress Presentation Snapshot
 
-The locked run uses an analysis cutoff of April 1, 2026. It classifies 3,261
-hexes containing 92.1% of allocated population and 93.6% of allocated housing
+The locked run uses an analysis cutoff of April 1, 2026. It classifies 3,250
+hexes containing 92.0% of allocated population and 93.6% of allocated housing
 units. At `k = 6`, average silhouette width is 0.245, repeated-subsample
-adjusted Rand index is 0.907, the smallest cluster has 178 hexes, and the
-largest has 1,226.
+adjusted Rand index is 0.916, the smallest cluster has 177 hexes, and the
+largest has 1,216. These results use the July 31 City land-use validation
+repair to the promoted residential unit surface.
 
 | Cluster | Tentative interpretation | Concern | Hexes |
 | --- | --- | --- | ---: |
-| 1 | Demolition-Led Redevelopment | Very high - physical | 307 |
-| 2 | Corporate Ownership + Vulnerability | High - structural | 426 |
-| 3 | Lower-Pressure / Watch | Low | 1,226 |
-| 4 | High-Cost / Lower-Vulnerability | Moderate - ambiguous | 659 |
-| 5 | Eviction + Vulnerable Renters | Very high - immediate | 465 |
-| 6 | Amenity-Led Emerging Pressure | High - rising | 178 |
+| 1 | Lower-Pressure / Watch | Low | 1,216 |
+| 2 | High-Cost / Lower-Vulnerability | Moderate - ambiguous | 658 |
+| 3 | Amenity-Led Emerging Pressure | High - rising | 177 |
+| 4 | Corporate Ownership + Vulnerability | High - structural | 422 |
+| 5 | Demolition-Led Redevelopment | Very high - physical | 307 |
+| 6 | Eviction + Vulnerable Renters | Very high - immediate | 470 |
 
 Silhouette favors `k = 3`, while gap statistics favor larger solutions.
 `k = 6` is therefore a substantive choice that preserves interpretable

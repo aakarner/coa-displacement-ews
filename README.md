@@ -129,10 +129,10 @@ frozen-model reassignment. The accompanying summary, canonical assignments,
 and lock manifest preserve the reviewed presentation run. Future feature
 vintages will use the same assignment function.
 
-The locked in-progress run classifies 3,261 hexes, representing 92.1% of
+The locked in-progress run classifies 3,250 hexes, representing 92.0% of
 allocated population and 93.6% of allocated housing units. At the substantively
 selected `k = 6`, average silhouette width is 0.245 and repeated-subsample
-stability is 0.907. These are presentation results, not a formally adopted
+stability is 0.916. These are presentation results, not a formally adopted
 baseline; the Travis-only eviction source remains the principal geographic
 coverage caveat.
 

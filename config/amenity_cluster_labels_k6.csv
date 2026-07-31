@@ -1,7 +1,7 @@
-solution_k,cluster,tentative_name,concern_level,map_color,interpretation,profile_anchor
-6,1,Demolition-Led Redevelopment,Very high - physical,#542788,High demolition pressure and elevated 311 activity with moderate vulnerability,demolition_pressure_index
-6,2,Corporate Ownership + Vulnerability,High - structural,#E66101,High ownership pressure and demographic vulnerability with accumulating rather than acute physical change,ownership_pressure_index
-6,3,Lower-Pressure / Watch,Low,#1B9E77,Below-average pressure across most domains with some 311 activity,
-6,4,High-Cost / Lower-Vulnerability,Moderate - ambiguous,#E6AB02,High rent pressure but low vulnerability and few acute smoke signals,rent_pressure_citywide_index
-6,5,Eviction + Vulnerable Renters,Very high - immediate,#D73027,High eviction pressure and vulnerability with elevated 311 activity,eviction_pressure_index
-6,6,Amenity-Led Emerging Pressure,High - rising,#7570B3,High amenity change with elevated 311 and ownership pressure,amenity_change_index
+solution_k,cluster,display_cluster,tentative_name,concern_level,map_color,interpretation,profile_anchor
+6,3,5,Demolition-Led Redevelopment,Very high - physical,#FB6A4A,High demolition pressure and elevated 311 activity with moderate vulnerability,demolition_pressure_index
+6,5,4,Corporate Ownership + Vulnerability,High - structural,#E6550D,High ownership pressure and demographic vulnerability with accumulating rather than acute physical change,ownership_pressure_index
+6,4,1,Lower-Pressure / Watch,Low,#4DAF4A,Below-average pressure across most domains with some 311 activity,
+6,2,2,High-Cost / Lower-Vulnerability,Moderate - ambiguous,#377EB8,High rent pressure but low vulnerability and few acute smoke signals,rent_pressure_citywide_index
+6,6,6,Eviction + Vulnerable Renters,Very high - immediate,#CB181D,High eviction pressure and vulnerability with elevated 311 activity,eviction_pressure_index
+6,1,3,Amenity-Led Emerging Pressure,High - rising,#FDAE6B,High amenity change with elevated 311 and ownership pressure,amenity_change_index

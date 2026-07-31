@@ -1,4 +1,4 @@
-# Residential Unit Count Modeling
+# Residential and Multifamily Unit Count Modeling
 
 ## Why Unit Counts Must Be Estimated
 
@@ -16,6 +16,15 @@ common-area account, or vacant land. A multifamily development may span
 several parcels, and a unit total may be repeated on more than one appraisal
 record. Treating every row as one dwelling would undercount many apartment
 properties and overcount some condominium and master accounts.
+
+The central estimation problem is **multifamily housing**. An ordinary
+single-family appraisal account can usually receive one unit through an
+explicit property-use rule. A multifamily appraisal account, however, may
+represent two dwellings, several hundred apartments, one condominium unit, a
+common area, or only part of a larger development. The workflow must first
+establish that housing currently exists, then determine which records belong
+to the same physical project, and finally select or estimate one project unit
+total. It cannot infer the number of existing dwellings from zoning alone.
 
 This workflow reconstructs a defensible count while preserving how each number
 was obtained. Reported project totals, appraisal-code rules, one-unit rules,
@@ -39,6 +48,9 @@ estimates.
 | Model estimate | A prediction based on floor area and building characteristics learned from projects with known counts. |
 | Training project | A project with a reliable count and usable predictors that can teach or test the model. |
 | Model candidate | An unresolved multifamily project for which the model might supply a count. |
+| Zoning signal | Evidence that residential or multifamily development is legally allowed. It is useful for broad candidate screening but does not prove that housing currently exists. |
+| Current-use signal | Evidence from an appraisal use code, reported project source, or City land-use classification that describes what currently occupies the property. |
+| City Land Use Inventory | The City of Austin parcel inventory used to check whether unresolved projects are currently classified as residential, mixed use, nonresidential, or group quarters. It validates classification; it does not supply unit counts. |
 | Project construction | The process of deciding which parcel and appraisal-account rows belong to the same physical development. |
 | Model training | Fitting a relationship between known unit counts and property characteristics, then testing it on held-out projects. |
 | Production integration | Selecting one count for each project, allocating it back to parcel records, and making the resulting surface available to the main pipeline. |
@@ -51,12 +63,15 @@ estimates.
 
 ## Workflow Overview
 
-The workflow proceeds in six substantive steps. The names in parentheses are
+The workflow proceeds in seven substantive steps. The names in parentheses are
 the corresponding `{targets}` pipeline steps.
 
 1. **Identify eligible residential records** (`unit_calibration`). Begin with
-   county-filtered residential-candidate files and apply the additional WCAD
-   exclusions and certified-roll supplement described below.
+   broad county-filtered candidate files. The upstream county filters use
+   appraisal property-use codes and, in some cases, residential or multifamily
+   zoning. Zoning is treated as a screening signal at this point, not proof of
+   an occupied residential improvement. Apply the additional WCAD exclusions
+   and certified-roll supplement described below.
 2. **Collect unit-count evidence** (`unit_sources`). Extract reported counts,
    appraisal fields, legal descriptions, and external inventory records while
    keeping source totals separate from parcel links.
@@ -69,17 +84,31 @@ the corresponding `{targets}` pipeline steps.
 5. **Test transfer to Williamson County** (`williamson_validation`). Confirm
    that the selected floor-area definition and model relationship remain
    reasonable when applied to WCAD records.
-6. **Integrate and promote one hierarchy** (`unit_integration` and
-   `promoted_unit_surface`). Prefer reliable observed counts, use the validated
-   model only where appropriate, retain explicit fallbacks, and write the
-   parcel surface used by the rest of the EWS.
+6. **Integrate one hierarchy** (`unit_integration`). Prefer reliable observed
+   counts, use the validated model only where appropriate, and retain explicit
+   fallbacks with their evidence labels.
+7. **Validate current land use and promote the surface**
+   (`promoted_unit_surface`, `land_use_unit_classification_audit`, and
+   `nonresidential_unit_reconciliation_audit`). Link candidate parcels to the
+   City Land Use Inventory. Before promotion, exclude a modeled or fallback
+   project when it has only zoning or another broad candidate signal, its exact
+   parcel identifier links to exclusively nonresidential City land inside the
+   full-purpose boundary, and no appraisal multifamily code provides contrary
+   current-use evidence. Retain direct and deterministic counts when sources
+   conflict so the disagreement can be reviewed rather than silently erased.
+   The broader audit then uses both identifier and spatial matching to measure
+   coverage and surface the remaining disagreements.
 
 The current county candidate files were generated by scripts in the sibling
 `landlord-mapper` repository. Travis and Hays arrive already filtered using
-county-specific residential appraisal and zoning codes. The files also contain
-the corporate-owner classifications used downstream. The EWS does not execute
-`landlord-mapper`, but it has a data dependency on these generated outputs.
-Williamson then receives the additional local eligibility review below.
+county-specific appraisal and zoning fields. Consequently, those files are a
+broad candidate universe rather than a final declaration that every record is
+currently residential. The EWS applies the evidence hierarchy and City
+land-use validation described here before the records enter downstream
+residential denominators. The files also contain the corporate-owner
+classifications used downstream. The EWS does not execute `landlord-mapper`,
+but it has a data dependency on these generated outputs. Williamson then
+receives the additional local eligibility review below.
 [GitHub issue #5](https://github.com/aakarner/coa-displacement-ews/issues/5)
 tracks bringing the initial county selection and corporate classification into
 this repository.
@@ -178,6 +207,22 @@ main/living-area total instead of adding duplicate representations. The raw
 values and the selection rule remain in the project table. Reviewed companion
 accounts for Lantern at Westwood and Lakeline Crossing are joined before model
 candidates are created.
+
+The universe-wide grouping audit is written to
+`output/residential_unit_project_grouping_source_breakdown.csv`. It assigns
+every eligible parcel row to one mutually exclusive category: a single-parcel
+project that required no grouping, or the observed combination of sources used
+to connect multiple parcels. Separate project and parcel-row counts show both
+how often each method is used and how much of the parcel universe it affects.
+Source combinations are retained because the same project may be supported by
+appraisal-address evidence and one or more external inventories; reporting
+those sources as separate overlapping totals would double-count parcels.
+
+Reviewed project records used to validate or select a unit total are not listed
+as grouping sources unless they explicitly established a parcel connection.
+Those records enter after projects have been constructed, so they are unit-count
+evidence rather than evidence that two parcel accounts represent the same
+physical development.
 
 ## Current Evidence Coverage
 
@@ -411,23 +456,40 @@ effect reduces the full regional parcel total from 519,504 to 514,648 units, a
 Williamson has 62 fewer. The selected hierarchy changes 2,075 parcel rows and
 933 mapped hex totals.
 
-Changing the unit surface moved 52 hexes above the 20-unit eligibility
-threshold and moved three below it. After requiring complete data for all seven
-clustering domains, the candidate solution classified 3,261 hexes, compared
-with 3,212 under the prior surface. Among the 3,209 hexes classified in both
-versions, 96.9 percent retained the same matched cluster. The adjusted Rand
-index, a measure of agreement between two cluster assignments, was 0.946 on a
-scale where 1 indicates identical assignments.
+The subsequent City land-use validation removes 6,587 additional estimates
+from 123 projects, represented by 142 parcel rows. These projects had modeled
+or fallback counts, no appraisal multifamily use code, and an exact parcel-ID
+match to exclusively nonresidential City land inside the full-purpose
+boundary. The current promoted regional total is therefore 508,060 units.
+Excluded rows retain their prior estimate and reason for exclusion in the
+promoted audit fields, but they are removed from downstream residential
+allocation, ownership, and rate denominators.
+
+Before the City land-use repair, the initial model promotion moved 52 hexes
+above the 20-unit eligibility threshold and moved three below it. After
+requiring complete data for all seven clustering domains, that earlier
+candidate solution classified 3,261 hexes, compared with 3,212 under the prior
+surface. Among the 3,209 hexes classified in both versions, 96.9 percent
+retained the same matched cluster. The adjusted Rand index, a measure of
+agreement between two cluster assignments, was 0.946 on a scale where 1
+indicates identical assignments. These figures document the first promotion;
+they are not the current locked result.
+
+After the City land-use exclusions and full downstream rebuild, 3,250 hexes
+meet the same eligibility and completeness requirements. The selected
+amenity-augmented six-cluster solution has an average silhouette width of
+0.245 and a repeated-subsample adjusted Rand index of 0.916.
 
 These results supported promotion of the conditional hierarchy on July 28,
-2026. Target `promoted_unit_surface` retains the old targeted count, the new
-selected count, and the reason for that selection on every parcel. It archives
-the pre-promotion analytical outputs and writes the promoted parcel table used
-to calculate corporate-ownership denominators, ACS allocation weights, rate
-denominators, and cluster eligibility.
+2026 and the City land-use validation repair on July 31, 2026. Target
+`promoted_unit_surface` retains the old targeted count, the pre-validation
+selected count, the current promoted count, and the reason for any exclusion
+on every parcel. It writes the promoted parcel table used to calculate
+corporate-ownership denominators, ACS allocation weights, rate denominators,
+and cluster eligibility.
 
-The locked Part 1 solution now classifies 3,261 hexes into six clusters and
-covers about 92.1 percent of allocated population. Unit modeling is not the
+The locked Part 1 solution now classifies 3,250 hexes into six clusters and
+covers about 92.0 percent of allocated population. Unit modeling is not the
 reason six clusters were selected; it changes which hexes are eligible and the
 rate denominators used by several cluster variables.
 
@@ -439,26 +501,27 @@ and model estimates. The ACS is a survey estimate for larger geographies with
 published sampling uncertainty. Allocating that estimate to hexes adds further
 spatial uncertainty.
 
-In the July 2026 audit, 508,843 promoted parcel units fall on the exact study
-grid, compared with 479,614 allocated ACS housing units. The parcel total is
-29,229 units, or 6.1 percent, higher. The full regional parcel total of 514,648
-is larger because not every source record contributes to the exact mapped-grid
-comparison.
+After the July 31 land-use repair, 502,257 promoted parcel units fall on the
+exact study grid, compared with 479,650 allocated ACS housing units. The parcel
+total is 22,607 units, or 4.7 percent, higher. The full regional parcel total
+of 508,060 is larger because not every source record contributes to the exact
+mapped-grid comparison.
 
 Inside the Austin full-purpose boundary, the area under the City's full
-municipal jurisdiction, 514,241 promoted parcel units are 0.8 percent below the
-2024 one-year ACS city benchmark of 518,574. This close citywide result does
-not imply local agreement. At the block-group level, the promoted parcel total
-is 11.5 percent above ACS in the audit sample, and 55.2 percent of block groups
-fall within the published ACS margin of error (MOE).
+municipal jurisdiction, 507,653 promoted parcel units are 2.1 percent below the
+2024 one-year ACS city benchmark of 518,574. This citywide comparison does not
+imply local agreement. Across the 536 block groups with at least 95 percent of
+their area inside Austin, the promoted parcel total is 11.8 percent above ACS,
+and 55.0 percent fall within the published ACS margin of error.
 
-The subsequent populated zero-unit audit now verifies direct counts at the
-project level and finds zero omitted strict direct projects. It leaves 293
-populated zero-unit hexes containing 29,822 allocated residents, or 3.07
-percent of allocated population. Most of those residents were placed through
-the Census-block point fallback because no independent unit-bearing parcel was
-found. That pattern is a warning about small-area allocation; it is not
-evidence that 29,822 parcel units should be added.
+The subsequent populated zero-unit audit verifies direct counts at the project
+level and finds zero omitted strict direct projects. After the City land-use
+repair, 296 populated zero-unit hexes contain 35,243 allocated residents, or
+3.63 percent of allocated population. Most of the corresponding ACS housing
+estimate is placed through the Census-block point fallback because no
+independent unit-bearing parcel was found. That pattern is a warning about
+small-area allocation; it is not evidence that 35,243 parcel units should be
+added.
 
 The certified-roll supplement resolves all previously identified cases where a
 full residential parcel proxy was missing. Ten former multifamily-signal hexes
@@ -471,6 +534,78 @@ See the
 and `scripts/audits/populated_zero_unit_hexes.R` for the full comparison. ACS
 disagreement remains a diagnostic and review tool, not an automatic parcel
 replacement.
+
+## Independent City Land-Use Classification Check
+
+The City of Austin Detailed Land Use Inventory provides an independent check
+on **residential form**, not an alternative unit count. Target
+`land_use_unit_classification_audit` links the July 2026 download of the City's
+December 2025 inventory to the promoted parcel surface. County-aware appraisal
+identifiers are used first; a parcel-point-within-polygon match is used only
+when identifiers do not link. Inside the full-purpose boundary, the combined
+method matches 98.8 percent of parcel rows and 98.7 percent of promoted units.
+
+The parcel-level result is consistent with the ACS citywide structure totals:
+
+| Comparison | EWS promoted units | 2024 ACS units | Difference |
+| --- | ---: | ---: | ---: |
+| City duplex, three/fourplex, apartment/condo, or retirement-housing land versus ACS 2+ structures | 269,443 | 273,386 | -1.4% |
+| The preceding City categories plus all promoted units on mixed-use land versus ACS 2+ structures | 276,016 | 273,386 | +1.0% |
+| City apartment/condo and retirement-housing land versus ACS 5+ structures | 243,375 | 238,634 | +2.0% |
+
+This check changes the interpretation of the earlier 319,491-unit
+pre-validation project total. That number described all units attached to
+projects that entered the core multi-unit evidence or modeling pathway; it was
+not a defensible estimate of Austin's multifamily housing stock. After the
+land-use repair, the corresponding total is 312,903 units. Of those, 263,014
+fall on parcels with an explicit City multi-unit classification, 6,545 fall on
+mixed-use land, 11,488 fall on City single-unit land, 25,701 fall on City
+nonresidential or group-quarters land, and 6,155 are unmatched. At the same
+time, the City layer identifies about 6,500 promoted units on multi-unit land
+outside the EWS core project definition, including individually represented
+unit accounts.
+
+The close parcel-level comparison is reassuring, but it does not make the City
+inventory ground truth. Primary-use codes can lag redevelopment, mixed-use
+sites can be difficult to describe with one code, and the City categories do
+not distinguish a physical project from a Census structure. Directly reported
+projects that disagree with the City inventory require source and vintage
+review. Modeled or fallback projects on City office, commercial, hospital,
+educational, or other nonresidential land are higher-priority candidates for
+classification repair.
+
+### Focused Reconciliation of Unresolved Projects
+
+Target `nonresidential_unit_reconciliation_audit` examines the 166 projects
+that both (1) use a modeled or fallback count and (2) fall entirely on land the
+City classifies as nonresidential or group quarters. Because these projects do
+not have a selected direct or deterministic count, the audit asks what evidence
+caused them to enter the multifamily modeling pool.
+
+The distinction is substantive. Zoning describes what development is legally
+allowed; it does not establish that housing currently exists. Of the 166
+projects, 123 projects containing 6,587 pre-validation unit estimates have no
+current appraisal multi-unit code. They entered through multifamily or
+mixed-use zoning or another broad parcel-classification signal. Both the
+appraisal use code and the independent City inventory indicate nonresidential
+use. The July 31 promotion therefore excludes them from the residential unit
+surface unless a future source establishes current residential use.
+
+The other 43 projects, containing 4,258 promoted unit estimates, have an
+appraisal multi-unit code even though the City inventory says nonresidential.
+These remain unresolved rather than presumed wrong. They may represent City
+inventory lag, redevelopment, mixed-use classification, or an appraisal record
+that itself needs correction. The audit recommends retaining them provisionally
+while the conflicting current-use records are reconciled.
+
+Removing the 6,587 zoning-only estimates reduces the promoted City unit total
+by about 1.3 percent and the broad core multi-unit workflow total by about 2.1
+percent. The audit verifies the applied production exclusion, and the locked
+Part 1 clustering result has been rebuilt from the repaired surface.
+
+[GitHub issue #9](https://github.com/aakarner/coa-displacement-ews/issues/9)
+tracks the next validation: checking TCAD-only direct counts and distinguishing
+the physical building form of separately assessed condominium units.
 
 ## Technical Output Reference
 
@@ -507,6 +642,7 @@ Target `unit_sources` (`scripts/data/unit_counts/prepare_sources.R`) writes:
 Target `unit_projects` (`scripts/data/unit_counts/build_projects.R`) writes:
 
 - `output/residential_unit_project_membership.rds/.csv`;
+- `output/residential_unit_project_grouping_source_breakdown.csv`;
 - `output/residential_unit_projects.rds/.csv`;
 - `output/residential_unit_training_table.rds/.csv`;
 - `output/residential_unit_model_candidates.rds/.csv`;
@@ -516,6 +652,23 @@ Target `unit_projects` (`scripts/data/unit_counts/build_projects.R`) writes:
 - `output/residential_unit_reviewed_group_audit.csv`;
 - `output/residential_unit_excluded_projects.csv`; and
 - `output/residential_unit_project_qa.csv`.
+
+Target `land_use_unit_classification_audit`
+(`scripts/audits/land_use_unit_classification.R`) writes:
+
+- parcel- and project-level classification audit tables;
+- coverage, City-class, and EWS-versus-City comparison summaries;
+- `output/land_use_unit_classification_benchmark.csv`;
+- `output/land_use_unit_classification_disagreements.csv`; and
+- `figures/land_use_multifamily_classification_audit.png`.
+
+Target `nonresidential_unit_reconciliation_audit`
+(`scripts/audits/reconcile_nonresidential_unit_projects.R`) writes:
+
+- the ranked project-level reconciliation review;
+- evidence-source and citywide candidate-scope summaries;
+- a production exclusion impact table; and
+- `figures/residential_unit_nonresidential_reconciliation.png`.
 
 Target `unit_models` (`scripts/data/unit_counts/fit_models.R`) writes:
 
@@ -555,7 +708,8 @@ Target `promoted_unit_surface`
 (`scripts/data/unit_counts/promote_integration.R`) writes:
 
 - `output/residential_parcels_unit_promoted.rds`;
-- `output/residential_unit_promotion_manifest.csv`; and
+- `output/residential_unit_promotion_manifest.csv`;
+- `output/residential_unit_land_use_exclusions.csv`; and
 - one-time copies of the pre-promotion analytical files under
   `output/pre_unit_model_promotion/`.
 

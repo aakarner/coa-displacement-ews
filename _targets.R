@@ -84,6 +84,18 @@ list(
     cue = tar_cue(mode = "always")
   ),
   tar_target(
+    land_use_input_manifest,
+    build_file_manifest(
+      c(
+        "data/austin_land_use_inventory_202607.csv",
+        "data/austin_land_use_inventory_202607.geojson",
+        "data/raw_acs/acsdt1y2024-b25024.dat",
+        "data/BOUNDARIES_jurisdictions_20260429.geojson"
+      )
+    ),
+    cue = tar_cue(mode = "always")
+  ),
+  tar_target(
     landlord_mapper_manifest,
     build_file_manifest(
       c(
@@ -97,6 +109,11 @@ list(
   tar_target(
     feature_dictionary,
     "config/feature_dictionary.csv",
+    format = "file"
+  ),
+  tar_target(
+    land_use_codes,
+    "config/austin_land_use_codes.csv",
     format = "file"
   ),
   tar_target(
@@ -157,6 +174,20 @@ list(
         "figures/01_hex_grid_static.png"
       ),
       dependencies = analysis_config
+    ),
+    format = "file"
+  ),
+  tar_target(
+    map_orientation_script,
+    "scripts/data/map_orientation.R",
+    format = "file"
+  ),
+  tar_target(
+    map_orientation_reference,
+    run_r_script_stage(
+      map_orientation_script,
+      "output/map_orientation_reference.rds",
+      dependencies = hex_grid
     ),
     format = "file"
   ),
@@ -231,7 +262,8 @@ list(
       c(
         "output/residential_unit_project_membership.rds",
         "output/residential_unit_projects.rds",
-        "output/residential_unit_training_table.rds"
+        "output/residential_unit_training_table.rds",
+        "output/residential_unit_project_grouping_source_breakdown.csv"
       ),
       dependencies = unit_sources
     ),
@@ -283,7 +315,8 @@ list(
       unit_integration_script,
       c(
         "output/residential_parcels_unit_shadow_integrated.rds",
-        "output/corporate_ownership_by_hex_unit_shadow.rds"
+        "output/corporate_ownership_by_hex_unit_shadow.rds",
+        "output/residential_unit_shadow_project_selection.csv"
       ),
       dependencies = list(
         hex_grid,
@@ -307,9 +340,66 @@ list(
       unit_promotion_script,
       c(
         "output/residential_parcels_unit_promoted.rds",
-        "output/residential_unit_promotion_manifest.csv"
+        "output/residential_unit_promotion_manifest.csv",
+        "output/residential_unit_land_use_exclusions.csv"
       ),
-      dependencies = list(unit_validation, unit_integration)
+      dependencies = list(
+        unit_validation,
+        unit_integration,
+        land_use_input_manifest,
+        land_use_codes
+      )
+    ),
+    format = "file"
+  ),
+  tar_target(
+    land_use_unit_audit_script,
+    "scripts/audits/land_use_unit_classification.R",
+    format = "file"
+  ),
+  tar_target(
+    land_use_unit_classification_audit,
+    run_r_script_stage(
+      land_use_unit_audit_script,
+      c(
+        "output/land_use_unit_classification_summary.csv",
+        "output/land_use_unit_classification_benchmark.csv",
+        "output/land_use_unit_classification_comparison.csv",
+        "output/land_use_unit_classification_disagreements.csv",
+        "figures/land_use_multifamily_classification_audit.png"
+      ),
+      dependencies = list(
+        promoted_unit_surface,
+        unit_projects,
+        unit_integration,
+        land_use_input_manifest,
+        land_use_codes
+      )
+    ),
+    format = "file"
+  ),
+  tar_target(
+    nonresidential_unit_reconciliation_script,
+    "scripts/audits/reconcile_nonresidential_unit_projects.R",
+    format = "file"
+  ),
+  tar_target(
+    nonresidential_unit_reconciliation_audit,
+    run_r_script_stage(
+      nonresidential_unit_reconciliation_script,
+      c(
+        "output/residential_unit_nonresidential_reconciliation_projects.csv",
+        "output/residential_unit_nonresidential_reconciliation_summary.csv",
+        "output/residential_unit_candidate_evidence_scope.csv",
+        "output/residential_unit_nonresidential_reconciliation_impact.csv",
+        "figures/residential_unit_nonresidential_reconciliation.png"
+      ),
+      dependencies = list(
+        land_use_unit_classification_audit,
+        promoted_unit_surface,
+        unit_projects,
+        unit_integration
+      )
     ),
     format = "file"
   ),
@@ -673,6 +763,7 @@ list(
         current_features,
         part1_cluster_analysis,
         cluster_labels,
+        map_orientation_reference,
         analysis_config
       )
     ),

@@ -1,8 +1,9 @@
 # Parcel and ACS Housing-Unit Audit
 
-**Audit vintage:** July 2026. The values below are a point-in-time record of the
-promoted parcel-unit surface and contemporaneous ACS allocation. Rerun the named
-audit scripts before using the figures to describe a later pipeline vintage.
+**Audit vintage:** July 31, 2026. The values below describe the promoted
+parcel-unit surface after the City land-use validation and the contemporaneous
+ACS allocation. Rerun the named audit scripts before using the figures to
+describe a later pipeline vintage.
 
 ## Purpose
 
@@ -21,22 +22,22 @@ engineering, rate denominators, eligibility, or cluster assignments.
 ## Current Populated Zero-Unit Residual
 
 `scripts/audits/populated_zero_unit_hexes.R` evaluates the promoted canonical
-surface after project modeling and strict direct-project integration. Of 7,026
-study hexes, 2,953 have zero parcel units, but 2,660 of those also have zero
-allocated population. The promotion changed the population-weighted residual
-as follows:
+surface after project modeling, strict direct-project integration, and the
+City land-use repair. Of 7,027 study hexes, 2,958 have zero parcel units, but
+2,662 of those also have zero allocated population. The land-use repair changed
+the population-weighted residual as follows:
 
-| Measure | Pre-promotion target | Promoted canonical |
+| Measure | Before land-use repair | Current promoted surface |
 |---|---:|---:|
-| Zero-unit hexes | 2,980 | 2,953 |
-| Populated zero-unit hexes | 316 | 293 |
-| Population in zero-unit hexes | 34,221 | 29,822 |
-| Mapped parcel units | 514,263 | 508,843 |
-| Mapped ACS housing units | 479,614 | 479,614 |
-| Parcel excess over ACS | 7.2% | 6.1% |
+| Zero-unit hexes | 2,954 | 2,958 |
+| Populated zero-unit hexes | 293 | 296 |
+| Population in zero-unit hexes | 29,822 | 35,243 |
+| Mapped parcel units | 508,843 | 502,257 |
+| Mapped ACS housing units | 479,614 | 479,650 |
+| Parcel excess over ACS | 6.1% | 4.7% |
 
-The 293 residual hexes contain 12,530 allocated ACS housing units. This does
-not imply that 12,530 parcel units should be backfilled: most ACS evidence in
+The 296 residual hexes contain 12,546 allocated ACS housing units. This does
+not imply that 12,546 parcel units should be backfilled: most ACS evidence in
 these cells was placed through Census-block point fallback after no unit-parcel
 support was found.
 
@@ -44,12 +45,13 @@ The mutually exclusive audit categories are:
 
 | Category | Hexes | Population | ACS housing units |
 |---|---:|---:|---:|
-| Reviewed TCAD land-only parcels with MF zoning | 10 | 203 | 161 |
+| Reviewed TCAD land-only parcels with MF zoning | 10 | 203 | 162 |
+| Multifamily signal not selected for modeling | 2 | 4,885 | 8 |
 | Cross-county project count relocated | 1 | 237 | 153 |
 | Other improved zero-unit parcel | 2 | 149 | 58 |
 | Reviewed nonresidential exclusions only | 2 | 36 | 2 |
 | ACS point fallback without a unit parcel | 154 | 22,672 | 10,564 |
-| No full-parcel centroid support | 16 | 3,402 | 1,409 |
+| No full-parcel centroid support | 17 | 3,938 | 1,418 |
 | Population with fewer than five ACS housing units | 107 | 3,123 | 181 |
 | Other zero-unit parcel | 1 | 1 | 1 |
 
@@ -95,19 +97,19 @@ On the exact H3 grid:
 
 | Unit surface | Units |
 |---|---:|
-| Raw parcel values | 804,397 |
-| Primary parcel calibration | 529,620 |
-| Promoted parcel hierarchy | 508,843 |
-| ACS 2024 five-year total housing | 479,614 |
+| Raw parcel values | 804,160 |
+| Primary parcel calibration | 519,440 |
+| Promoted parcel hierarchy | 502,257 |
+| ACS 2024 five-year total housing | 479,650 |
 | ACS aggregate 90% MOE | 5,726 |
-| Conservative parcel calibration | 446,951 |
+| Conservative parcel calibration | 441,178 |
 
-The promoted parcel surface is 29,229 units, or 6.1%, above the allocated ACS
+The promoted parcel surface is 22,607 units, or 4.7%, above the allocated ACS
 five-year estimate. The comparison is sensitive to parcel-unit assumptions:
 the ACS estimate lies between the conservative and primary parcel surfaces.
 
-Inside the Austin full-purpose boundary, the promoted parcel total is 514,241
-units. That is 0.8% below the retained 2024 one-year ACS city benchmark
+Inside the Austin full-purpose boundary, the promoted parcel total is 507,653
+units. That is 2.1% below the retained 2024 one-year ACS city benchmark
 of 518,574. Citywide agreement therefore does not establish local agreement.
 
 ## Threshold Agreement
@@ -116,55 +118,54 @@ Using 20 units as a diagnostic threshold:
 
 | Agreement class | Hexes |
 |---|---:|
-| Both sources at or above 20 | 3,154 |
-| ACS only at or above 20 | 291 |
-| Parcel only at or above 20 | 139 |
-| Both sources below 20 | 3,442 |
+| Both sources at or above 20 | 3,149 |
+| ACS only at or above 20 | 293 |
+| Parcel only at or above 20 | 133 |
+| Both sources below 20 | 3,452 |
 
-Of the 430 discordant hexes, 289 remain robustly discordant after considering
+Of the 426 discordant hexes, 285 remain robustly discordant after considering
 the full parcel calibration range and the ACS 90% interval:
 
-- 194 robust ACS-only hexes;
+- 196 robust ACS-only hexes;
 - 97 uncertainty-sensitive ACS-only hexes;
-- 95 robust parcel-only hexes; and
+- 89 robust parcel-only hexes; and
 - 44 uncertainty-sensitive parcel-only hexes.
 
 ## ACS-Only Findings
 
-The 291 ACS-only hexes contain 22,264 ACS housing units and approximately
-45,818 residents. A mutually exclusive diagnostic classification identifies:
+The 293 ACS-only hexes contain 22,333 ACS housing units and approximately
+46,011 residents. A mutually exclusive diagnostic classification identifies:
 
 | Provisional explanation | Hexes | ACS units |
 |---|---:|---:|
 | No matched residential parcel | 101 | 11,141 |
-| Majority Census-block point fallback | 20 | 1,805 |
-| Other parcel undercoverage | 170 | 9,318 |
+| Majority Census-block point fallback | 21 | 1,840 |
+| Other parcel undercoverage | 171 | 9,351 |
 
 The previously excluded mixed-use multifamily set no longer forms a distinct
 ACS-only class after direct project totals and validated model estimates are
-promoted. Across all ACS-only cases, 121 hexes receive a
+promoted. Across all ACS-only cases, 122 hexes receive a
 majority of their Census-block housing control from the no-parcel point
 fallback; this overlaps the categories above and is a spatial-allocation
 warning rather than proof that ACS is wrong.
 
 ## Parcel-Only Findings
 
-The 139 parcel-only hexes contain 22,134 promoted parcel units but only 1,100
-allocated ACS housing units and approximately 3,567 residents.
+The 133 parcel-only hexes contain 21,167 promoted parcel units but only 1,072
+allocated ACS housing units and approximately 3,390 residents.
 
 | Provisional explanation | Hexes | Parcel units |
 |---|---:|---:|
 | Recent construction supplies at least half of parcel units | 76 | 18,053 |
-| Multifamily floor-area estimates supply at least half | 1 | 468 |
-| No allocated ACS housing or population | 5 | 781 |
-| Other parcel-only pattern | 57 | 2,832 |
+| No allocated ACS housing or population | 3 | 570 |
+| Other parcel-only pattern | 54 | 2,544 |
 
-- 473 parcel units, or 2%, remain attributed to the earlier multifamily
-  floor-area estimation method in these hexes.
-- 17,853 units, or 81%, are associated with buildings dated 2020 or later.
+- No parcel-only units are attributed to the earlier multifamily floor-area
+  estimation method in these hexes.
+- 17,855 units, or 84%, are associated with buildings dated 2020 or later.
 - 10,018 units are associated with buildings dated 2024 or later.
-- 2,135 direct CoStar units occur in this group.
-- 36 parcel-only hexes have zero allocated ACS population.
+- 2,179 direct CoStar units occur in this group.
+- 34 parcel-only hexes have zero allocated ACS population.
 
 These findings are consistent with a mixture of recent construction, ACS
 temporal lag, parcel overestimation, and spatial matching or allocation errors.
@@ -176,7 +177,7 @@ For 536 block groups with at least 95% of their area inside Austin:
 | Parcel variant | Parcel/ACS aggregate ratio | Within ACS MOE |
 |---|---:|---:|
 | Conservative | 0.969 | 63.4% |
-| Promoted | 1.115 | 55.2% |
+| Promoted | 1.118 | 55.0% |
 | Primary | 1.163 | 54.3% |
 
 The conservative surface agrees better locally but falls below the direct

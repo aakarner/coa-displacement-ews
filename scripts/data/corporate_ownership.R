@@ -160,6 +160,24 @@ if (unit_surface == "promoted") {
       "."
     )
   )
+
+  if ("unit_land_use_validation_excluded" %in% names(residential_parcels_raw)) {
+    land_use_exclusions <- residential_parcels_raw %>%
+      filter(coalesce(unit_land_use_validation_excluded, FALSE))
+    if (nrow(land_use_exclusions) > 0L) {
+      print_progress(
+        paste0(
+          "Excluding ",
+          nrow(land_use_exclusions),
+          " nonresidential parcel rows containing ",
+          comma(round(sum(land_use_exclusions$unit_land_use_excluded_units))),
+          " pre-validation unit estimates."
+        )
+      )
+      residential_parcels_raw <- residential_parcels_raw %>%
+        filter(!coalesce(unit_land_use_validation_excluded, FALSE))
+    }
+  }
 } else if (file.exists(targeted_units_file)) {
   residential_parcels_raw <- load_output(
     targeted_units_file,

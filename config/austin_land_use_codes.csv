@@ -1,0 +1,40 @@
+land_use_code,detailed_land_use,audit_group,city_multiunit_signal,city_residential_signal
+100,Single Family,single_unit,FALSE,TRUE
+113,Mobile Homes,single_unit,FALSE,TRUE
+150,Duplexes,small_multiunit,TRUE,TRUE
+160,Large-lot Single Family,single_unit,FALSE,TRUE
+210,Three/Fourplex,small_multiunit,TRUE,TRUE
+220,Apartment/Condo,large_multiunit,TRUE,TRUE
+230,Group Quarters,group_quarters,FALSE,FALSE
+240,Retirement Housing,special_multiunit,TRUE,TRUE
+300,Commercial,nonresidential,FALSE,FALSE
+330,Mixed Use,mixed_use,NA,TRUE
+400,Office,nonresidential,FALSE,FALSE
+510,Manufacturing,nonresidential,FALSE,FALSE
+520,Warehousing,nonresidential,FALSE,FALSE
+530,Miscellaneous Industrial,nonresidential,FALSE,FALSE
+560,Resource Extraction (Mining),nonresidential,FALSE,FALSE
+570,Landfills,nonresidential,FALSE,FALSE
+610,Semi-institutional Housing,group_quarters,FALSE,FALSE
+620,Hospitals,nonresidential,FALSE,FALSE
+630,Government Services,nonresidential,FALSE,FALSE
+640,Educational,nonresidential,FALSE,FALSE
+650,Meeting and Assembly,nonresidential,FALSE,FALSE
+670,Cemeteries,nonresidential,FALSE,FALSE
+680,Cultural Services,nonresidential,FALSE,FALSE
+710,Parks/Greenbelts,nonresidential,FALSE,FALSE
+720,Golf Courses,nonresidential,FALSE,FALSE
+730,Camp Grounds,nonresidential,FALSE,FALSE
+740,Common Areas,nonresidential,FALSE,FALSE
+750,Preserves,nonresidential,FALSE,FALSE
+810,Railroad Facilities,nonresidential,FALSE,FALSE
+820,Transportation Facilities,nonresidential,FALSE,FALSE
+830,Airports and Aviation Facilities,nonresidential,FALSE,FALSE
+840,Marinas,nonresidential,FALSE,FALSE
+850,Parking,nonresidential,FALSE,FALSE
+860,Streets and Roads,nonresidential,FALSE,FALSE
+870,Utilities,nonresidential,FALSE,FALSE
+900,Undeveloped,nonresidential,FALSE,FALSE
+910,Agricultural,nonresidential,FALSE,FALSE
+940,Water,nonresidential,FALSE,FALSE
+999,Unknown,unknown,NA,NA

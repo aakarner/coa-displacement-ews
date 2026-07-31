@@ -3,10 +3,11 @@
 ################################################################################
 #
 # Classifies populated hexes that retain zero parcel-derived residential units
-# after the conditional shadow integration. The audit distinguishes pipeline
+# in the promoted canonical surface. The audit distinguishes pipeline
 # omissions, cross-county allocation choices, unit-parcel source gaps, broader
 # appraisal-parcel support, explicit exclusions, and ACS block-point fallback.
-# It is diagnostic only and does not modify parcel, feature, or cluster outputs.
+# The audit is diagnostic and does not modify parcel, feature, or cluster
+# outputs.
 #
 # Outputs:
 #   output/populated_zero_unit_hex_audit.rds/.csv
@@ -46,7 +47,10 @@ dir.create(FIGURES_DIR, recursive = TRUE, showWarnings = FALSE)
 input_files <- c(
   hex_grid = file.path(OUTPUT_DIR, "hex_grid.rds"),
   current_features = file.path(OUTPUT_DIR, "hex_features.rds"),
-  shadow_features = file.path(OUTPUT_DIR, "hex_features_unit_shadow.rds"),
+  current_parcels = file.path(
+    OUTPUT_DIR,
+    "residential_parcels_unit_promoted.rds"
+  ),
   shadow_parcels = file.path(
     OUTPUT_DIR,
     "residential_parcels_unit_shadow_integrated.rds"
@@ -215,7 +219,7 @@ load_full_parcel_points <- function(target_crs) {
 # Step 1: Define the residual population-weighted audit universe
 ################################################################################
 
-print_progress("Defining current and shadow zero-unit hexes...")
+print_progress("Defining current zero-unit hexes...")
 hex_grid <- readRDS(input_files[["hex_grid"]]) %>%
   mutate(hex_id = as.character(hex_id)) %>%
   select(hex_id, geometry) %>%
@@ -225,40 +229,24 @@ current_features <- readRDS(input_files[["current_features"]]) %>%
   transmute(
     hex_id = as.character(hex_id),
     current_residential_units = as.numeric(residential_units),
-    current_total_population = as.numeric(total_pop)
-  )
-shadow_features <- readRDS(input_files[["shadow_features"]]) %>%
-  st_drop_geometry() %>%
-  transmute(
-    hex_id = as.character(hex_id),
-    shadow_residential_units = as.numeric(residential_units),
     total_population = as.numeric(total_pop),
     household_population = as.numeric(population_in_occupied_housing),
     acs_total_housing_units = as.numeric(total_housing_units),
     acs_total_housing_units_moe = as.numeric(total_housing_units_moe)
   )
-
 hex_comparison <- hex_grid %>%
   left_join(current_features, by = "hex_id", relationship = "one-to-one") %>%
-  left_join(shadow_features, by = "hex_id", relationship = "one-to-one") %>%
   mutate(
-    current_zero_units = coalesce(current_residential_units, 0) == 0,
-    shadow_zero_units = coalesce(shadow_residential_units, 0) == 0,
-    zero_transition = case_when(
-      current_zero_units & shadow_zero_units ~ "zero_both",
-      current_zero_units & !shadow_zero_units ~ "zero_to_positive",
-      !current_zero_units & shadow_zero_units ~ "positive_to_zero",
-      TRUE ~ "positive_both"
-    )
+    current_zero_units = coalesce(current_residential_units, 0) == 0
   )
 
 zero_hexes <- hex_comparison %>%
   filter(
-    shadow_zero_units,
+    current_zero_units,
     coalesce(total_population, 0) > 0
   )
 if (nrow(zero_hexes) == 0L) {
-  stop("No populated shadow zero-unit hexes were found.", call. = FALSE)
+  stop("No populated current zero-unit hexes were found.", call. = FALSE)
 }
 if (anyDuplicated(zero_hexes$hex_id)) {
   stop("The zero-unit audit universe contains duplicate hex IDs.", call. = FALSE)
@@ -269,8 +257,31 @@ if (anyDuplicated(zero_hexes$hex_id)) {
 ################################################################################
 
 print_progress("Tracing zero-unit hexes to parcel and project evidence...")
-shadow_parcels <- readRDS(input_files[["shadow_parcels"]]) %>%
-  mutate(project_id = as.character(project_id))
+current_values <- readRDS(input_files[["current_parcels"]]) %>%
+  transmute(
+    source_county,
+    parcel_id,
+    current_units = as.numeric(promoted_units),
+    unit_land_use_validation_excluded = coalesce(
+      unit_land_use_validation_excluded,
+      FALSE
+    )
+  )
+current_parcels <- readRDS(input_files[["shadow_parcels"]]) %>%
+  mutate(
+    project_id = as.character(project_id)
+  ) %>%
+  left_join(
+    current_values,
+    by = c("source_county", "parcel_id"),
+    relationship = "one-to-one"
+  ) %>%
+  mutate(
+    current_units = coalesce(current_units, 0),
+    current_units_changed =
+      coalesce(shadow_units_changed, FALSE) |
+        coalesce(unit_land_use_validation_excluded, FALSE)
+  )
 residual_reviews <- read_csv(
   input_files[["residual_reviews"]],
   col_types = cols(.default = col_character()),
@@ -294,10 +305,10 @@ if (
 ) {
   stop("Residual unit-parcel reviews are not record-unique.", call. = FALSE)
 }
-project_shadow_totals <- shadow_parcels %>%
+project_current_totals <- current_parcels %>%
   group_by(project_id) %>%
   summarise(
-    project_shadow_units = safe_sum(shadow_units),
+    project_current_units = safe_sum(current_units),
     .groups = "drop"
   )
 project_evidence <- readRDS(input_files[["projects"]]) %>%
@@ -314,12 +325,12 @@ project_evidence <- readRDS(input_files[["projects"]]) %>%
     project_is_multifamily_like
   ) %>%
   left_join(
-    project_shadow_totals,
+    project_current_totals,
     by = "project_id",
     relationship = "one-to-one"
   )
 
-unit_parcels_in_zero_hexes <- shadow_parcels %>%
+unit_parcels_in_zero_hexes <- current_parcels %>%
   st_as_sf(
     coords = c("lon", "lat"),
     crs = 4326,
@@ -353,7 +364,7 @@ direct_project_repairs <- unit_parcels_in_zero_hexes %>%
     selected_observed_tier == "strict_direct_project_total",
     coalesce(selected_observed_units, 0) > 0,
     abs(
-      coalesce(project_shadow_units, 0) -
+      coalesce(project_current_units, 0) -
         selected_observed_units
     ) > 1e-6
   ) %>%
@@ -368,8 +379,8 @@ direct_project_repairs <- unit_parcels_in_zero_hexes %>%
     selected_observed_source = first(selected_observed_source),
     training_label_eligible = first(training_label_eligible),
     current_targeted_units = safe_sum(current_targeted_units),
-    shadow_units = safe_sum(shadow_units),
-    project_shadow_units = first(project_shadow_units),
+    current_units = safe_sum(current_units),
+    project_current_units = first(project_current_units),
     .groups = "drop"
   )
 
@@ -399,9 +410,9 @@ unit_parcel_summary <- unit_parcels_in_zero_hexes %>%
   summarise(
     unit_parcel_records = n(),
     unit_projects = n_distinct(project_id),
-    zero_unit_parcels = sum(coalesce(shadow_units, 0) == 0),
+    zero_unit_parcels = sum(coalesce(current_units, 0) == 0),
     current_positive_parcels = sum(coalesce(current_targeted_units, 0) > 0),
-    changed_shadow_parcels = sum(coalesce(shadow_units_changed, FALSE)),
+    changed_current_parcels = sum(coalesce(current_units_changed, FALSE)),
     positive_improvement_parcels = sum(
       coalesce(improvement_sqft, 0) > 0
     ),
@@ -663,7 +674,7 @@ zero_audit <- zero_hexes %>%
         unit_projects,
         zero_unit_parcels,
         current_positive_parcels,
-        changed_shadow_parcels,
+        changed_current_parcels,
         positive_improvement_parcels,
         improvement_sqft,
         multifamily_signal_parcels,
@@ -893,18 +904,6 @@ jurisdiction_summary <- zero_audit %>%
     desc(population)
   )
 
-zero_transition_summary <- hex_comparison %>%
-  st_drop_geometry() %>%
-  group_by(zero_transition) %>%
-  summarise(
-    hexes = n(),
-    population = safe_sum(total_population),
-    acs_housing_units = safe_sum(acs_total_housing_units),
-    current_units = safe_sum(current_residential_units),
-    shadow_units = safe_sum(shadow_residential_units),
-    .groups = "drop"
-  )
-
 grid_totals <- hex_comparison %>%
   st_drop_geometry() %>%
   summarise(
@@ -912,20 +911,13 @@ grid_totals <- hex_comparison %>%
     study_total_population = safe_sum(total_population),
     acs_housing_units = safe_sum(acs_total_housing_units),
     current_units = safe_sum(current_residential_units),
-    shadow_units = safe_sum(shadow_residential_units),
     current_zero_hexes = sum(current_zero_units),
-    shadow_zero_hexes = sum(shadow_zero_units),
     current_populated_zero_hexes = sum(
-      current_zero_units & total_population > 0
-    ),
-    shadow_populated_zero_hexes = sum(
-      shadow_zero_units & total_population > 0
+      current_zero_units & total_population > 0,
+      na.rm = TRUE
     ),
     current_zero_population = safe_sum(
       total_population[current_zero_units]
-    ),
-    shadow_zero_population = safe_sum(
-      total_population[shadow_zero_units]
     )
   )
 
@@ -944,38 +936,26 @@ audit_summary <- tribble(
   "current_zero_unit_hexes",
   grid_totals$current_zero_hexes,
   "All current-feature hexes with zero parcel units.",
-  "shadow_zero_unit_hexes",
-  grid_totals$shadow_zero_hexes,
-  "All unit-shadow hexes with zero parcel units.",
   "current_populated_zero_unit_hexes",
   grid_totals$current_populated_zero_hexes,
   "Current zero-unit hexes with positive allocated population.",
-  "shadow_populated_zero_unit_hexes",
-  grid_totals$shadow_populated_zero_hexes,
-  "Audit universe.",
-  "shadow_zero_unit_population",
-  grid_totals$shadow_zero_population,
-  "Allocated population in the audit universe.",
-  "shadow_zero_unit_population_share",
-  grid_totals$shadow_zero_population / grid_totals$study_total_population,
-  "Share of all allocated population.",
-  "shadow_zero_unit_acs_housing_units",
+  "current_zero_unit_population",
+  grid_totals$current_zero_population,
+  "Allocated population in the current audit universe.",
+  "current_zero_unit_population_share",
+  grid_totals$current_zero_population / grid_totals$study_total_population,
+  "Share of all allocated population in current zero-unit hexes.",
+  "current_zero_unit_acs_housing_units",
   safe_sum(zero_audit$acs_total_housing_units),
-  "ACS housing units allocated to the audit universe.",
+  "ACS housing units allocated to the current audit universe.",
   "current_mapped_parcel_units",
   grid_totals$current_units,
-  "Current targeted units mapped to the H3 grid.",
-  "shadow_mapped_parcel_units",
-  grid_totals$shadow_units,
-  "Shadow units mapped to the H3 grid.",
+  "Current promoted units mapped to the H3 grid.",
   "mapped_acs_housing_units",
   grid_totals$acs_housing_units,
   "Allocated ACS housing units on the same grid.",
   "current_minus_acs_units",
   grid_totals$current_units - grid_totals$acs_housing_units,
-  "Aggregate comparison only; ACS is not a calibration target.",
-  "shadow_minus_acs_units",
-  grid_totals$shadow_units - grid_totals$acs_housing_units,
   "Aggregate comparison only; ACS is not a calibration target.",
   "direct_projects_not_integrated",
   direct_project_total$projects,
@@ -1036,10 +1016,6 @@ write_csv(
   file.path(OUTPUT_DIR, "populated_zero_unit_exclusion_review.csv")
 )
 write_csv(
-  zero_transition_summary,
-  file.path(OUTPUT_DIR, "populated_zero_unit_transition_summary.csv")
-)
-write_csv(
   audit_summary,
   file.path(OUTPUT_DIR, "populated_zero_unit_audit_summary.csv")
 )
@@ -1088,7 +1064,7 @@ audit_map <- ggplot() +
   ) +
   coord_sf(datum = NA) +
   labs(
-    title = "Populated Hexes with Zero Shadow Residential Units",
+    title = "Populated Hexes with Zero Promoted Residential Units",
     subtitle = paste0(
       scales::comma(nrow(zero_audit)),
       " hexes; categories distinguish unit-pipeline gaps from ACS support artifacts"
@@ -1133,7 +1109,7 @@ print_progress("Audit metrics:")
 print(audit_summary)
 print_progress(
   paste0(
-    "Saved populated zero-unit audit for ",
+    "Saved current populated zero-unit audit for ",
     scales::comma(nrow(zero_audit)),
     " hexes. No parcel, feature, or cluster estimate was modified."
   )

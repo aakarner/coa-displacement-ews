@@ -82,6 +82,7 @@ tools rather than substantive evidence and are not listed as data sources.
 | --- | --- | --- | --- |
 | U.S. Census Bureau TIGER/Line | Austin place boundary | 2021 geography | Defines the polygon used to generate the current H3 grid |
 | City of Austin GIS | Full- and limited-purpose jurisdiction boundaries | April 29, 2026 snapshot | Supports current boundary comparisons, coverage audits, and map context; it does not redefine the existing grid |
+| City of Austin Planning | Detailed Land Use Inventory | July 2026 download of the December 2025 inventory | Independently checks whether residential parcel records fall on land classified as single-family, duplex, three/fourplex, apartment/condominium, retirement housing, mixed use, or another use; it does not supply unit counts |
 | Travis, Hays, and Williamson county appraisal districts | Current parcel and appraisal-account extracts plus annual certified appraisal rolls | Current residential-candidate extracts; annual value records for 2021-2025 | Supplies property location, use, owner of record, floor and land area, appraisal values, and any reported unit fields |
 | County clerks and county appraisal districts | Dated deed and sale records plus historical owner files | Primarily 2021-2025, with different gaps by county | Supplies transaction events and owner histories used to measure turnover and changes in corporate ownership |
 | City of Austin and reviewed housing-project sources | Affordable Housing Inventory, Universal Recycling Ordinance inventory, Austin Energy Green Building and TDHCA records, and reviewed project documents | Most recent locally available record for each project | Supplies additional reported or comparison unit counts for identified residential developments |
@@ -364,10 +365,11 @@ The pipeline does not force these totals to agree and does not use the ACS as
 an automatic replacement when a parcel count is low. Agreement at the city
 level can coexist with substantial local disagreement.
 
-The July 2026 audit found 508,843 promoted parcel units and 479,614 allocated
-ACS units on the exact study grid, a parcel excess of 6.1 percent. Inside the
+After the July 31 City land-use validation, the current surface contains
+502,257 promoted parcel units and 479,650 allocated ACS units on the exact
+study grid, a parcel excess of 4.7 percent. Inside the
 Austin full-purpose boundary, meaning the area under the City's full municipal
-jurisdiction, 514,241 parcel units were 0.8 percent below the retained 2024
+jurisdiction, 507,653 parcel units are 2.1 percent below the retained 2024
 one-year ACS city benchmark of 518,574. These comparisons use different
 boundaries and ACS products; neither proves that individual hex estimates are
 correct.
@@ -516,8 +518,21 @@ The integration was first written to `unit_shadow` files. Here, **shadow**
 means a candidate surface evaluated beside the existing pipeline without
 changing downstream results. After the comparison passed its validation
 checks, target `promoted_unit_surface` made the new hierarchy the default and
-wrote `output/residential_parcels_unit_promoted.rds`. Use
-`EWS_UNIT_SURFACE=baseline` only to reproduce the historical pre-promotion
+wrote `output/residential_parcels_unit_promoted.rds`.
+
+Promotion also applies a narrow current-land-use safeguard. A modeled or
+fallback project is removed from residential calculations when it is inside
+Austin's full-purpose boundary, matches the City Land Use Inventory by exact
+parcel identifier, is classified there only as nonresidential or group
+quarters, and has no appraisal multifamily code. This rule addresses cases
+that entered the candidate file because housing was allowed by zoning even
+though no source confirmed a current residential use. The table retains each
+removed row, its pre-validation estimate, and the exclusion reason for audit;
+downstream housing totals, corporate-ownership denominators, ACS allocation,
+and cluster eligibility exclude it. Direct and deterministic counts are not
+removed automatically when the sources disagree.
+
+Use `EWS_UNIT_SURFACE=baseline` only to reproduce the historical pre-promotion
 surface.
 
 The current hierarchy, caveats, validation gates, and complete output list are
@@ -525,6 +540,29 @@ documented in
 [`docs/methods/unit-count-modeling.md`](../docs/methods/unit-count-modeling.md).
 Raw and compact source extracts remain ignored under
 `data/raw_parcels/unit_sources/`.
+
+### 7. Check Residential Form Against the City Land Use Inventory
+
+Target `land_use_unit_classification_audit`, implemented in
+`scripts/audits/land_use_unit_classification.R`, compares the promoted parcel
+surface with the City of Austin Detailed Land Use Inventory. It first links
+records using county-aware parcel identifiers. Parcel points are matched to
+City land-use polygons only where the identifiers do not link. This broad
+comparison is diagnostic and never changes a unit count or production
+classification. It is distinct from the narrower exact-identifier production
+safeguard described above.
+
+The comparison distinguishes **residential form** from **unit-count evidence**.
+For example, a City `Apartment/Condo` code independently supports a multi-unit
+classification, but it does not report how many units are present. Conversely,
+a direct project total may be valid even where the City's primary-use code is
+older or describes a mixed-use site incompletely. Disagreements are therefore
+written to review tables rather than automatically resolved in favor of either
+source.
+
+Refresh the ignored City and Census snapshots deliberately with
+`Rscript scripts/data/download_land_use_inventory.R`. Then run
+`Rscript run_analysis.R land_use_unit_classification_audit`.
 
 ## Displacement Proxies
 

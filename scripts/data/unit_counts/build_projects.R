@@ -139,10 +139,23 @@ source_group_links <- source_links %>%
   filter(match_confidence == "high") %>%
   add_count(source_record_id, name = "linked_parcel_count") %>%
   filter(linked_parcel_count > 1L) %>%
+  left_join(
+    source_records %>% select(source_record_id, source_name),
+    by = "source_record_id",
+    relationship = "many-to-one"
+  ) %>%
   transmute(
     link_group_id = paste0("source:", source_record_id),
     parcel_id,
-    grouping_method = "shared_high_confidence_source"
+    grouping_method = "shared_high_confidence_source",
+    grouping_source = case_when(
+      source_name == "austin_affordable_housing_inventory" ~
+        "Austin Affordable Housing Inventory (AHI)",
+      source_name == "austin_universal_recycling_inventory" ~
+        "Austin Universal Recycling Ordinance (URO) inventory",
+      source_name == "costar_current" ~ "CoStar property record",
+      TRUE ~ source_name
+    )
   )
 
 address_group_links <- parcels %>%
@@ -168,14 +181,16 @@ address_group_links <- parcels %>%
   transmute(
     link_group_id = paste0("address:", project_address_key),
     parcel_id,
-    grouping_method = "exact_multifamily_address"
+    grouping_method = "exact_multifamily_address",
+    grouping_source = "County appraisal exact multifamily address"
   )
 
 reviewed_group_links <- reviewed_groups %>%
   transmute(
     link_group_id = paste0("reviewed:", reviewed_group_id),
     parcel_id,
-    grouping_method = "reviewed_wcad_companion_accounts"
+    grouping_method = "reviewed_wcad_companion_accounts",
+    grouping_source = "Reviewed Williamson companion-account evidence"
   )
 
 component_links <- bind_rows(
@@ -213,6 +228,96 @@ project_membership <- components %>%
     ),
     project_link_group_count = replace_na(project_link_group_count, 0L)
   )
+
+grouping_source_order <- c(
+  "County appraisal exact multifamily address",
+  "Austin Affordable Housing Inventory (AHI)",
+  "Austin Universal Recycling Ordinance (URO) inventory",
+  "CoStar property record",
+  "Reviewed Williamson companion-account evidence"
+)
+
+project_grouping_source_combinations <- component_links %>%
+  inner_join(
+    project_membership %>% select(parcel_id, project_id),
+    by = "parcel_id",
+    relationship = "many-to-one"
+  ) %>%
+  distinct(project_id, grouping_source) %>%
+  group_by(project_id) %>%
+  summarise(
+    grouping_source_combination = {
+      observed_sources <- unique(grouping_source)
+      ordered_sources <- grouping_source_order[
+        grouping_source_order %in% observed_sources
+      ]
+      additional_sources <- sort(setdiff(observed_sources, ordered_sources))
+      str_c(c(ordered_sources, additional_sources), collapse = " + ")
+    },
+    .groups = "drop"
+  )
+
+project_grouping_universe <- project_membership %>%
+  count(project_id, name = "parcel_rows") %>%
+  left_join(
+    project_grouping_source_combinations,
+    by = "project_id",
+    relationship = "one-to-one"
+  ) %>%
+  mutate(
+    grouping_source_combination = coalesce(
+      grouping_source_combination,
+      "Single parcel; no grouping required"
+    )
+  )
+
+if (any(
+  project_grouping_universe$parcel_rows > 1L &
+    project_grouping_universe$grouping_source_combination ==
+      "Single parcel; no grouping required"
+)) {
+  stop("A multi-parcel project is missing its grouping source.", call. = FALSE)
+}
+
+project_grouping_source_breakdown <- project_grouping_universe %>%
+  group_by(grouping_source_combination) %>%
+  summarise(
+    projects = n(),
+    parcel_rows = sum(parcel_rows),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    project_pct = 100 * projects / sum(projects),
+    parcel_row_pct = 100 * parcel_rows / sum(parcel_rows),
+    source_combination_sort = if_else(
+      grouping_source_combination == "Single parcel; no grouping required",
+      0L,
+      1L
+    )
+  ) %>%
+  arrange(source_combination_sort, desc(parcel_rows), grouping_source_combination) %>%
+  select(-source_combination_sort)
+
+project_grouping_source_breakdown <- bind_rows(
+  project_grouping_source_breakdown,
+  project_grouping_source_breakdown %>%
+    summarise(
+      grouping_source_combination = "Total parcel universe",
+      projects = sum(projects),
+      parcel_rows = sum(parcel_rows),
+      project_pct = 100,
+      parcel_row_pct = 100
+    )
+)
+
+if (
+  tail(project_grouping_source_breakdown$projects, 1L) !=
+    n_distinct(project_membership$project_id) ||
+    tail(project_grouping_source_breakdown$parcel_rows, 1L) !=
+      nrow(project_membership)
+) {
+  stop("Project grouping-source breakdown does not balance.", call. = FALSE)
+}
 
 reviewed_group_audit <- reviewed_groups %>%
   left_join(
@@ -909,6 +1014,13 @@ save_output(
 write_csv(
   project_membership,
   file.path(OUTPUT_DIR, "residential_unit_project_membership.csv")
+)
+write_csv(
+  project_grouping_source_breakdown,
+  file.path(
+    OUTPUT_DIR,
+    "residential_unit_project_grouping_source_breakdown.csv"
+  )
 )
 write_csv(
   projects,
