@@ -75,14 +75,21 @@ adjusted Rand index is 0.916, the smallest cluster has 177 hexes, and the
 largest has 1,216. These results use the July 31 City land-use validation
 repair to the promoted residential unit surface.
 
-| Cluster | Tentative interpretation | Concern | Hexes |
+| Cluster | Tentative interpretation | Risk category | Hexes |
 | --- | --- | --- | ---: |
-| 1 | Lower-Pressure / Watch | Low | 1,216 |
-| 2 | High-Cost / Lower-Vulnerability | Moderate - ambiguous | 658 |
-| 3 | Amenity-Led Emerging Pressure | High - rising | 177 |
-| 4 | Corporate Ownership + Vulnerability | High - structural | 422 |
-| 5 | Demolition-Led Redevelopment | Very high - physical | 307 |
-| 6 | Eviction + Vulnerable Renters | Very high - immediate | 470 |
+| 1 | Lower Current Pressure | Low | 1,216 |
+| 2 | High-Cost / Lower-Vulnerability | Low | 658 |
+| 3 | Amenity-Led Emerging Pressure | Moderate | 177 |
+| 4 | Corporate Ownership + Vulnerability | Moderate | 422 |
+| 5 | Demolition-Led Redevelopment | High | 307 |
+| 6 | Eviction + Vulnerable Renters | Very high | 470 |
+
+The categories provide a low-to-high displacement-risk reading order based on
+the intensity and directness of each cluster's dominant indicators. They are
+an interpretive synthesis, not estimated probabilities or a quantitative risk
+score. In particular, the high category for Cluster 5 reflects active physical
+redevelopment, while the very-high category is reserved for Cluster 6's direct
+household-level eviction pressure combined with renter vulnerability.
 
 Silhouette favors `k = 3`, while gap statistics favor larger solutions.
 `k = 6` is therefore a substantive choice that preserves interpretable

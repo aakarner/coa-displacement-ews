@@ -757,7 +757,8 @@ list(
       part1_visualization_script,
       c(
         "figures/03e_amenity_clusters_tentative.png",
-        "figures/03e_amenity_clusters_interactive.html"
+        "figures/03e_amenity_clusters_interactive.html",
+        "site/index.html"
       ),
       dependencies = list(
         current_features,

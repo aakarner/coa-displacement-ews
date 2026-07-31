@@ -10,6 +10,7 @@
 # Outputs:
 #   figures/03e_amenity_clusters_tentative.png
 #   figures/03e_amenity_clusters_interactive.html
+#   site/index.html
 #
 # Cartographic orientation comes from the cached TIGER/Line reference created
 # by scripts/data/map_orientation.R. It is not part of the cluster model.
@@ -40,6 +41,7 @@ print_header("PART 1 - VISUALIZE BASELINE CLUSTERS")
 
 OUTPUT_DIR <- project_path("output")
 FIGURES_DIR <- project_path("figures")
+SITE_DIR <- project_path("site")
 LABEL_FILE <- project_path("config", "amenity_cluster_labels_k6.csv")
 
 required_files <- c(
@@ -318,7 +320,7 @@ p_static <- ggplot() +
   ) +
   scale_fill_manual(
     values = cluster_colors,
-    name = "Typology cluster (low to high vulnerability)"
+    name = "Typology cluster (low to high displacement risk)"
   ) +
   coord_sf(datum = NA) +
   labs(
@@ -335,7 +337,7 @@ p_static <- ggplot() +
     ),
     caption = paste0(
       "Cluster labels and risk categories are interpretive, not quantitative risk scores. ",
-      "Shared hues denote shared risk categories; shades distinguish clusters.\n",
+      "Cool-to-warm colors show increasing displacement risk.\n",
       "Grey hexes were outside the shared clustering sample. ",
       "Orientation overlay: ", orientation_reference$tiger_year,
       " U.S. Census Bureau TIGER/Line."
@@ -486,7 +488,7 @@ interactive_map <- interactive_map %>%
     labels = lapply(legend_labels, HTML),
     title = HTML(paste0(
       "Typology clusters<br>",
-      "<span style='font-size:11px'>Low to high vulnerability</span>"
+      "<span style='font-size:11px'>Low to high displacement risk</span>"
     )),
     opacity = 0.9
   ) %>%
@@ -512,13 +514,25 @@ interactive_path <- file.path(
   FIGURES_DIR,
   "03e_amenity_clusters_interactive.html"
 )
+site_path <- file.path(SITE_DIR, "index.html")
+dir.create(SITE_DIR, recursive = TRUE, showWarnings = FALSE)
 saveWidget(
   interactive_map,
-  file = interactive_path,
+  file = site_path,
   selfcontained = TRUE,
   title = "Amenity-Augmented Displacement Pressure Clusters"
 )
+site_dependency_dir <- paste0(tools::file_path_sans_ext(site_path), "_files")
+if (dir.exists(site_dependency_dir)) {
+  unlink(site_dependency_dir, recursive = TRUE)
+}
+site_html <- readLines(site_path, warn = FALSE)
+writeLines(sub("[[:blank:]]+$", "", site_html), site_path, useBytes = TRUE)
+if (!file.copy(site_path, interactive_path, overwrite = TRUE)) {
+  stop("Could not copy the published map to the figures directory.", call. = FALSE)
+}
 
 cat("\nStatic map: ", static_path, "\n", sep = "")
 cat("Interactive map: ", interactive_path, "\n", sep = "")
+cat("Published site map: ", site_path, "\n", sep = "")
 cat("Part 1 cluster visualization complete.\n")
