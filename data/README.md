@@ -70,6 +70,40 @@ changed source or method rebuilds only the affected parts of the analysis.
 - **MOE**: the margin of error published with an ACS survey estimate. It
   describes sampling uncertainty; it is not an error correction.
 
+## Raw Input Data Sources
+
+The table below lists external records and reference series before the EWS
+cleans, links, allocates, aggregates, or models them. It therefore excludes the
+hex grid, estimated unit counts, corporate-owner classifications, pressure
+indices, and other derived products. Geocoding services are also processing
+tools rather than substantive evidence and are not listed as data sources.
+
+| Provider | Raw input | Vintage or period used | What it contributes |
+| --- | --- | --- | --- |
+| U.S. Census Bureau TIGER/Line | Austin place boundary | 2021 geography | Defines the polygon used to generate the current H3 grid |
+| City of Austin GIS | Full- and limited-purpose jurisdiction boundaries | April 29, 2026 snapshot | Supports current boundary comparisons, coverage audits, and map context; it does not redefine the existing grid |
+| Travis, Hays, and Williamson county appraisal districts | Current parcel and appraisal-account extracts plus annual certified appraisal rolls | Current residential-candidate extracts; annual value records for 2021-2025 | Supplies property location, use, owner of record, floor and land area, appraisal values, and any reported unit fields |
+| County clerks and county appraisal districts | Dated deed and sale records plus historical owner files | Primarily 2021-2025, with different gaps by county | Supplies transaction events and owner histories used to measure turnover and changes in corporate ownership |
+| City of Austin and reviewed housing-project sources | Affordable Housing Inventory, Universal Recycling Ordinance inventory, Austin Energy Green Building and TDHCA records, and reviewed project documents | Most recent locally available record for each project | Supplies additional reported or comparison unit counts for identified residential developments |
+| U.S. Census Bureau | 2020 Decennial Census blocks | 2020 | Supplies small-area population and housing controls for allocating ACS estimates |
+| U.S. Census Bureau | ACS 5-year demographic and housing estimates | 2024 for current demographics; 2014, 2019, and 2024 for rent history | Supplies demographic vulnerability, housing estimates, and the citywide rent series |
+| CoStar | Historical multifamily property, unit, asking-rent, and vacancy records | Licensed historical extract available to the project | Supplies project evidence and a coverage-limited rent sensitivity measure; it is not a citywide rent source |
+| Travis County Justice of the Peace courts | Eviction filing extracts | January 2020 through the April 1, 2026 analysis cutoff | Supplies observed eviction filings for Travis County |
+| City of Austin Development Services | Issued construction permits | Records issued through the April 1, 2026 analysis cutoff | Supplies permitted residential demolitions within source coverage |
+| City of Austin 311 | Code-enforcement service-request records | Requests through the April 1, 2026 analysis cutoff | Supplies selected housing-condition and code-related requests |
+| Texas Comptroller and City of Austin | Permitted sales-tax locations, mixed-beverage reports, and food-establishment inspections | Recent 48-month source history; equal 18-month analysis windows ending April 1, 2026 | Supplies and corroborates openings in selected amenity categories |
+| U.S. Bureau of Labor Statistics | CPI-U annual averages | Years corresponding to the configured ACS and appraisal vintages | Converts rent and appraisal-value measures to constant dollars |
+
+The first county row describes **property snapshots**: what each appraisal
+account contains and who owns it in a particular tax year. The following row
+describes **event and history records**: when a deed or sale occurred and how
+the owner changed. Some annual owner histories are constructed by comparing
+appraisal snapshots, so the evidence overlaps even though the source products
+and analytical purposes differ. The current residential-candidate files and
+their initial corporate-owner classifications were generated from county data
+in the sibling `landlord-mapper` repository; the dependency is described under
+[Identify Residential Appraisal Records](#1-identify-residential-appraisal-records).
+
 ## Current Source Inventory
 
 Sources are grouped below by their analytical role. Foundational sources define
