@@ -33,10 +33,16 @@ files <- c(
   metrics = file.path(OUTPUT_DIR, "amenity_cluster_metrics.csv"),
   gap = file.path(OUTPUT_DIR, "amenity_cluster_gap_statistics.csv"),
   stability = file.path(OUTPUT_DIR, "amenity_cluster_stability.csv"),
+  cluster_selection_decision =
+    file.path(PART1_DIR, "cluster_selection_decision.csv"),
+  cluster_selection_stability =
+    file.path(PART1_DIR, "cluster_selection_stability_summary.csv"),
+  cluster_selection_signals =
+    file.path(PART1_DIR, "cluster_selection_signal_separation.csv"),
   recommendations = file.path(OUTPUT_DIR, "amenity_cluster_recommendations.csv"),
   coverage = file.path(OUTPUT_DIR, "amenity_cluster_population_coverage.csv"),
   model = file.path(PART1_DIR, "baseline_cluster_model.rds"),
-  labels = project_path("config", "amenity_cluster_labels_k6.csv"),
+  labels = project_path("config", "amenity_cluster_labels.csv"),
   dictionary = project_path("config", "feature_dictionary.csv"),
   requests_311_selection =
     file.path(OUTPUT_DIR, "311_service_request_selection.csv")
@@ -58,6 +64,18 @@ assignments <- read_csv(files[["assignments"]], show_col_types = FALSE)
 metrics <- read_csv(files[["metrics"]], show_col_types = FALSE)
 gap <- read_csv(files[["gap"]], show_col_types = FALSE)
 stability <- read_csv(files[["stability"]], show_col_types = FALSE)
+cluster_selection_decision <- read_csv(
+  files[["cluster_selection_decision"]],
+  show_col_types = FALSE
+)
+cluster_selection_stability <- read_csv(
+  files[["cluster_selection_stability"]],
+  show_col_types = FALSE
+)
+cluster_selection_signals <- read_csv(
+  files[["cluster_selection_signals"]],
+  show_col_types = FALSE
+)
 recommendations <- read_csv(
   files[["recommendations"]],
   show_col_types = FALSE
@@ -88,12 +106,60 @@ record_check <- function(check, passed, detail) {
 
 specification <- model$specification
 k <- model$k
+selected_spatial_stability <- cluster_selection_stability %>%
+  filter(k == !!k)
+selected_eviction_signal <- cluster_selection_signals %>%
+  filter(k == !!k, signal == "eviction")
 selected_assignments <- assignments %>%
   filter(specification == !!specification, k == !!k) %>%
   select(hex_id, cluster)
 configured_features <- dictionary %>%
   filter(role == "cluster_input") %>%
   pull(feature)
+
+record_check(
+  "cluster_selection_decision_matches_model",
+  nrow(cluster_selection_decision) == 1L &&
+    cluster_selection_decision$selected_specification[[1]] == specification &&
+    cluster_selection_decision$selected_k[[1]] == k &&
+    nzchar(cluster_selection_decision$status[[1]]) &&
+    nzchar(cluster_selection_decision$rationale[[1]]),
+  paste("selected k", k, "with a recorded review rationale")
+)
+record_check(
+  "spatial_stability_audit_complete",
+  nrow(selected_spatial_stability) == 3L &&
+    setequal(
+      selected_spatial_stability$scheme,
+      c("random_hex", "h3_parent_r8", "h3_parent_r7")
+    ) &&
+    all(selected_spatial_stability$replicates >= 100L) &&
+    all(is.finite(selected_spatial_stability$median_adjusted_rand)) &&
+    all(is.finite(selected_spatial_stability$p10_adjusted_rand)),
+  paste(
+    nrow(selected_spatial_stability),
+    "holdout schemes with",
+    paste(sort(unique(selected_spatial_stability$replicates)), collapse = ", "),
+    "replicates"
+  )
+)
+record_check(
+  "selected_eviction_signal_diagnostic_recorded",
+  nrow(selected_eviction_signal) == 1L &&
+    is.finite(selected_eviction_signal$presence_separation_r2[[1]]) &&
+    is.finite(selected_eviction_signal$high_pressure_cluster_zero_share[[1]]),
+  if (nrow(selected_eviction_signal) == 1L) {
+    paste0(
+      "highest-eviction cluster zero-event share = ",
+      scales::percent(
+        selected_eviction_signal$high_pressure_cluster_zero_share[[1]],
+        accuracy = 0.1
+      )
+    )
+  } else {
+    "selected eviction diagnostic missing"
+  }
+)
 
 record_check(
   "unique_feature_hex_ids",
@@ -381,6 +447,20 @@ summary <- tibble(
   gap_statistic = selected_gap$gap[[1]],
   mean_subsample_adjusted_rand =
     selected_stability$mean_adjusted_rand[[1]],
+  random_holdout_median_adjusted_rand =
+    cluster_selection_decision$random_hex_median_adjusted_rand[[1]],
+  random_holdout_p10_adjusted_rand =
+    cluster_selection_decision$random_hex_p10_adjusted_rand[[1]],
+  h3_parent_r8_median_adjusted_rand =
+    cluster_selection_decision$h3_parent_r8_median_adjusted_rand[[1]],
+  h3_parent_r8_p10_adjusted_rand =
+    cluster_selection_decision$h3_parent_r8_p10_adjusted_rand[[1]],
+  h3_parent_r7_median_adjusted_rand =
+    cluster_selection_decision$h3_parent_r7_median_adjusted_rand[[1]],
+  h3_parent_r7_p10_adjusted_rand =
+    cluster_selection_decision$h3_parent_r7_p10_adjusted_rand[[1]],
+  highest_eviction_cluster_zero_share =
+    cluster_selection_decision$eviction_high_pressure_zero_share[[1]],
   smallest_cluster_hexes = selected_metrics$min_cluster_n[[1]],
   largest_cluster_hexes = selected_metrics$max_cluster_n[[1]],
   assignment_sha256 = assignment_hash
@@ -423,11 +503,15 @@ lock_files <- c(
   pipeline_code_files,
   "config/311_smoke_signal_types.csv",
   "config/feature_dictionary.csv",
-  "config/amenity_cluster_labels_k6.csv",
+  "config/amenity_cluster_labels.csv",
+  "config/part1_cluster_selection.csv",
   files[["features"]],
   files[["results"]],
   files[["assignments"]],
-  files[["model"]]
+  files[["model"]],
+  files[["cluster_selection_decision"]],
+  files[["cluster_selection_stability"]],
+  files[["cluster_selection_signals"]]
 )
 lock_files <- unique(lock_files[file.exists(lock_files)])
 project_root <- paste0(

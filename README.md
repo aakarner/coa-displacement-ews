@@ -103,7 +103,8 @@ config/
   311_smoke_signal_types.csv  Exact 311 descriptions used in Part 1
   feature_dictionary.csv      Feature domains, roles, and missingness rules
   forecast_outcomes.csv       Part 3 displacement-proxy outcomes
-  amenity_cluster_labels_k6.csv
+  amenity_cluster_labels.csv  Display labels for the selected Part 1 solution
+  part1_cluster_selection.csv Selected k and review rationale
 
 docs/                         Current guidance and dated audit reports
 data/                         Local inputs and cached public extracts
@@ -113,13 +114,13 @@ figures/                      Static and interactive outputs
 
 ## Current Analytical State
 
-The selected Part 1 solution is the six-cluster amenity-augmented typology.
+The selected Part 1 solution is the seven-cluster amenity-augmented typology.
 `output/part1/baseline_cluster_model.rds` freezes:
 
 - the analysis vintage and H3 resolution;
 - the exact feature schema;
 - baseline means and standard deviations;
-- the six centroids;
+- the seven centroids;
 - substantive cluster labels;
 - baseline distance and boundary thresholds.
 
@@ -129,12 +130,13 @@ frozen-model reassignment. The accompanying summary, canonical assignments,
 and lock manifest preserve the reviewed presentation run. Future feature
 vintages will use the same assignment function.
 
-The locked in-progress run classifies 3,250 hexes, representing 92.0% of
+The current run classifies 3,250 hexes, representing 92.0% of
 allocated population and 93.6% of allocated housing units. At the substantively
-selected `k = 6`, average silhouette width is 0.245 and repeated-subsample
-stability is 0.916. These are presentation results, not a formally adopted
-baseline; the Travis-only eviction source remains the principal geographic
-coverage caveat.
+selected `k = 7`, average silhouette width is 0.254 and repeated-subsample
+stability is 0.969. A separate audit tests 20% random-hex and spatially blocked
+holdouts at two H3 parent resolutions. These are presentation results, not a
+formally adopted baseline; the Travis-only eviction source remains the
+principal geographic coverage caveat.
 
 Part 3 does not yet train a model. Its current output,
 `output/part3/forecast_readiness.csv`, records the historical hex-year panels

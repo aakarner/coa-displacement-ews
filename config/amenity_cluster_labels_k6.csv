@@ -1,7 +1,0 @@
-solution_k,cluster,display_cluster,tentative_name,concern_level,map_color,interpretation,profile_anchor
-6,3,5,Demolition-Led Redevelopment,High,#FB6A4A,High demolition pressure and elevated 311 activity with moderate vulnerability,demolition_pressure_index
-6,5,4,Corporate Ownership + Vulnerability,Moderate,#E6550D,High ownership pressure and demographic vulnerability with accumulating rather than acute physical change,ownership_pressure_index
-6,4,1,Lower Current Pressure,Low,#4DAF4A,Below-average current displacement pressure across most domains with some 311 activity,
-6,2,2,High-Cost / Lower-Vulnerability,Low,#377EB8,High rent pressure but low vulnerability and few acute smoke signals,rent_pressure_citywide_index
-6,6,6,Eviction + Vulnerable Renters,Very high,#CB181D,High eviction pressure and vulnerability with elevated 311 activity,eviction_pressure_index
-6,1,3,Amenity-Led Emerging Pressure,Moderate,#FDAE6B,High amenity change with elevated 311 and ownership pressure,amenity_change_index

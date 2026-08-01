@@ -59,41 +59,69 @@ different consequences for current residents.
 - gap statistics;
 - cluster size balance;
 - repeated 80% subsample stability;
-- geographic coherence through mapped assignments.
+- geographic coherence through mapped assignments; and
+- matched 20% random and spatially blocked holdout tests implemented in
+  `scripts/audits/part1_cluster_selection.R`.
 
-These statistics inform, but do not mechanically replace, substantive review.
-The current shared solution uses `k = 6`, configured in
-`R/analysis_config.R`, with tentative labels in
-`config/amenity_cluster_labels_k6.csv`.
+The blocked tests hold out whole H3 parent regions at resolutions 8 and 7. For
+each replicate, feature means, standard deviations, and k-means centroids are
+estimated from the remaining hexes only. Held-out hexes are then assigned to
+their nearest estimated centroid and compared with their full-sample cluster.
+This is more conservative than random thinning because neighboring hexes are
+kept together rather than split between training and evaluation samples.
+
+The audit also reports assignment margins, cluster-specific recovery, and the
+share of hexes in each cluster with an observed eviction, demolition, selected
+311, ownership-change, or amenity-opening event. These checks matter because a
+high composite index can reflect growth or relative timing even when a current
+raw count is zero. They prevent a cluster's tentative name from implying that
+every member has the named event.
+
+No single diagnostic mechanically selects k. The current shared solution uses
+`k = 7`, configured in `R/analysis_config.R`. The decision and rationale are in
+`config/part1_cluster_selection.csv`, and tentative display labels are in
+`config/amenity_cluster_labels.csv`.
 
 ## In-Progress Presentation Snapshot
 
-The locked run uses an analysis cutoff of April 1, 2026. It classifies 3,250
+The current run uses an analysis cutoff of April 1, 2026. It classifies 3,250
 hexes containing 92.0% of allocated population and 93.6% of allocated housing
-units. At `k = 6`, average silhouette width is 0.245, repeated-subsample
-adjusted Rand index is 0.916, the smallest cluster has 177 hexes, and the
-largest has 1,216. These results use the July 31 City land-use validation
+units. At `k = 7`, average silhouette width is 0.254, repeated-subsample
+adjusted Rand index is 0.969, the smallest cluster has 159 hexes, and the
+largest has 1,138. These results use the July 31 City land-use validation
 repair to the promoted residential unit surface.
 
 | Cluster | Tentative interpretation | Risk category | Hexes |
 | --- | --- | --- | ---: |
-| 1 | Lower Current Pressure | Low | 1,216 |
-| 2 | High-Cost / Lower-Vulnerability | Low | 658 |
-| 3 | Amenity-Led Emerging Pressure | Moderate | 177 |
-| 4 | Corporate Ownership + Vulnerability | Moderate | 422 |
-| 5 | Demolition-Led Redevelopment | High | 307 |
-| 6 | Eviction + Vulnerable Renters | Very high | 470 |
+| 1 | Lower Current Pressure | Low | 1,138 |
+| 2 | High-Cost / Lower-Vulnerability | Low | 627 |
+| 3 | Amenity-Led Emerging Pressure | Moderate | 159 |
+| 4 | Corporate Ownership + Vulnerability | Moderate | 396 |
+| 5 | 311 + Vulnerable Renters | Moderate | 369 |
+| 6 | Demolition-Led Redevelopment | High | 285 |
+| 7 | Eviction + Vulnerable Renters | Very high | 276 |
 
 The categories provide a low-to-high displacement-risk reading order based on
 the intensity and directness of each cluster's dominant indicators. They are
 an interpretive synthesis, not estimated probabilities or a quantitative risk
-score. In particular, the high category for Cluster 5 reflects active physical
-redevelopment, while the very-high category is reserved for Cluster 6's direct
-household-level eviction pressure combined with renter vulnerability.
+score. Cluster 5 is moderate because it combines renter vulnerability with a
+strong smoke signal but not consistently high observed eviction filings.
+Cluster 6 is high because it reflects active physical redevelopment. The
+very-high category is reserved for Cluster 7's direct household-level eviction
+pressure combined with renter vulnerability.
 
-Silhouette favors `k = 3`, while gap statistics favor larger solutions.
-`k = 6` is therefore a substantive choice that preserves interpretable
-variation, not a mechanical statistical optimum. About 6.6% of population in
+Silhouette alone favors the much coarser `k = 3`, while gap statistics continue
+to improve at larger solutions. Within the substantively useful range, `k = 7`
+improves on the previous `k = 6` checkpoint: silhouette rises from 0.245 to
+0.254, existing repeated-subsample stability rises from 0.916 to 0.969, and the
+10th-percentile adjusted Rand index under the coarser resolution-7 spatial
+holdout rises from 0.773 to 0.906. Its highest-eviction cluster contains an
+observed filing in every member hex; the comparable `k = 6` cluster contained
+17.2% zero-filing hexes because it combined eviction and high-311 profiles.
+The `k = 8` solution does not provide another comparable gain: its silhouette
+falls to 0.201 and its assignment margins weaken. The selected `k = 7` is
+therefore a joint statistical and substantive choice rather than a mechanical
+optimum. About 6.6% of population in
 eligible hexes is in Hays- or Williamson-dominant cells without equivalent
 eviction-filing coverage; this remains a presentation caveat and a blocker to
 formal baseline adoption.
@@ -142,10 +170,20 @@ eligibility rule or missing a required cluster feature receive an explicit
 ## Validation
 
 Current automated Part 1 validation includes repeated random-subsample
-stability, silhouette and gap diagnostics, exact frozen-model reproduction,
-mapped geographic review, and a version/runtime lock manifest. The proposed
-geographically structured holdout and expert/community interpretation remain
-review steps rather than completed diagnostics.
+stability, silhouette and gap diagnostics, matched random and spatially blocked
+holdouts, cluster-specific recovery, assignment confidence, sparse-signal
+prevalence, exact frozen-model reproduction, mapped geographic review, and a
+version/runtime manifest. Expert and community interpretation remains a review
+step rather than a completed technical diagnostic.
+
+Detailed cluster-selection outputs are under `output/part1/`. The one-row
+decision record is `cluster_selection_decision.csv`; the candidate scorecard,
+replicate-level and cluster-level stability, profiles with population and unit
+totals, signal prevalence, and assignment confidence remain separate tables so
+the evidence can be re-examined when a new data vintage is available. Figures
+with the `03f_cluster_selection_` prefix compare stability, maps, profiles,
+signal prevalence, the k = 6-to-7 crosswalk, and assignment confidence.
+
 Part 2 validation includes:
 
 - exact baseline self-reproduction;

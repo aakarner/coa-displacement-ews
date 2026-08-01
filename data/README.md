@@ -154,7 +154,7 @@ The additional fields are retained because they:
 4. preserve candidate measures for sensitivity analysis, later updates, and
    Part 3 forecasting.
 
-The locked six-cluster solution uses only the seven composite fields marked
+The selected seven-cluster solution uses only the seven composite fields marked
 with `*` below. Using one composite index for each conceptual domain prevents a
 domain with many available component variables from receiving extra weight
 simply because it has more columns. Before clustering, the seven indices are
@@ -621,7 +621,7 @@ filings and 200 dwellings different from a hex with 20 filings and 2,000
 dwellings. A zero is used only when the source covers the location and no
 filing was observed; a rate requires a positive unit denominator.
 
-The available filing extracts cover Travis County only. The locked Part 1
+The available filing extracts cover Travis County only. The current Part 1
 baseline therefore understates eviction pressure in the Hays and Williamson
 portions of Austin. About 6.6 percent of the population in cluster-eligible
 hexes is in cells whose parcel units are predominantly in those two counties.

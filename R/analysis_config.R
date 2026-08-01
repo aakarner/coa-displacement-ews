@@ -95,7 +95,7 @@ if (length(missing_appraisal_cpi_years) > 0) {
 }
 
 amenity_cluster_k <- as.integer(
-  Sys.getenv("EWS_AMENITY_CLUSTER_K", unset = "6")
+  Sys.getenv("EWS_AMENITY_CLUSTER_K", unset = "7")
 )
 if (is.na(amenity_cluster_k) || amenity_cluster_k < 2L) {
   stop("EWS_AMENITY_CLUSTER_K must be an integer of at least 2.", call. = FALSE)

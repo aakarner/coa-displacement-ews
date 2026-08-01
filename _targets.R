@@ -118,7 +118,12 @@ list(
   ),
   tar_target(
     cluster_labels,
-    "config/amenity_cluster_labels_k6.csv",
+    "config/amenity_cluster_labels.csv",
+    format = "file"
+  ),
+  tar_target(
+    cluster_selection_config,
+    "config/part1_cluster_selection.csv",
     format = "file"
   ),
   tar_target(
@@ -731,15 +736,56 @@ list(
     format = "file"
   ),
   tar_target(
+    part1_cluster_selection_script,
+    "scripts/audits/part1_cluster_selection.R",
+    format = "file"
+  ),
+  tar_target(
+    part1_cluster_selection_audit,
+    run_r_script_stage(
+      part1_cluster_selection_script,
+      c(
+        "output/part1/cluster_selection_block_schemes.csv",
+        "output/part1/cluster_selection_stability_replicates.csv",
+        "output/part1/cluster_selection_stability_summary.csv",
+        "output/part1/cluster_selection_stability_by_cluster.csv",
+        "output/part1/cluster_selection_assignment_confidence.csv",
+        "output/part1/cluster_selection_confidence_by_cluster.csv",
+        "output/part1/cluster_selection_profiles.csv",
+        "output/part1/cluster_selection_signal_prevalence.csv",
+        "output/part1/cluster_selection_signal_separation.csv",
+        "output/part1/cluster_selection_spatial_behavior.csv",
+        "output/part1/cluster_selection_scorecard.csv",
+        "output/part1/cluster_selection_k6_k7_crosswalk.csv",
+        "output/part1/cluster_selection_decision.csv",
+        "output/part1/cluster_selection_audit.rds",
+        "figures/03f_cluster_selection_stability.png",
+        "figures/03f_cluster_selection_k6_k7_maps.png",
+        "figures/03f_cluster_selection_k6_k7_confidence.png",
+        "figures/03f_cluster_selection_k6_k7_profiles.png",
+        "figures/03f_cluster_selection_k6_k7_crosswalk.png",
+        "figures/03f_cluster_selection_signal_prevalence.png"
+      ),
+      dependencies = list(
+        current_features,
+        part1_cluster_analysis,
+        cluster_selection_config,
+        analysis_config
+      )
+    ),
+    format = "file"
+  ),
+  tar_target(
     part1_baseline_model,
     {
       current_features
       part1_cluster_analysis
+      part1_cluster_selection_audit
       cluster_labels
       freeze_baseline_cluster_model(
         feature_file = "output/hex_features.rds",
         cluster_results_file = "output/amenity_cluster_sensitivity.rds",
-        label_file = "config/amenity_cluster_labels_k6.csv",
+        label_file = "config/amenity_cluster_labels.csv",
         output_file = "output/part1/baseline_cluster_model.rds",
         config = analysis_config
       )
@@ -763,6 +809,7 @@ list(
       dependencies = list(
         current_features,
         part1_cluster_analysis,
+        part1_cluster_selection_audit,
         cluster_labels,
         map_orientation_reference,
         analysis_config
@@ -788,10 +835,12 @@ list(
       dependencies = list(
         current_features,
         part1_cluster_analysis,
+        part1_cluster_selection_audit,
         part1_baseline_model,
         part1_visualizations,
         feature_dictionary,
         cluster_labels,
+        cluster_selection_config,
         pipeline_code_files,
         analysis_config
       )

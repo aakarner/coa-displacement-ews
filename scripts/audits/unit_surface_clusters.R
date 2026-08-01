@@ -2,8 +2,8 @@
 # Audit Unit-Surface Cluster Effects
 ################################################################################
 #
-# Re-fits the six-cluster amenity-augmented solution on the shadow unit feature
-# table, aligns its arbitrary labels to the current six-cluster assignments,
+# Re-fits the selected amenity-augmented solution on the shadow unit feature
+# table, aligns its arbitrary labels to the current assignments,
 # and reports eligibility, population coverage, profile, and transition effects.
 # Canonical cluster outputs are not overwritten.
 ################################################################################
@@ -31,7 +31,7 @@ CURRENT_ASSIGNMENT_FILE <- file.path(
   OUTPUT_DIR,
   "amenity_cluster_assignments.csv"
 )
-LABEL_FILE <- here::here("config", "amenity_cluster_labels_k6.csv")
+LABEL_FILE <- here::here("config", "amenity_cluster_labels.csv")
 SOLUTION_K <- EWS_CONFIG$amenity_cluster_k
 RANDOM_SEED <- 42L
 
@@ -71,6 +71,20 @@ if (length(missing_shadow_vars) > 0L) {
   )
 }
 
+current_feature_keys <- current_features %>%
+  st_drop_geometry() %>%
+  transmute(
+    current_hex_id = as.character(hex_id),
+    h3_index = as.character(h3_index)
+  )
+if (
+  anyDuplicated(current_feature_keys$current_hex_id) ||
+    anyDuplicated(current_feature_keys$h3_index) ||
+    anyDuplicated(shadow_features$h3_index)
+) {
+  stop("Current and shadow H3 keys must be unique.", call. = FALSE)
+}
+
 current_assignments <- read_csv(
   CURRENT_ASSIGNMENT_FILE,
   show_col_types = FALSE
@@ -80,30 +94,43 @@ current_assignments <- read_csv(
     k == SOLUTION_K
   ) %>%
   transmute(
-    hex_id = as.character(hex_id),
+    current_hex_id = as.character(hex_id),
     current_cluster = as.integer(cluster)
-  )
+  ) %>%
+  left_join(
+    current_feature_keys,
+    by = "current_hex_id",
+    relationship = "one-to-one"
+  ) %>%
+  select(h3_index, current_hex_id, current_cluster)
+if (anyNA(current_assignments$h3_index)) {
+  stop("Current assignments could not be linked to stable H3 indexes.", call. = FALSE)
+}
 if (
   nrow(current_assignments) == 0L ||
     n_distinct(current_assignments$current_cluster) != SOLUTION_K ||
-    anyDuplicated(current_assignments$hex_id)
+    anyDuplicated(current_assignments$h3_index)
 ) {
-  stop("Current amenity k=6 assignments failed validation.", call. = FALSE)
+  stop("Current amenity assignments failed validation.", call. = FALSE)
 }
 
 shadow_analysis <- shadow_features %>%
   st_drop_geometry() %>%
-  mutate(hex_id = as.character(hex_id)) %>%
+  mutate(
+    shadow_hex_id = as.character(hex_id),
+    h3_index = as.character(h3_index)
+  ) %>%
   filter(primary_cluster_eligible) %>%
   select(
-    hex_id,
+    h3_index,
+    shadow_hex_id,
     residential_units,
     total_pop,
     all_of(cluster_vars)
   ) %>%
   filter(if_all(all_of(cluster_vars), ~is.finite(.x)))
 if (nrow(shadow_analysis) < 100L) {
-  stop("Too few complete shadow hexes for six-cluster comparison.", call. = FALSE)
+  stop("Too few complete shadow hexes for the selected-cluster comparison.", call. = FALSE)
 }
 
 shadow_matrix <- shadow_analysis %>%
@@ -124,7 +151,8 @@ shadow_fit <- kmeans(
 )
 shadow_assignments_raw <- shadow_analysis %>%
   transmute(
-    hex_id,
+    h3_index,
+    shadow_hex_id,
     shadow_cluster_raw = as.integer(shadow_fit$cluster)
   )
 
@@ -165,7 +193,7 @@ all_permutations <- function(values) {
 common_raw <- current_assignments %>%
   inner_join(
     shadow_assignments_raw,
-    by = "hex_id",
+    by = "h3_index",
     relationship = "one-to-one"
   )
 if (nrow(common_raw) == 0L) {
@@ -208,21 +236,28 @@ shadow_assignments <- shadow_assignments_raw %>%
 assignment_comparison <- shadow_features %>%
   st_drop_geometry() %>%
   transmute(
-    hex_id = as.character(hex_id),
+    h3_index = as.character(h3_index),
+    shadow_hex_id = as.character(hex_id),
     shadow_residential_units = residential_units,
     total_pop
   ) %>%
   left_join(
-    current_assignments,
-    by = "hex_id",
+    current_feature_keys,
+    by = "h3_index",
     relationship = "one-to-one"
   ) %>%
   left_join(
-    shadow_assignments,
-    by = "hex_id",
+    current_assignments,
+    by = c("h3_index", "current_hex_id"),
+    relationship = "one-to-one"
+  ) %>%
+  left_join(
+    shadow_assignments %>% select(h3_index, shadow_cluster),
+    by = "h3_index",
     relationship = "one-to-one"
   ) %>%
   mutate(
+    hex_id = current_hex_id,
     assignment_status = case_when(
       !is.na(current_cluster) & !is.na(shadow_cluster) ~ "assigned_both",
       is.na(current_cluster) & !is.na(shadow_cluster) ~
@@ -319,10 +354,10 @@ labels <- read_csv(LABEL_FILE, show_col_types = FALSE) %>%
 
 current_profiles <- current_features %>%
   st_drop_geometry() %>%
-  mutate(hex_id = as.character(hex_id)) %>%
+  mutate(h3_index = as.character(h3_index)) %>%
   inner_join(
-    current_assignments,
-    by = "hex_id",
+    current_assignments %>% select(h3_index, current_cluster),
+    by = "h3_index",
     relationship = "one-to-one"
   ) %>%
   group_by(cluster = current_cluster) %>%
@@ -335,10 +370,10 @@ current_profiles <- current_features %>%
 
 shadow_profiles <- shadow_features %>%
   st_drop_geometry() %>%
-  mutate(hex_id = as.character(hex_id)) %>%
+  mutate(h3_index = as.character(h3_index)) %>%
   inner_join(
-    shadow_assignments %>% select(hex_id, shadow_cluster),
-    by = "hex_id",
+    shadow_assignments %>% select(h3_index, shadow_cluster),
+    by = "h3_index",
     relationship = "one-to-one"
   ) %>%
   group_by(cluster = shadow_cluster) %>%
@@ -418,7 +453,7 @@ write_csv(
   file.path(OUTPUT_DIR, "unit_shadow_cluster_profiles.csv")
 )
 
-print_progress("Six-cluster shadow comparison:")
+print_progress(paste0("Selected k = ", SOLUTION_K, " shadow comparison:"))
 print(metrics)
 print_progress("Population coverage transitions:")
 print(population_coverage)

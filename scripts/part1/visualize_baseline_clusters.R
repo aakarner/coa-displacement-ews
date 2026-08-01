@@ -5,7 +5,7 @@
 # Creates static and interactive maps for the substantively selected amenity
 # sensitivity solution from scripts/part1/fit_baseline_clusters.R. Tentative names,
 # concern levels, colors, and interpretations are maintained separately in
-# config/amenity_cluster_labels_k6.csv so they can be revised transparently.
+# config/amenity_cluster_labels.csv so they can be revised transparently.
 #
 # Outputs:
 #   figures/03e_amenity_clusters_tentative.png
@@ -42,7 +42,7 @@ print_header("PART 1 - VISUALIZE BASELINE CLUSTERS")
 OUTPUT_DIR <- project_path("output")
 FIGURES_DIR <- project_path("figures")
 SITE_DIR <- project_path("site")
-LABEL_FILE <- project_path("config", "amenity_cluster_labels_k6.csv")
+LABEL_FILE <- project_path("config", "amenity_cluster_labels.csv")
 
 required_files <- c(
     file.path(OUTPUT_DIR, "hex_features.rds"),

@@ -473,12 +473,12 @@ surface. Among the 3,209 hexes classified in both versions, 96.9 percent
 retained the same matched cluster. The adjusted Rand index, a measure of
 agreement between two cluster assignments, was 0.946 on a scale where 1
 indicates identical assignments. These figures document the first promotion;
-they are not the current locked result.
+they are not the current selected result.
 
 After the City land-use exclusions and full downstream rebuild, 3,250 hexes
 meet the same eligibility and completeness requirements. The selected
-amenity-augmented six-cluster solution has an average silhouette width of
-0.245 and a repeated-subsample adjusted Rand index of 0.916.
+amenity-augmented seven-cluster solution has an average silhouette width of
+0.254 and a repeated-subsample adjusted Rand index of 0.969.
 
 These results supported promotion of the conditional hierarchy on July 28,
 2026 and the City land-use validation repair on July 31, 2026. Target
@@ -488,9 +488,9 @@ on every parcel. It writes the promoted parcel table used to calculate
 corporate-ownership denominators, ACS allocation weights, rate denominators,
 and cluster eligibility.
 
-The locked Part 1 solution now classifies 3,250 hexes into six clusters and
+The current Part 1 solution now classifies 3,250 hexes into seven clusters and
 covers about 92.0 percent of allocated population. Unit modeling is not the
-reason six clusters were selected; it changes which hexes are eligible and the
+reason seven clusters were selected; it changes which hexes are eligible and the
 rate denominators used by several cluster variables.
 
 ## Relationship to ACS Housing Estimates
@@ -600,7 +600,7 @@ while the conflicting current-use records are reconciled.
 
 Removing the 6,587 zoning-only estimates reduces the promoted City unit total
 by about 1.3 percent and the broad core multi-unit workflow total by about 2.1
-percent. The audit verifies the applied production exclusion, and the locked
+percent. The audit verifies the applied production exclusion, and the current
 Part 1 clustering result has been rebuilt from the repaired surface.
 
 [GitHub issue #9](https://github.com/aakarner/coa-displacement-ews/issues/9)
