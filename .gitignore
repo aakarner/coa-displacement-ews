@@ -65,6 +65,7 @@ output/part3/
 
 # targets metadata and object store
 _targets/
+_targets_review/
 
 # Figures (generated visualizations)
 figures/*.png

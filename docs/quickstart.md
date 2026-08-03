@@ -20,7 +20,7 @@ without editing code:
 export EWS_ANALYSIS_AS_OF_DATE="2026-04-01"
 export EWS_ACS_CURRENT_YEAR="2024"
 export EWS_APPRAISAL_CURRENT_YEAR="2025"
-export EWS_AMENITY_CLUSTER_K="6"
+export EWS_AMENITY_CLUSTER_K="7"
 export EWS_BASELINE_CLUSTER_SPECIFICATION="amenity_augmented"
 ```
 
@@ -101,3 +101,20 @@ targets::tar_make(part1_baseline_model)
 The processors under `scripts/data/` remain runnable for focused debugging, but
 normal analysis runs should go through `_targets.R` so their dependencies and
 vintages are recorded.
+
+## Optional Methodological Reviews
+
+Expensive sensitivity and model-selection checks are intentionally separate
+from routine production execution. After the required production inputs exist,
+run the review pipeline with its own metadata store:
+
+```r
+targets::tar_make(
+  script = "_targets_review.R",
+  store = "_targets_review"
+)
+```
+
+These reviews support an explicit re-baseline decision; they are not required
+when rebuilding the currently approved method or assigning a new Part 2
+vintage.

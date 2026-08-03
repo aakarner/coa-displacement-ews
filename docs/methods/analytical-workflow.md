@@ -49,8 +49,12 @@ No Part 3 predictor may contain information published after the forecast origin.
 
 The current implementation evaluates the baseline and amenity-augmented
 k-means specifications for multiple values of `k`, including silhouette, gap,
-and repeated-subsample stability diagnostics. Six clusters are the current
+and repeated-subsample stability diagnostics. Seven clusters are the current
 substantive selection.
+
+Spatially blocked model-selection and other expensive sensitivity checks are
+run separately through `_targets_review.R`. They support an explicit
+re-baseline decision but are not dependencies of routine production runs.
 
 The frozen model artifact stores all transformations needed for later updates.
 This is essential: preserving centroids while recomputing standardization on a

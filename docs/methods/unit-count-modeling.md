@@ -475,11 +475,6 @@ agreement between two cluster assignments, was 0.946 on a scale where 1
 indicates identical assignments. These figures document the first promotion;
 they are not the current selected result.
 
-After the City land-use exclusions and full downstream rebuild, 3,250 hexes
-meet the same eligibility and completeness requirements. The selected
-amenity-augmented seven-cluster solution has an average silhouette width of
-0.254 and a repeated-subsample adjusted Rand index of 0.969.
-
 These results supported promotion of the conditional hierarchy on July 28,
 2026 and the City land-use validation repair on July 31, 2026. Target
 `promoted_unit_surface` retains the old targeted count, the pre-validation
@@ -488,10 +483,10 @@ on every parcel. It writes the promoted parcel table used to calculate
 corporate-ownership denominators, ACS allocation weights, rate denominators,
 and cluster eligibility.
 
-The current Part 1 solution now classifies 3,250 hexes into seven clusters and
-covers about 92.0 percent of allocated population. Unit modeling is not the
-reason seven clusters were selected; it changes which hexes are eligible and the
-rate denominators used by several cluster variables.
+Unit modeling does not determine the number of Part 1 clusters. It changes
+which hexes are eligible and the rate denominators used by several cluster
+variables. Current cluster metrics and the selection rationale are maintained
+in the Part 1 summary, decision record, and dated cluster-selection audit.
 
 ## Relationship to ACS Housing Estimates
 

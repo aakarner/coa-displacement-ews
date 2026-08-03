@@ -6,6 +6,8 @@
 # and spatially blocked holdouts. Scaling parameters and centroids are learned
 # from training areas only. The audit also reports whether clusters separate
 # zero-event from positive-event hexes for sparse displacement signals.
+# This is an optional methodological review, not a production pipeline stage.
+# Run it through _targets_review.R when reconsidering the Part 1 baseline.
 ################################################################################
 
 project_path <- function(...) {
@@ -42,16 +44,13 @@ ASSIGNMENT_FILE <- file.path(OUTPUT_DIR, "amenity_cluster_assignments.csv")
 METRIC_FILE <- file.path(OUTPUT_DIR, "amenity_cluster_metrics.csv")
 GAP_FILE <- file.path(OUTPUT_DIR, "amenity_cluster_gap_statistics.csv")
 RANDOM_STABILITY_FILE <- file.path(OUTPUT_DIR, "amenity_cluster_stability.csv")
-SELECTION_CONFIG_FILE <- project_path("config", "part1_cluster_selection.csv")
-
 required_files <- c(
   FEATURE_FILE,
   RESULT_FILE,
   ASSIGNMENT_FILE,
   METRIC_FILE,
   GAP_FILE,
-  RANDOM_STABILITY_FILE,
-  SELECTION_CONFIG_FILE
+  RANDOM_STABILITY_FILE
 )
 missing_files <- required_files[!file.exists(required_files)]
 if (length(missing_files) > 0L) {
@@ -111,25 +110,11 @@ random_subsample_stability <- read_csv(
   RANDOM_STABILITY_FILE,
   show_col_types = FALSE
 )
-selection_config <- read_csv(SELECTION_CONFIG_FILE, show_col_types = FALSE)
-
 specification <- "amenity_augmented"
 cluster_features <- c(results$baseline_vars, results$amenity_var)
 k_values <- seq.int(2L, results$max_k)
 focus_k <- intersect(5:8, k_values)
 seed <- as.integer(results$seed) + 7000L
-
-if (
-  nrow(selection_config) != 1L ||
-    selection_config$selected_specification[[1]] != specification ||
-    selection_config$selected_k[[1]] != EWS_CONFIG$amenity_cluster_k
-) {
-  stop(
-    "Part 1 cluster-selection configuration must contain one row matching ",
-    "the configured specification and selected k.",
-    call. = FALSE
-  )
-}
 
 required_feature_columns <- c(
   "hex_id",
@@ -932,31 +917,6 @@ selection_scorecard <- method_metrics %>%
     configured_selected = k == EWS_CONFIG$amenity_cluster_k
   )
 
-selection_decision <- selection_config %>%
-  mutate(decision_date = as.Date(decision_date)) %>%
-  left_join(
-    selection_scorecard %>%
-      filter(configured_selected) %>%
-      select(
-        selected_k = k,
-        avg_silhouette,
-        min_cluster_n,
-        max_cluster_n,
-        existing_random_subsample_mean_ari,
-        random_hex_median_adjusted_rand,
-        random_hex_p10_adjusted_rand,
-        h3_parent_r8_median_adjusted_rand,
-        h3_parent_r8_p10_adjusted_rand,
-        h3_parent_r7_median_adjusted_rand,
-        h3_parent_r7_p10_adjusted_rand,
-        median_margin,
-        low_margin_share,
-        eviction_presence_separation_r2,
-        eviction_high_pressure_zero_share
-      ),
-    by = "selected_k"
-  )
-
 if (all(c(6L, 7L) %in% k_values)) {
   k6_assignment <- tibble(
     hex_id = analysis_data$hex_id,
@@ -1037,11 +997,6 @@ write_csv(
   k6_k7_crosswalk,
   file.path(PART1_DIR, "cluster_selection_k6_k7_crosswalk.csv")
 )
-write_csv(
-  selection_decision,
-  file.path(PART1_DIR, "cluster_selection_decision.csv")
-)
-
 audit_results <- list(
   created_at = Sys.time(),
   seed = seed,
@@ -1065,7 +1020,6 @@ audit_results <- list(
   signal_separation_summary = signal_separation_summary,
   spatial_behavior = spatial_behavior,
   selection_scorecard = selection_scorecard,
-  selection_decision = selection_decision,
   k6_k7_crosswalk = k6_k7_crosswalk
 )
 saveRDS(

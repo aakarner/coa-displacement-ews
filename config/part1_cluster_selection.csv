@@ -1,2 +1,0 @@
-selected_specification,selected_k,previous_checkpoint_k,decision_date,status,rationale
-amenity_augmented,7,6,2026-08-01,promoted_after_spatial_stability_review,"Selected after joint review of silhouette width, random and spatially blocked stability, assignment confidence, cluster size, and sparse-signal separation. The seventh cluster separates an eviction-positive profile from a high-311 and high-vulnerability profile whose observed eviction filings are often zero."

@@ -79,6 +79,7 @@ leave that variable unset.
 
 ```text
 _targets.R                    Canonical pipeline graph
+_targets_review.R             Optional methodological review workflows
 00_requirements.R             Project package bootstrap
 01_create_hex_grid.R          Base H3 geography
 run_analysis.R                Small wrapper around targets::tar_make()
@@ -96,7 +97,8 @@ scripts/
   data/unit_counts/           Canonical parcel unit hierarchy
   features/                   Shared hex-level feature construction
   part1/                      Baseline clustering and maps
-  audits/                     QA and sensitivity analyses
+  audits/                     Routine production QA
+  reviews/                    Optional re-baseline sensitivity analyses
   exploratory/                Non-pipeline research
 
 config/
@@ -104,9 +106,8 @@ config/
   feature_dictionary.csv      Feature domains, roles, and missingness rules
   forecast_outcomes.csv       Part 3 displacement-proxy outcomes
   amenity_cluster_labels.csv  Display labels for the selected Part 1 solution
-  part1_cluster_selection.csv Selected k and review rationale
 
-docs/                         Current guidance and dated audit reports
+docs/                         Methods, decision records, and dated audits
 data/                         Local inputs and cached public extracts
 output/                       Derived data artifacts
 figures/                      Static and interactive outputs
@@ -127,16 +128,17 @@ The selected Part 1 solution is the seven-cluster amenity-augmented typology.
 `output/part1/baseline_cluster_validation.csv` checks the complete Part 1
 feature contract, labels, scaling, centroids, population coverage, and exact
 frozen-model reassignment. The accompanying summary, canonical assignments,
-and lock manifest preserve the reviewed presentation run. Future feature
-vintages will use the same assignment function.
+and runtime manifest preserve reproducibility. Future feature vintages will use
+the same assignment function.
 
-The current run classifies 3,250 hexes, representing 92.0% of
-allocated population and 93.6% of allocated housing units. At the substantively
-selected `k = 7`, average silhouette width is 0.254 and repeated-subsample
-stability is 0.969. A separate audit tests 20% random-hex and spatially blocked
-holdouts at two H3 parent resolutions. These are presentation results, not a
-formally adopted baseline; the Travis-only eviction source remains the
-principal geographic coverage caveat.
+Run-specific coverage, diagnostics, and the assignment checksum are generated
+in `output/part1/baseline_cluster_summary.csv`. The rationale for the current
+seven-cluster choice is retained in
+[`docs/decisions/0008-select-seven-clusters.md`](docs/decisions/0008-select-seven-clusters.md),
+with detailed spatial-holdout evidence in the corresponding
+[`dated audit`](docs/audits/part1-cluster-selection-2026-08.md). The current
+baseline remains provisional pending partner review; Travis-only eviction data
+are its principal geographic coverage caveat.
 
 Part 3 does not yet train a model. Its current output,
 `output/part3/forecast_readiness.csv`, records the historical hex-year panels
