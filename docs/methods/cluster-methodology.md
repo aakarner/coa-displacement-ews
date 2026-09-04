@@ -89,6 +89,22 @@ and the run-specific comparison is in
 Current metrics are generated in `output/part1/baseline_cluster_summary.csv`
 rather than copied into this evergreen methods document.
 
+## Neighborhood Summaries
+
+The downstream neighborhood summary does not refit or reinterpret the cluster
+model. Each resolution-9 H3 cell is assigned to the City of Austin Neighborhood
+Reporting Area containing its center. Within each reporting area, the pipeline
+sums allocated population and promoted residential units for every cluster and
+for unclassified cells.
+
+The thematic neighborhood map uses the cluster containing the largest share of
+classified allocated population. A neighborhood is marked as a **majority**
+only when that share exceeds 50 percent; otherwise it is a **plurality**.
+Unclassified population is excluded from selecting the plurality but remains
+visible in the composition and coverage tables. Housing-unit plurality is
+reported separately so population and housing summaries are not assumed to
+agree.
+
 ## Frozen Baseline Artifact
 
 `output/part1/baseline_cluster_model.rds` contains:

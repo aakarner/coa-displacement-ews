@@ -1,0 +1,5 @@
+description_pattern,complaint_category,interpretation
+^Structure Condition Violation,structure_condition,Potential building condition or habitability concern
+^Property Abatement,property_abatement,Property maintenance nuisance or abatement concern
+^Land Use Violation,land_use,Complaint about property or land use
+^Work Without Permit,work_without_permit,Complaint about construction or alteration without a permit

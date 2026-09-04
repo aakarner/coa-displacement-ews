@@ -187,11 +187,12 @@ profile_vars <- c(
   "ownership_pressure_index",
   "amenity_change_index"
 )
-missing_profile_vars <- setdiff(profile_vars, names(hex_features))
-if (length(missing_profile_vars) > 0) {
+required_map_vars <- c("residential_units", profile_vars)
+missing_map_vars <- setdiff(required_map_vars, names(hex_features))
+if (length(missing_map_vars) > 0) {
   stop(
     "Engineered features are missing map popup values: ",
-    paste(missing_profile_vars, collapse = ", "),
+    paste(missing_map_vars, collapse = ", "),
     call. = FALSE
   )
 }
@@ -238,32 +239,143 @@ for (anchor_index in seq_len(nrow(anchor_labels))) {
   }
 }
 
+minimum_residential_units <- EWS_CONFIG$minimum_residential_units_for_rates
+cluster_levels <- paste0(
+  "Cluster ", cluster_labels$display_cluster, " — ",
+  cluster_labels$tentative_name,
+  "\nRisk category: ", cluster_labels$concern_level
+)
+unclassified_statuses <- tibble(
+  coverage_status = c(
+    "below_minimum_parcel_units",
+    "eligible_but_missing_cluster_feature"
+  ),
+  static_label = c(
+    paste0(
+      "No cluster — fewer than ", minimum_residential_units,
+      "\npromoted residential units"
+    ),
+    "No cluster — missing required\ncluster input(s)"
+  ),
+  interactive_label = c(
+    paste0(
+      "No cluster: fewer than ", minimum_residential_units,
+      " promoted residential units"
+    ),
+    "No cluster: missing required cluster input(s)"
+  ),
+  map_color = c("#CDD2D6", "#727B82"),
+  fill_opacity = c(0.42, 0.68)
+)
+unclassified_status_labels <- setNames(
+  unclassified_statuses$static_label,
+  unclassified_statuses$coverage_status
+)
+profile_input_labels <- c(
+  rent_pressure_citywide_index = "Rent pressure",
+  demographic_vulnerability_index = "Demographic vulnerability",
+  demolition_pressure_index = "Demolition pressure",
+  eviction_pressure_index = "Eviction pressure",
+  sr_311_pressure_index = "311 pressure",
+  ownership_pressure_index = "Corporate ownership pressure",
+  amenity_change_index = "Amenity pressure"
+)
+profile_matrix <- hex_features %>%
+  st_drop_geometry() %>%
+  select(all_of(profile_vars)) %>%
+  as.matrix()
+missing_cluster_input_count <- rowSums(!is.finite(profile_matrix))
+missing_cluster_input_names <- apply(profile_matrix, 1, function(values) {
+  missing_vars <- names(profile_input_labels)[!is.finite(values)]
+  if (length(missing_vars) == 0L) {
+    "None"
+  } else {
+    paste(unname(profile_input_labels[missing_vars]), collapse = ", ")
+  }
+})
+
 map_data <- hex_features %>%
-  select(hex_id, all_of(profile_vars)) %>%
-  inner_join(selected_assignments, by = "hex_id") %>%
+  select(hex_id, residential_units, all_of(profile_vars)) %>%
+  mutate(
+    missing_cluster_input_count = missing_cluster_input_count,
+    missing_cluster_input_names = missing_cluster_input_names
+  ) %>%
+  left_join(selected_assignments, by = "hex_id") %>%
   left_join(cluster_labels, by = "cluster") %>%
   mutate(
-    cluster_label = paste0(
-      "Cluster ", display_cluster, " — ", tentative_name,
-      "\nRisk category: ", concern_level
+    cluster_label = if_else(
+      !is.na(cluster),
+      paste0(
+        "Cluster ", display_cluster, " — ", tentative_name,
+        "\nRisk category: ", concern_level
+      ),
+      NA_character_
     ),
-    cluster_label = factor(
-      cluster_label,
-      levels = paste0(
-        "Cluster ", cluster_labels$display_cluster, " — ",
-        cluster_labels$tentative_name,
-        "\nRisk category: ", cluster_labels$concern_level
-      )
+    coverage_status = case_when(
+      !is.na(cluster) ~ "classified",
+      !is.na(residential_units) &
+        residential_units < minimum_residential_units ~
+        "below_minimum_parcel_units",
+      TRUE ~ "eligible_but_missing_cluster_feature"
+    ),
+    map_category = case_when(
+      coverage_status == "classified" ~ cluster_label,
+      TRUE ~ unname(unclassified_status_labels[coverage_status])
+    ),
+    map_category = factor(
+      map_category,
+      levels = c(cluster_levels, unclassified_statuses$static_label)
     )
   )
 
-if (nrow(map_data) != nrow(selected_assignments) ||
-    any(is.na(map_data$tentative_name))) {
-  stop("Cluster map join did not preserve every selected hex.", call. = FALSE)
+if (nrow(map_data) != nrow(hex_features)) {
+  stop("Cluster map join did not preserve every analysis-grid hex.", call. = FALSE)
+}
+classified_map_data <- map_data %>% filter(coverage_status == "classified")
+unclassified_map_data <- map_data %>% filter(coverage_status != "classified")
+if (
+  nrow(classified_map_data) != nrow(selected_assignments) ||
+    any(is.na(classified_map_data$tentative_name)) ||
+    any(is.na(map_data$map_category))
+) {
+  stop(
+    "Cluster map classification did not preserve every selected or excluded hex.",
+    call. = FALSE
+  )
 }
 
-cluster_levels <- levels(map_data$cluster_label)
 cluster_colors <- setNames(cluster_labels$map_color, cluster_levels)
+unclassified_colors <- setNames(
+  unclassified_statuses$map_color,
+  unclassified_statuses$static_label
+)
+map_colors <- c(cluster_colors, unclassified_colors)
+map_levels <- names(map_colors)
+
+map_coverage_counts <- map_data %>%
+  st_drop_geometry() %>%
+  count(coverage_status, name = "map_hexes")
+expected_coverage_counts <- population_coverage %>%
+  select(coverage_status, expected_hexes = hexes)
+coverage_comparison <- full_join(
+  map_coverage_counts,
+  expected_coverage_counts,
+  by = "coverage_status"
+)
+if (
+  nrow(coverage_comparison) == 0L ||
+    any(is.na(coverage_comparison$map_hexes)) ||
+    any(is.na(coverage_comparison$expected_hexes)) ||
+    any(coverage_comparison$map_hexes != coverage_comparison$expected_hexes)
+) {
+  stop(
+    "Cluster map status counts do not match the Part 1 coverage audit.",
+    call. = FALSE
+  )
+}
+unclassified_statuses <- unclassified_statuses %>%
+  left_join(map_coverage_counts, by = "coverage_status") %>%
+  mutate(map_hexes = coalesce(map_hexes, 0L))
 classified_coverage <- population_coverage %>%
   filter(coverage_status == "classified")
 if (nrow(classified_coverage) != 1L) {
@@ -284,18 +396,17 @@ analysis_cutoff_label <- paste0(
 ################################################################################
 
 print_progress("Creating static cluster map...")
-map_background <- hex_features %>% select(hex_id)
 
 p_static <- ggplot() +
   geom_sf(
-    data = map_background,
-    fill = "#F1F3F5",
-    color = "#FFFFFF",
-    linewidth = 0.03
+    data = unclassified_map_data,
+    aes(fill = map_category),
+    color = "#8B9399",
+    linewidth = 0.07
   ) +
   geom_sf(
-    data = map_data,
-    aes(fill = cluster_label),
+    data = classified_map_data,
+    aes(fill = map_category),
     color = "#FFFFFF",
     linewidth = 0.05
   ) +
@@ -319,8 +430,10 @@ p_static <- ggplot() +
     alpha = 0.70
   ) +
   scale_fill_manual(
-    values = cluster_colors,
-    name = "Typology cluster (low to high displacement risk)"
+    values = map_colors,
+    breaks = map_levels,
+    drop = FALSE,
+    name = "Typology cluster / classification status"
   ) +
   coord_sf(datum = NA) +
   labs(
@@ -329,7 +442,8 @@ p_static <- ggplot() +
       "Analysis cutoff: ", analysis_cutoff_label,
       " | selected seven-domain k = ",
       selected_k, " solution | ",
-      format(nrow(map_data), big.mark = ","), " classified hexes | ",
+      format(nrow(classified_map_data), big.mark = ","), " of ",
+      format(nrow(map_data), big.mark = ","), " hexes classified | ",
       sprintf(
         "%.1f%% of allocated population",
         100 * classified_coverage$total_population_share
@@ -338,7 +452,9 @@ p_static <- ggplot() +
     caption = paste0(
       "Cluster labels and risk categories are interpretive, not quantitative risk scores. ",
       "Cool-to-warm colors show increasing displacement risk.\n",
-      "Grey hexes were outside the shared clustering sample. ",
+      "Gray outlined hexes remain visible but have no cluster membership: light gray = fewer than ",
+      minimum_residential_units,
+      " promoted residential units; dark gray = missing required cluster input(s).\n",
       "Orientation overlay: ", orientation_reference$tiger_year,
       " U.S. Census Bureau TIGER/Line."
     )
@@ -372,23 +488,51 @@ print_progress("Creating interactive cluster map...")
 interactive_data <- map_data %>%
   st_transform(4326) %>%
   mutate(
-    popup_html = paste0(
-      "<div style='min-width:260px;line-height:1.35'>",
-      "<strong style='font-size:14px'>Cluster ", display_cluster, ": ",
-      tentative_name, "</strong><br>",
-      "<strong>Risk category:</strong> ", concern_level, "<br>",
-      "<span>", interpretation, "</span><hr style='margin:7px 0'>",
-      "<strong>Hex ID:</strong> ", hex_id, "<br>",
-      "Rent pressure: ", round(rent_pressure_citywide_index, 1), "<br>",
-      "Demographic vulnerability: ",
-      round(demographic_vulnerability_index, 1), "<br>",
-      "Demolition pressure: ", round(demolition_pressure_index, 1), "<br>",
-      "Eviction pressure: ", round(eviction_pressure_index, 1), "<br>",
-      "311 pressure: ", round(sr_311_pressure_index, 1), "<br>",
-      "Corporate ownership pressure: ",
-      round(ownership_pressure_index, 1), "<br>",
-      "Amenity pressure: ", round(amenity_change_index, 1),
-      "</div>"
+    residential_units_label = if_else(
+      is.na(residential_units),
+      "Not available",
+      format(round(residential_units, 1), big.mark = ",", trim = TRUE)
+    ),
+    popup_html = case_when(
+      coverage_status == "below_minimum_parcel_units" ~ paste0(
+        "<div style='min-width:260px;line-height:1.35'>",
+        "<strong style='font-size:14px'>No cluster membership</strong><br>",
+        "<strong>Reason:</strong> Fewer than ", minimum_residential_units,
+        " promoted residential units<br>",
+        "<strong>Promoted residential units:</strong> ",
+        residential_units_label, "<hr style='margin:7px 0'>",
+        "<strong>Hex ID:</strong> ", hex_id, "</div>"
+      ),
+      coverage_status == "eligible_but_missing_cluster_feature" ~ paste0(
+        "<div style='min-width:260px;line-height:1.35'>",
+        "<strong style='font-size:14px'>No cluster membership</strong><br>",
+        "<strong>Reason:</strong> Missing required cluster input(s)<br>",
+        "<strong>Missing inputs:</strong> ", missing_cluster_input_count,
+        " of ", length(profile_vars), "<br>",
+        "<strong>Unavailable input(s):</strong> ",
+        missing_cluster_input_names, "<br>",
+        "<strong>Promoted residential units:</strong> ",
+        residential_units_label, "<hr style='margin:7px 0'>",
+        "<strong>Hex ID:</strong> ", hex_id, "</div>"
+      ),
+      TRUE ~ paste0(
+        "<div style='min-width:260px;line-height:1.35'>",
+        "<strong style='font-size:14px'>Cluster ", display_cluster, ": ",
+        tentative_name, "</strong><br>",
+        "<strong>Risk category:</strong> ", concern_level, "<br>",
+        "<span>", interpretation, "</span><hr style='margin:7px 0'>",
+        "<strong>Hex ID:</strong> ", hex_id, "<br>",
+        "Rent pressure: ", round(rent_pressure_citywide_index, 1), "<br>",
+        "Demographic vulnerability: ",
+        round(demographic_vulnerability_index, 1), "<br>",
+        "Demolition pressure: ", round(demolition_pressure_index, 1), "<br>",
+        "Eviction pressure: ", round(eviction_pressure_index, 1), "<br>",
+        "311 pressure: ", round(sr_311_pressure_index, 1), "<br>",
+        "Corporate ownership pressure: ",
+        round(ownership_pressure_index, 1), "<br>",
+        "Amenity pressure: ", round(amenity_change_index, 1),
+        "</div>"
+      )
     )
   )
 
@@ -401,6 +545,33 @@ interactive_map <- leaflet(
     providers$CartoDB.Positron,
     options = providerTileOptions(maxZoom = 19)
   )
+
+for (status_index in seq_len(nrow(unclassified_statuses))) {
+  status_row <- unclassified_statuses[status_index, ]
+  if (status_row$map_hexes == 0L) next
+  status_data <- interactive_data %>%
+    filter(coverage_status == status_row$coverage_status)
+
+  interactive_map <- interactive_map %>%
+    addPolygons(
+      data = status_data,
+      group = status_row$interactive_label,
+      fillColor = status_row$map_color,
+      fillOpacity = status_row$fill_opacity,
+      color = "#687178",
+      weight = 0.55,
+      opacity = 0.78,
+      dashArray = "3 2",
+      smoothFactor = 0.4,
+      popup = ~popup_html,
+      highlightOptions = highlightOptions(
+        weight = 2,
+        color = "#222222",
+        fillOpacity = 0.82,
+        bringToFront = TRUE
+      )
+    )
+}
 
 for (cluster_id in configured_clusters) {
   label_row <- cluster_labels %>% filter(cluster == cluster_id)
@@ -466,29 +637,44 @@ interactive_map <- interactive_map %>%
     )
   )
 
-layer_names <- paste0(
+cluster_layer_names <- paste0(
   "Cluster ", cluster_labels$display_cluster, ": ",
   cluster_labels$tentative_name
 )
-legend_labels <- paste0(
+cluster_legend_labels <- paste0(
   "<strong>Cluster ", cluster_labels$display_cluster, " — ",
   cluster_labels$tentative_name, "</strong>",
   "<br><span style='font-size:11px'><strong>Risk category:</strong> ",
   cluster_labels$concern_level, "</span>"
 )
+unclassified_legend_labels <- paste0(
+  "<strong>", unclassified_statuses$interactive_label, "</strong>",
+  "<br><span style='font-size:11px'>",
+  format(unclassified_statuses$map_hexes, big.mark = ","),
+  " hexes retained without cluster membership</span>"
+)
 
 interactive_map <- interactive_map %>%
   addLayersControl(
-    overlayGroups = c(layer_names, "Orientation reference"),
+    overlayGroups = c(
+      cluster_layer_names,
+      unclassified_statuses$interactive_label[
+        unclassified_statuses$map_hexes > 0L
+      ],
+      "Orientation reference"
+    ),
     options = layersControlOptions(collapsed = TRUE)
   ) %>%
   addLegend(
     position = "bottomright",
-    colors = cluster_labels$map_color,
-    labels = lapply(legend_labels, HTML),
+    colors = c(cluster_labels$map_color, unclassified_statuses$map_color),
+    labels = lapply(
+      c(cluster_legend_labels, unclassified_legend_labels),
+      HTML
+    ),
     title = HTML(paste0(
-      "Typology clusters<br>",
-      "<span style='font-size:11px'>Low to high displacement risk</span>"
+      "Typology clusters and status<br>",
+      "<span style='font-size:11px'>Clusters ordered low to high risk</span>"
     )),
     opacity = 0.9
   ) %>%
@@ -504,7 +690,11 @@ interactive_map <- interactive_map %>%
         "<strong>Part 1 Baseline Clusters</strong><br>",
         "<span style='font-size:11px'>Analysis cutoff: ",
         analysis_cutoff_label, "; selected k = ", selected_k,
-        " typology with interpretive risk categories</span></div>"
+        " typology with interpretive risk categories<br>",
+        format(nrow(classified_map_data), big.mark = ","), " of ",
+        format(nrow(map_data), big.mark = ","),
+        " grid cells have cluster membership; excluded cells remain visible",
+        " with their reason.</span></div>"
       )
     ),
     position = "topright"

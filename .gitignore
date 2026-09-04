@@ -78,6 +78,7 @@ data/*.csv
 data/*.xlsx
 data/*.shp
 data/*.geojson
+data/neighborhood_reporting_areas_metadata.json
 data/raw_parcels/
 data/raw_amenities/
 data/raw_acs/

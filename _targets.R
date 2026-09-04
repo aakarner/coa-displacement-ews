@@ -122,6 +122,15 @@ list(
     format = "file"
   ),
   tar_target(
+    neighborhood_reference_files,
+    c(
+      "data/neighborhood_reporting_areas.geojson",
+      "data/neighborhood_reporting_areas_metadata.json",
+      "data/BOUNDARIES_jurisdictions_20260429.geojson"
+    ),
+    format = "file"
+  ),
+  tar_target(
     pipeline_code_files,
     sort(unique(c(
       "00_requirements.R",
@@ -793,6 +802,33 @@ list(
         feature_dictionary,
         cluster_labels,
         pipeline_code_files,
+        analysis_config
+      )
+    ),
+    format = "file"
+  ),
+  tar_target(
+    part1_neighborhood_script,
+    "scripts/part1/summarize_neighborhood_clusters.R",
+    format = "file"
+  ),
+  tar_target(
+    part1_neighborhood_summary,
+    run_r_script_stage(
+      part1_neighborhood_script,
+      c(
+        "output/part1/neighborhood_cluster_composition.csv",
+        "output/part1/neighborhood_cluster_summary.csv",
+        "output/part1/neighborhood_cluster_coverage.csv",
+        "output/part1/neighborhood_cluster_summary.rds",
+        "figures/03g_neighborhood_cluster_plurality.png"
+      ),
+      dependencies = list(
+        neighborhood_reference_files,
+        current_features,
+        part1_validation,
+        cluster_labels,
+        map_orientation_reference,
         analysis_config
       )
     ),

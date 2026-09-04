@@ -32,6 +32,13 @@ export AUSTIN_DATA_API_KEY="..."
 export AUSTIN_DATA_API_SECRET="..."
 ```
 
+Refresh the ignored City Neighborhood Reporting Area snapshot before producing
+the neighborhood summaries:
+
+```bash
+Rscript scripts/data/download_neighborhood_reporting_areas.R
+```
+
 ## 3. Inspect the Pipeline
 
 ```r
@@ -65,6 +72,7 @@ Run only a final artifact and its prerequisites:
 
 ```bash
 Rscript run_analysis.R part1_validation
+Rscript run_analysis.R part1_neighborhood_summary
 Rscript run_analysis.R part2_baseline_assignment
 Rscript run_analysis.R part3_forecast_readiness
 ```
@@ -94,9 +102,20 @@ targets::tar_make(part1_baseline_model)
 - `output/part1/baseline_cluster_validation.csv`: Part 1 lock checks.
 - `output/part1/baseline_cluster_summary.csv`: presentation-run metrics.
 - `output/part1/baseline_cluster_assignments.csv`: canonical labeled results.
+- `output/part1/neighborhood_cluster_composition.csv`: population- and
+  housing-unit-weighted cluster shares by Neighborhood Reporting Area.
+- `output/part1/neighborhood_cluster_summary.csv`: neighborhood plurality,
+  majority, coverage, and population/housing agreement fields.
 - `output/part2/baseline_fixed_cluster_assignments.csv`: Part 2 self-check.
 - `output/part3/forecast_readiness.csv`: historical outcome-panel status.
 - `figures/03e_amenity_clusters_interactive.html`: interactive baseline map.
+- `figures/03g_neighborhood_cluster_plurality.png`: neighborhood map shaded by
+  the population-plurality cluster.
+- `output/part1/high_risk_island_hex_summary.csv`: high- and very-high-risk
+  hexes whose immediate classified neighbors are predominantly low risk,
+  including their leading domains and property-influence diagnostics.
+- `figures/03h_high_risk_islands_interactive.html`: interactive review map for
+  the high-risk island candidates.
 
 The processors under `scripts/data/` remain runnable for focused debugging, but
 normal analysis runs should go through `_targets.R` so their dependencies and
@@ -110,6 +129,27 @@ run the review pipeline with its own metadata store:
 
 ```r
 targets::tar_make(
+  script = "_targets_review.R",
+  store = "_targets_review"
+)
+```
+
+To run only the Austin Code complaint linkage audit:
+
+```r
+targets::tar_make(
+  code_complaint_audit,
+  script = "_targets_review.R",
+  store = "_targets_review"
+)
+```
+
+To run the high-risk-island and property-driver review (including the Code
+complaint linkage audit it depends on):
+
+```r
+targets::tar_make(
+  high_risk_island_review,
   script = "_targets_review.R",
   store = "_targets_review"
 )

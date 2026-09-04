@@ -25,6 +25,7 @@ record established an exact date.
 | [0008](0008-select-seven-clusters.md) | Use seven clusters for the current Part 1 baseline | Provisional baseline |
 | [0009](0009-fixed-baseline-updates.md) | Assign later vintages to frozen Part 1 definitions | Accepted architecture |
 | [0010](0010-city-land-use-validation.md) | Exclude unsupported modeled units on exclusively nonresidential City land | Accepted |
+| [0011](0011-neighborhood-reporting-areas.md) | Use City Neighborhood Reporting Areas for neighborhood cluster summaries | Accepted |
 
 ## What Qualifies
 

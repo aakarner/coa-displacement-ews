@@ -82,6 +82,7 @@ tools rather than substantive evidence and are not listed as data sources.
 | --- | --- | --- | --- |
 | U.S. Census Bureau TIGER/Line | Austin place boundary | 2021 geography | Defines the polygon used to generate the current H3 grid |
 | City of Austin GIS | Full- and limited-purpose jurisdiction boundaries | April 29, 2026 snapshot | Supports current boundary comparisons, coverage audits, and map context; it does not redefine the existing grid |
+| City of Austin Planning | Neighborhood Reporting Areas | Current download of the source geography last updated July 18, 2024 | Provides 103 mutually exclusive named areas; 102 intersect the current full-purpose boundary and support population- and housing-unit-weighted summaries of Part 1 cluster membership |
 | City of Austin Planning | Detailed Land Use Inventory | July 2026 download of the December 2025 inventory | Independently checks whether residential parcel records fall on land classified as single-family, duplex, three/fourplex, apartment/condominium, retirement housing, mixed use, or another use; it does not supply unit counts |
 | Travis, Hays, and Williamson county appraisal districts | Current parcel and appraisal-account extracts plus annual certified appraisal rolls | Current residential-candidate extracts; annual value records for 2021-2025 | Supplies property location, use, owner of record, floor and land area, appraisal values, and any reported unit fields |
 | County clerks and county appraisal districts | Dated deed and sale records plus historical owner files | Primarily 2021-2025, with different gaps by county | Supplies transaction events and owner histories used to measure turnover and changes in corporate ownership |
@@ -92,6 +93,7 @@ tools rather than substantive evidence and are not listed as data sources.
 | Travis County Justice of the Peace courts | Eviction filing extracts | January 2020 through the April 1, 2026 analysis cutoff | Supplies observed eviction filings for Travis County |
 | City of Austin Development Services | Issued construction permits | Records issued through the April 1, 2026 analysis cutoff | Supplies permitted residential demolitions within source coverage |
 | City of Austin 311 | Code-enforcement service-request records | Requests through the April 1, 2026 analysis cutoff | Supplies selected housing-condition and code-related requests |
+| City of Austin Code Department | Austin Code Complaint Cases | Cases through the April 1, 2026 analysis cutoff; sustained monthly coverage begins in August 2023 | Supplies case descriptions and outcomes for the 311 category audit; it does not yet replace the Part 1 input |
 | Texas Comptroller and City of Austin | Permitted sales-tax locations, mixed-beverage reports, and food-establishment inspections | Recent 48-month source history; equal 18-month analysis windows ending April 1, 2026 | Supplies and corroborates openings in selected amenity categories |
 | U.S. Bureau of Labor Statistics | CPI-U annual averages | Years corresponding to the configured ACS and appraisal vintages | Converts rent and appraisal-value measures to constant dollars |
 
@@ -119,6 +121,7 @@ neighborhood conditions may be changing.
 | --- | --- | --- |
 | Residential units | Hays, Travis, and Williamson appraisal records; reviewed project sources; floor-area estimates | Creates the promoted parcel-level count of dwellings used for eligibility, rates, ownership shares, and ACS allocation |
 | ACS demographics | ACS 5-year estimates and 2020 Census blocks | Creates the current Part 1 demographic-vulnerability measures |
+| Neighborhood reporting | City of Austin Neighborhood Reporting Areas | Aggregates classified and unclassified population and promoted housing units by neighborhood; it does not change any hex assignment |
 
 ### Displacement Proxies
 
@@ -133,7 +136,7 @@ neighborhood conditions may be changing.
 
 | Domain | Main sources | How the source is currently used |
 | --- | --- | --- |
-| 311 requests | City of Austin open-data API | Creates a Part 1 smoke signal from selected code-enforcement request types |
+| 311 requests | City of Austin service-request and Austin Code Complaint Cases APIs | Creates a Part 1 smoke signal from selected code-enforcement request types; the linked case categories are currently sensitivity evidence rather than a cluster input |
 | Corporate ownership and sales | Current county ownership classifications plus available deed and sales histories | Measures current corporate ownership and partial changes in ownership and transaction activity |
 | Amenity change | Texas Comptroller sales-tax locations with corroborating alcohol and food-establishment sources | Measures recent openings in selected amenity categories near each hex |
 
@@ -716,6 +719,15 @@ intake descriptions versioned in `config/311_smoke_signal_types.csv`. Follow-up
 workflow records, general 311 activity, drainage, debris, water, park
 maintenance, and other unrelated requests do not enter the Part 1 index.
 
+The separate Austin Code Complaint Cases dataset (`6wtj-zbtb`) adds case-level
+descriptions and outcomes that are not present in the intake extract. Audit
+script `scripts/audits/311_code_complaints.R` links those cases to the original
+311 service-request number and to the promoted residential parcel surface. It
+separates structure-condition, property-abatement, land-use, and
+work-without-permit cases. This is currently a methodological audit: its
+categories do not replace the Part 1 311 input unless a later sensitivity
+analysis supports that decision.
+
 The index combines three measures: selected requests per 100 residential
 units, selected requests per square kilometer, and change from the preceding
 period of equal length. The first adjusts for the amount of housing; the second
@@ -730,7 +742,8 @@ Key outputs are:
 - `output/311_requests_by_hex_summary.rds/.csv`;
 - `output/311_requests_by_hex_year.csv`;
 - `output/311_service_request_counts.csv`;
-- and `output/311_service_request_selection.csv`.
+- `output/311_service_request_selection.csv`; and
+- the ignored `output/311_code_complaint_*` linkage and coverage audit files.
 
 ### Corporate Ownership and Transaction History
 

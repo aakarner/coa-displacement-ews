@@ -1,0 +1,8 @@
+parameter,value,description
+high_display_clusters,6;7,Display clusters screened as high or very high concern
+low_display_clusters,1;2,Display clusters treated as low-risk neighbors
+minimum_classified_ring1_neighbors,4,Minimum classified immediate H3 neighbors required
+minimum_low_ring1_share,0.6666667,Minimum share of classified immediate neighbors in low-risk clusters
+top_properties_per_hex,3,Number of leading property or project drivers retained in the compact table
+property_match_max_distance_m,50,Maximum nearest-parcel distance when the street number also agrees
+dominant_property_share,0.50,Share of a hex signal used to flag one-property dominance
