@@ -2,7 +2,20 @@
 # Pipeline Orchestration Helpers
 ################################################################################
 
-build_file_manifest <- function(paths, recursive = FALSE) {
+build_file_manifest <- function(
+  paths,
+  recursive = FALSE,
+  require_all = FALSE,
+  hash_files = FALSE
+) {
+  missing_paths <- paths[!file.exists(paths)]
+  if (require_all && length(missing_paths) > 0L) {
+    stop(
+      "Required pipeline input(s) are missing: ",
+      paste(missing_paths, collapse = ", "),
+      call. = FALSE
+    )
+  }
   expanded <- unlist(
     lapply(
       paths,
@@ -26,20 +39,36 @@ build_file_manifest <- function(paths, recursive = FALSE) {
   )
   expanded <- sort(unique(expanded[file.exists(expanded)]))
   if (length(expanded) == 0L) {
-    return(data.frame(
+    empty_manifest <- data.frame(
       path = character(),
       size = numeric(),
-      modified = character()
-    ))
+      modified = character(),
+      stringsAsFactors = FALSE
+    )
+    if (hash_files) empty_manifest$sha256 <- character()
+    return(empty_manifest)
   }
 
   info <- file.info(expanded)
-  data.frame(
+  manifest <- data.frame(
     path = normalizePath(expanded, winslash = "/", mustWork = TRUE),
     size = as.numeric(info$size),
     modified = format(info$mtime, "%Y-%m-%dT%H:%M:%OS6%z"),
     stringsAsFactors = FALSE
   )
+  if (hash_files) {
+    if (!requireNamespace("digest", quietly = TRUE)) {
+      stop("Package 'digest' is required to hash source files.", call. = FALSE)
+    }
+    manifest$sha256 <- vapply(
+      expanded,
+      digest::digest,
+      character(1),
+      file = TRUE,
+      algo = "sha256"
+    )
+  }
+  manifest
 }
 
 run_r_script_stage <- function(

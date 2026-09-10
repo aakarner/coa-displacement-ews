@@ -1,5 +1,12 @@
 # Part 1 Cluster-Selection Audit: August 2026
 
+**Superseded for current numerical results on September 10, 2026.** This short
+dated narrative remains decision evidence, not the current specification.
+See the [harmonized Part 1 audit](part1-harmonized-measurement-2026-09.md).
+The obsolete generated selection/island-review artifacts were removed rather
+than archived. In particular, the spatial-holdout results below do not validate
+the corrected September fit.
+
 ## Scope
 
 This dated audit records the evidence used to supersede the six-cluster
@@ -89,6 +96,7 @@ targets::tar_make(
 )
 ```
 
-Detailed generated tables are written under `output/part1/`; figures use the
-`03f_cluster_selection_` prefix. The implementation was committed as `21e1845`
+The optional review writes current-input tables under `output/part1/`; it does
+not reproduce the August results from today's corrected inputs. The original
+implementation was committed as `21e1845`
 and discussed in [GitHub issue #10](https://github.com/aakarner/coa-displacement-ews/issues/10).

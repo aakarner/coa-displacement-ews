@@ -1,0 +1,2 @@
+assignment_file,assignment_method,county_boundary_source,county_boundary_source_url,county_boundary_source_sha256,grid_rows
+config/hex_county_assignment_2024.csv,hex_point_on_surface_epsg_3083,"US Census Bureau 2024 county cartographic boundary 1:500,000",https://www2.census.gov/geo/tiger/GENZ2024/shp/cb_2024_us_county_500k.zip,da4051717caec55c75e3748c3608c2a3dbde8d1ff401bbaf4f952e3c3fb63ef1,7027

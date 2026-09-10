@@ -80,21 +80,22 @@ tools rather than substantive evidence and are not listed as data sources.
 
 | Provider | Raw input | Vintage or period used | What it contributes |
 | --- | --- | --- | --- |
-| U.S. Census Bureau TIGER/Line | Austin place boundary | 2021 geography | Defines the polygon used to generate the current H3 grid |
-| City of Austin GIS | Full- and limited-purpose jurisdiction boundaries | April 29, 2026 snapshot | Supports current boundary comparisons, coverage audits, and map context; it does not redefine the existing grid |
+| U.S. Census Bureau TIGER/Line | Austin place boundary | 2021 geography | Defines the polygon used to generate the 7,027-cell computational H3 grid |
+| City of Austin GIS | Full- and limited-purpose jurisdiction boundaries | April 29, 2026 snapshot | Its exact FULL polygon defines the fixed 6,060-cell Part 3 study geography and supports boundary QA and map context; it does not regenerate the computational grid or represent historical city limits |
+| City of Austin GIS | Historical jurisdiction baselines and effective-dated annexation history | Baselines dated 1946-1968 and action extract retrieved September 4, 2026 | Reconstructs annual demolition-source jurisdiction states; source URLs, retrieval date, and SHA-256 hashes are pinned in `config/demolition_jurisdiction_sources.csv` |
 | City of Austin Planning | Neighborhood Reporting Areas | Current download of the source geography last updated July 18, 2024 | Provides 103 mutually exclusive named areas; 102 intersect the current full-purpose boundary and support population- and housing-unit-weighted summaries of Part 1 cluster membership |
 | City of Austin Planning | Detailed Land Use Inventory | July 2026 download of the December 2025 inventory | Independently checks whether residential parcel records fall on land classified as single-family, duplex, three/fourplex, apartment/condominium, retirement housing, mixed use, or another use; it does not supply unit counts |
 | Travis, Hays, and Williamson county appraisal districts | Current parcel and appraisal-account extracts plus annual certified appraisal rolls | Current residential-candidate extracts; annual value records for 2021-2025 | Supplies property location, use, owner of record, floor and land area, appraisal values, and any reported unit fields |
 | County clerks and county appraisal districts | Dated deed and sale records plus historical owner files | Primarily 2021-2025, with different gaps by county | Supplies transaction events and owner histories used to measure turnover and changes in corporate ownership |
 | City of Austin and reviewed housing-project sources | Affordable Housing Inventory, Universal Recycling Ordinance inventory, Austin Energy Green Building and TDHCA records, and reviewed project documents | Most recent locally available record for each project | Supplies additional reported or comparison unit counts for identified residential developments |
 | U.S. Census Bureau | 2020 Decennial Census blocks | 2020 | Supplies small-area population and housing controls for allocating ACS estimates |
-| U.S. Census Bureau | ACS 5-year demographic and housing estimates | 2024 for current demographics; 2014, 2019, and 2024 for rent history | Supplies demographic vulnerability, housing estimates, and the citywide rent series |
+| U.S. Census Bureau | ACS 5-year demographic and housing estimates | 2024 for current demographics; 2014, 2019, and 2024 for current rent history; Part 2 also uses 2023 demographics and 2013/2018/2023 rent | Supplies demographic vulnerability, housing estimates, and the citywide rent series; paired Part 2 outputs are isolated under `output/part2/acs/` ([methods](../docs/methods/historical-acs.md)) |
 | CoStar | Historical multifamily property, unit, asking-rent, and vacancy records | Licensed historical extract available to the project | Supplies project evidence and a coverage-limited rent sensitivity measure; it is not a citywide rent source |
-| Travis County Justice of the Peace courts | Eviction filing extracts | January 2020 through the April 1, 2026 analysis cutoff | Supplies observed eviction filings for Travis County |
-| City of Austin Development Services | Issued construction permits | Records issued through the April 1, 2026 analysis cutoff | Supplies permitted residential demolitions within source coverage |
-| City of Austin 311 | Code-enforcement service-request records | Requests through the April 1, 2026 analysis cutoff | Supplies selected housing-condition and code-related requests |
+| Travis and Williamson County Justice of the Peace courts | Travis JP1-JP5 and Williamson JP1-JP2 eviction filing extracts | January 2020 through the April 1, 2026 analysis cutoff, with court-specific source periods; Part 2 uses a common January 2022 history start | Supplies Part 3 filing outcomes and separate Part 2 mapped-filing pairs under explicit county/precinct coverage; Part 1 remains Travis-only |
+| City of Austin Development Services | Issued construction permits | Records issued through the April 1, 2026 analysis cutoff | Supplies permitted residential demolitions within source coverage; separate Part 2 April 2025/2026 rolling pairs are in `output/part2/demolitions/` |
+| City of Austin 311 | Code-enforcement service-request records | Requests through the April 1, 2026 analysis cutoff | Supplies the three selected Code Officer intake types; separate Part 2 April 2025/2026 rolling pairs in `output/part2/311/` retain the coordinate-required query and geographic-screen caveats ([methods](../docs/methods/historical-events.md)) |
 | City of Austin Code Department | Austin Code Complaint Cases | Cases through the April 1, 2026 analysis cutoff; sustained monthly coverage begins in August 2023 | Supplies case descriptions and outcomes for the 311 category audit; it does not yet replace the Part 1 input |
-| Texas Comptroller and City of Austin | Permitted sales-tax locations, mixed-beverage reports, and food-establishment inspections | Recent 48-month source history; equal 18-month analysis windows ending April 1, 2026 | Supplies and corroborates openings in selected amenity categories |
+| Texas Comptroller and City of Austin | Permitted sales-tax locations, mixed-beverage reports, and food-establishment inspections | Live rolling source history for the current feature; validated December 2024 and February 2025 web-archive copies are available for historical reconstruction but are not yet production inputs | Supplies and corroborates openings in selected amenity categories |
 | U.S. Bureau of Labor Statistics | CPI-U annual averages | Years corresponding to the configured ACS and appraisal vintages | Converts rent and appraisal-value measures to constant dollars |
 
 The first county row describes **property snapshots**: what each appraisal
@@ -128,8 +129,8 @@ neighborhood conditions may be changing.
 | Domain | Main sources | How the source is currently used |
 | --- | --- | --- |
 | Rent | ACS median gross-rent vintages; CoStar for matched properties only | ACS supplies the citywide Part 1 rent input; CoStar is a separate sensitivity measure and never fills missing citywide values |
-| Evictions | Travis County Justice of the Peace filing extracts | Creates current and hex-year filing measures; equivalent Hays and Williamson records are not yet integrated |
-| Demolitions | City of Austin issued construction permits | Creates the current Part 1 demolition measure; the Part 3 historical outcome panel remains to be built |
+| Evictions | Travis JP1-JP5 and Williamson JP1-JP2 filing extracts | Part 1 remains Travis-only; Part 3 uses the fixed current-full geography and adds effective-dated Williamson JP1/JP2 coverage while current JP3 and Hays remain explicit gaps |
+| Demolitions | City of Austin issued construction permits; current FULL boundary; City GIS historical jurisdiction baselines and dated actions | Creates the current Part 1 demolition measure and the Part 3 complete hex-year outcome panel on a fixed current-full study geography with time-varying historical source coverage |
 | Appraisal values | County appraisal histories for 2021-2025 | Creates parcel and hex trends in land and improvement values |
 
 ### Smoke Signals
@@ -369,8 +370,8 @@ an automatic replacement when a parcel count is low. Agreement at the city
 level can coexist with substantial local disagreement.
 
 After the July 31 City land-use validation, the current surface contains
-502,257 promoted parcel units and 479,650 allocated ACS units on the exact
-study grid, a parcel excess of 4.7 percent. Inside the
+502,257 promoted parcel units and 479,650 allocated ACS units on the full
+7,027-cell computational grid, a parcel excess of 4.7 percent. Inside the
 Austin full-purpose boundary, meaning the area under the City's full municipal
 jurisdiction, 507,653 parcel units are 2.1 percent below the retained 2024
 one-year ACS city benchmark of 518,574. These comparisons use different
@@ -612,10 +613,14 @@ Key outputs are:
 ### Eviction Filings
 
 Targets `prepared_evictions` and `eviction_features` process defendant records
-from Travis County Justice of the Peace courts. The pipeline standardizes the
-filing addresses, geocodes them, retains ArcGIS address matches scoring at
-least 90, assigns the matched filings to hexes, and excludes records after the
-configured analysis date.
+from Travis County Justice of the Peace courts for the current Part 1 feature.
+The separate `prepared_williamson_evictions` target parses the supplied
+Williamson JP1/JP2 workbooks for Part 3. It folds JP1 address-continuation rows
+into their filing records, retains literal JP2 duplicate rows for audit while
+counting cases once, creates county/court-namespaced case IDs, and excludes
+three nonstandard identifiers from the canonical case inventory pending manual
+review. Preparation retains and flags post-cutoff rows for audit; the outcome
+panel excludes them at the configured analysis cutoff.
 
 The Part 1 measure compares the most recent 12 months with the preceding 12
 months. It includes the recent filing rate per 100 promoted residential units
@@ -624,27 +629,136 @@ filings and 200 dwellings different from a hex with 20 filings and 2,000
 dwellings. A zero is used only when the source covers the location and no
 filing was observed; a rate requires a positive unit denominator.
 
-The available filing extracts cover Travis County only. The current Part 1
-baseline therefore understates eviction pressure in the Hays and Williamson
-portions of Austin. About 6.6 percent of the population in cluster-eligible
-hexes is in cells whose parcel units are predominantly in those two counties.
-This limitation must be stated when presenting the clusters and addressed in a
-future eviction-data update.
+The current Part 1 baseline still uses Travis County only and therefore
+understates eviction pressure in the Hays and Williamson portions of Austin.
+About 6.6 percent of the population in cluster-eligible hexes is in cells whose
+parcel units are predominantly in those two counties. The new Williamson files
+improve the Part 3 outcome history but do not retroactively alter the frozen
+Part 1 model.
 
 Key outputs are:
 
 - `output/eviction_filings_prepared_for_geocoding.csv`;
-- `output/eviction_filings_by_hex_summary.rds/.csv`; and
-- `output/eviction_filings_by_hex_year.csv`.
+- `output/williamson_eviction_filings_prepared_for_geocoding.csv` and its
+  ingestion/source-period QA files;
+- `output/williamson_eviction_addresses_geocoded_local.csv`, the conservative
+  local-reference stage;
+- `output/williamson_eviction_addresses_geocoded_coa.csv`, the City of Austin
+  public-locator stage;
+- `output/williamson_eviction_addresses_geocoded.csv`, the final local, City,
+  and Census base cascade registry;
+- `output/williamson_eviction_addresses_geocoded_with_arcgis.csv`, the active
+  Part 3 registry after the targeted ArcGIS World refinement;
+- `output/williamson_eviction_geocode_local_qa.csv`,
+  `output/williamson_eviction_geocode_coa_qa.csv`, and
+  `output/williamson_eviction_geocode_qa.csv`, the aggregate-only local, City,
+  and Census stage QA;
+- `output/williamson_eviction_geocode_arcgis_qa.csv`, the aggregate-only World
+  refinement and before/after City-linkage QA;
+- `output/eviction_filings_by_hex_summary.rds/.csv`;
+- `output/eviction_filings_by_hex_year.csv`, the sparse event-only source
+  summary;
+- `output/eviction_filings_complete_by_hex_year.csv`, the Part 3 outcome panel;
+  and
+- eviction panel, coverage, and source-geography QA under `output/part3/`.
 
 Eviction ingestion is implemented: the pipeline turns the available Travis
-County court extracts into annual counts of observed eviction filings by hex.
-Before Part 3 forecasting, these observations must be expanded into a complete
-panel, using zero only for a covered hex-year with no filing and retaining
-uncovered places or periods as missing; partial years must also be handled
-explicitly. The forecasting outcome must then specify whether it represents
-filings or a later case disposition and which rental-unit denominator is used
-to calculate rates.
+JP1-JP5 and Williamson JP1/JP2 extracts into annual counts of observed eviction
+filings by hex. The 7,027-cell grid remains the computational frame, but the
+fixed Part 3 study geography contains only the 6,060 cells whose projected
+point-on-surface is inside the exact April 29, 2026 Austin FULL polygon. A
+reliable filing coordinate must also fall inside that exact polygon; landing in
+a boundary-straddling H3 cell is not sufficient. Outside-study rows remain
+explicitly unavailable rather than becoming zeroes. Within the fixed subset,
+the panel uses zero only for a complete source-covered hex-year with no filing
+and preserves 2026 activity only as a partial observed-to-date count. The
+outcome is a unique filed case, regardless of later disposition. Cases whose
+reliable defendant addresses imply more than one location—multiple in-source
+hexes or both an in-source and out-of-source location—are quarantined instead
+of being assigned selectively; their candidate hex-years are marked
+measurement-incomplete and therefore cannot become false zero labels.
+
+Williamson coverage is court- and year-specific rather than countywide. Of the
+295 Williamson cells selected by the fixed current-full rule, the official
+2012-2021 precinct layer assigns 167 to JP1 and 128 to JP2. Only the supplied
+JP2 source spans 2020-2021, so 128 cells are source-covered in those years. The
+official map effective in 2022 assigns 263 current-City cells to JP1, 3 to JP2,
+and 29 to unsupplied JP3. The supplied JP1/JP2 sources therefore cover 266
+cells from 2022 onward, with 2026 still a partial year; the 29 JP3 cells remain
+missing. No center-selected current-full cell is assigned to JP4 or left
+unassigned, and all 54 Hays cells remain unavailable. The 70 JP3 rows in the
+precinct-crosswalk metadata describe the broader set of 457
+Williamson-assigned cells in the computational grid, not the fixed City study
+subset. Thirty-eight H3 polygons touch the exact current City/JP3 intersection,
+but only 29 have their representative point inside it; cell-level coverage uses
+the same representative-point rule as the study geography. This preserves the
+distinction between a source-covered zero and an unobserved court geography.
+The versioned county crosswalk in
+`config/hex_county_assignment_2024.csv` assigns each hex using its
+point-on-surface and 2024 Census county boundaries. The historical/current JP
+crosswalk and source-period inventory are in
+`config/williamson_jp_hex_assignment.csv` and
+`config/eviction_sources.csv`. Historical denominators must use rental-unit
+exposure consistent with each row's source coverage rather than total current
+units.
+
+The reviewed `output/eviction_addresses_geocoded.csv` for Travis is an explicit
+local pipeline input. Williamson uses a four-stage cached cascade. First, a
+conservative local matcher links normalized addresses to the county's public
+address points only when the compatible records resolve to one analysis hex.
+Second, the City of Austin public ArcGIS locator supplies high-quality point
+matches for addresses not accepted locally. Third, the U.S. Census Bureau
+`Public_AR_Current` batch geocoder supplies address-range matches for records
+not accepted by either earlier stage. Fourth, ArcGIS World supplies a strict
+rooftop PointAddress/Subaddress refinement for City-relevant unresolved records
+and Census-interpolated records that the City locator places in full-purpose
+Austin. The active registry retains an accepted local or City point, uses a
+qualifying Census result when needed, and then replaces only the targeted rows
+that pass the stricter World score, address-type, house-number, ZIP, state, and
+coordinate checks. The World stage requires authenticated stored-result
+geocoding for an intentional cache fill; normal pipeline runs fail closed if a
+needed cache is missing and otherwise make no network request. Its chunked,
+resumable design follows the ArcGIS workflow already implemented for the Travis
+records in `scripts/data/evictions_prepare.R`.
+
+The current frozen World run targeted 362 unique City-relevant addresses. Of
+those, 299 passed the strict provider gate and 279 were inside the exact current
+full-purpose City boundary. On the operational set of 2,619 addresses that the
+City locator places inside that boundary, exact in-City linkage increased from
+2,350 (89.73 percent) to 2,551 (97.40 percent). At the filing-case level it
+increased from 2,815 of 3,246 cases (86.72 percent) to 3,174 (97.78 percent).
+These are linkage rates conditional on the City-locator candidate set, not an
+estimate of true geocoding recall.
+
+The City, Census, and World cache fills transmit an opaque address ID and the
+cleaned address string, but no defendant name, case number, or other court
+field. Address-bearing requests, responses, provider registries, review files,
+and resumable caches remain under ignored `output/` paths. Routine pipeline
+runs validate and reuse those caches without a network request. The final QA
+reports each stage's additions, unresolved addresses, checksums, and exact
+current-boundary linkage rates at the unique-address, filing-row, and case
+levels.
+
+The local public reference is intentionally limited to the computational grid,
+and neither a postal city of `AUSTIN` nor a provider match proves legal City
+membership. The pipeline applies an exact point-in-polygon test against the
+April 29, 2026 FULL polygon after geocoding. `source_covered` documents
+court-file availability, not perfect geocoding recall, and a zero in the panel
+means no *reliably located, in-study* filing was observed in that covered
+hex-year. The geocoding and assignment QA files report matched, rejected, and
+unlocated records so residual undercount can be carried into validation and
+sensitivity analysis. The Part 3 source manifest records SHA-256 hashes for the
+provider registries, every filing extract, the grid, the current City boundary,
+and the geographic crosswalks.
+
+Using one fixed current boundary keeps the spatial prediction universe stable
+through the historical panel, but it is not a reconstruction of Austin's city
+limits on each filing date. The resulting eviction history answers what was
+filed at locations inside the April 29, 2026 full-purpose footprint. Historical
+Williamson precinct maps still determine the applicable court geography, and
+historical City jurisdiction states still determine demolition-source coverage;
+those time-varying coverage rules do not turn the model geography into a
+time-varying boundary.
 
 ### Residential Demolitions
 
@@ -656,9 +770,28 @@ compares the most recent 24 months with the preceding 24 months. The resulting
 residential demolition activity. An issued permit indicates authorized
 activity, not necessarily a completed demolition.
 
-Part 3 still requires a dedicated, validated
-`output/demolition_permits_by_hex_year.csv` historical outcome file. The
-pipeline does not accept a generic `demolitions.csv` in its place.
+The Part 3 processor writes the dedicated
+`output/demolition_permits_by_hex_year.csv` outcome panel for 2009-2026.
+Calendar years 2010-2025 are complete; 2009 and 2026 remain partial and cannot
+be used as full-year labels. A covered complete year with no permit is zero,
+while uncovered or unresolved geography remains missing. Permit counts
+reconcile to the source extract in `output/demolition_permits_annual_qa.csv`.
+
+Geographic coverage is reconstructed at each hex's point-on-surface from
+versioned City historical-jurisdiction baselines and effective-dated
+annexation, disannexation, conversion, and territorial-release actions. For
+each observed annual interval, the replay evaluates the state on its first day
+and after every effective action through December 31, capped at the April 1,
+2026 observed-through date for the partial final year. The interval is covered
+only if every state is resolved as FULL, LTD, or 2MILE; midyear entry into
+coverage, unsupported states, ambiguity, or unresolved states do not become
+annual zeroes. The April 29, 2026 FULL polygon defines the fixed Part 3 study
+subset; the historical replay separately determines whether the permit source
+covered each selected cell-year. Versioned source URLs and checksums are in
+`config/demolition_jurisdiction_sources.csv`; the ignored local downloads must
+match those checksums. Detailed coverage and comparison artifacts are written
+under `output/part3/`. A historical residential-unit denominator remains a
+modeling dependency.
 
 ### County Appraisal Values
 
@@ -746,6 +879,18 @@ Key outputs are:
 - the ignored `output/311_code_complaint_*` linkage and coverage audit files.
 
 ### Corporate Ownership and Transaction History
+
+For the separate Part 2 2024/2025 ownership comparison, run
+`scripts/part2/build_ownership_snapshots.R`. It imports pinned Travis snapshots
+from the sibling `landlord-mapper`, adapts cached annual Hays/Williamson owner
+evidence through the same classifier, and uses fixed promoted EWS units and
+coordinates. Williamson uses each year's certified report plus corroborated
+same-year GIS evidence for 2024 and 2025, with source conflicts and remaining
+unknowns explicit; no evidence is carried across years. Outputs,
+coverage tables, change reviews, and hashed provenance are under the ignored
+`output/part2/ownership/`; canonical current ownership outputs are unchanged.
+See the [`historical ownership method`](../docs/methods/historical-ownership.md)
+and [`updated run audit`](../docs/audits/williamson-2024-ownership-integration-2026-09.md).
 
 This workflow tracks current corporate ownership, recent entry by corporate
 owners, and property-sale activity. **Corporate ownership** means that the
@@ -843,21 +988,75 @@ Generated raw API extracts and geocode caches remain ignored under
 - `output/amenity_geocoding_qa.csv`; and
 - `output/amenity_change_features_by_hex.rds/.csv`.
 
+The dated
+[`historical amenity coverage audit`](../docs/audits/amenity-historical-coverage-2026-09.md)
+records the validated December 2024 and February 2025 archive captures,
+coverage comparisons with the live source, temporal-interpretation caveats,
+and the proposed safeguards for a one-year-back reconstruction. Those archived
+files and the proposed archive-plus-live rule are not yet consumed by the
+production pipeline.
+
+## Paired Part 2 data assembly
+
+The April 2025/2026 retrospective data pair is built separately from canonical
+Part 1 outputs. `output/part2/ownership_index/` scores the reviewed 2024/2025
+common-parcel ownership summaries without changing `output/part2/ownership/`.
+`output/part2/evictions/` integrates Travis and supplied Williamson JP1/JP2
+records into exact rolling windows with a common January 2022 history start.
+It is a mapped-filing proxy, with court gaps and localizable uncertainty left
+missing; entirely unlocated records are reported separately, not assumed
+outside Austin.
+
+`output/part2/matrix/` joins all seven scored indices, preserves every audit
+hex/date, and creates two identically ordered common-eligible analysis matrices
+with exclusion reasons and component-availability diagnostics. It does not fit
+clusters, alter the existing source artifacts, or resume ML. See the
+[paired-matrix methods](../docs/methods/historical-feature-matrix.md) and
+[readiness audit](../docs/audits/part2-historical-readiness-2026-09.md) for the
+reproduction commands, sample counts and source limitations.
+
+The subsequent `scripts/part2/analyze_cluster_comparison.R` writes a distinct
+2025 historical baseline, fixed-2026 assignments, separately aligned 2026
+refit, transitions and conditional robustness checks to
+`output/part2/clusters/`. It does not replace the original Part 1 model or
+resume ML. [Comparison methods](../docs/methods/historical-cluster-comparison.md)
+and the [first-results audit](../docs/audits/part2-cluster-comparison-2026-09.md)
+explain interpretation and limitations; maps and profile figures are isolated
+under `figures/part2/`.
+
 ## Part 3 Readiness
 
-Part 3 forecasting is not yet implemented. The available source data should not
-be confused with modeling-ready outcome panels. An **outcome panel** needs one
-consistent observation for each hex and time period, a clear definition of the
-event or change being predicted, and enough historical coverage for
-validation. Target `part3_forecast_readiness` checks four proposed outcomes:
+Part 3 modeling remains paused while the Part 2 historical comparison proceeds.
 
-- eviction filings: the hex-year file exists; construct and validate the
-  complete outcome panel;
-- residential demolitions: build the historical hex-year file;
-- rent growth: the ACS vintage file exists, with CoStar context; define and
-  validate the forecasting outcome without treating missing CoStar as zero;
-- land-value growth: the appraisal hex-year file exists; construct and
-  validate a comparable county-adjusted outcome panel.
+Part 3 model fitting is not yet implemented. The eviction and demolition
+outcome panels and their 1- and 3-year forward labels are implemented and
+validated. These are label-available origins, not yet model-ready backtests. A
+**historical predictor panel** is still required: it needs one as-of-date
+feature snapshot for each hex and forecast origin without using information
+that became available later. The final usable origins can be counted only
+after that predictor panel is joined to the labels.
+
+The initial pilot has four outputs: eviction filings and residential
+demolitions, each measured over 1- and 3-year horizons. Target
+`part3_forecast_readiness` checks the configured source artifacts and label
+contract:
+
+- eviction filings are in the pilot; the complete panel and forward labels
+  pass their structural and missingness checks;
+- residential demolitions are in the pilot; the complete panel and forward
+  labels pass their structural, source-reconciliation, and effective-dated
+  coverage checks;
+- rent growth is deferred until after the pilot; the ACS vintage file and
+  CoStar context remain candidate inputs, with missing CoStar coverage never
+  interpreted as zero; and
+- land-value growth is deferred until after the pilot; the appraisal hex-year
+  file remains a candidate input for a comparable county-adjusted outcome.
+
+The pilot will compare separate models for each output with a joint multi-task
+candidate. Both approaches use the same historical backtests, and missing
+source coverage remains distinct from an observed zero. Five-year outcomes are
+not part of this pilot. The next implementation dependency is the leakage-safe
+historical predictor panel.
 
 See [`config/forecast_outcomes.csv`](../config/forecast_outcomes.csv) and
 `output/part3/forecast_readiness.csv` for the machine-readable specification and

@@ -74,6 +74,16 @@ recommendations <- read_csv(
   show_col_types = FALSE
 )
 cluster_labels <- read_csv(LABEL_FILE, show_col_types = FALSE)
+interpretation_review <- jsonlite::fromJSON(project_path("config", "part1_cluster_interpretation.json"))
+reviewed_results <- readRDS(file.path(OUTPUT_DIR, "amenity_cluster_sensitivity.rds"))
+reviewed_fit <- reviewed_results$full_evaluations$amenity_augmented$models[[
+  as.character(reviewed_results$selected_k[["amenity_augmented"]])]]
+if (!identical(interpretation_review$centroids_sha256,
+    digest::digest(reviewed_fit$centers, algo = "sha256")) ||
+    !identical(interpretation_review$labels_sha256,
+      digest::digest(file = LABEL_FILE, algo = "sha256"))) {
+  stop("Review the new centroids and pin the Part 1 interpretation before mapping.", call. = FALSE)
+}
 population_coverage <- read_csv(
   file.path(OUTPUT_DIR, "amenity_cluster_population_coverage.csv"),
   show_col_types = FALSE
@@ -243,7 +253,7 @@ minimum_residential_units <- EWS_CONFIG$minimum_residential_units_for_rates
 cluster_levels <- paste0(
   "Cluster ", cluster_labels$display_cluster, " — ",
   cluster_labels$tentative_name,
-  "\nRisk category: ", cluster_labels$concern_level
+  "\nQualitative concern: ", cluster_labels$concern_level
 )
 unclassified_statuses <- tibble(
   coverage_status = c(
@@ -255,14 +265,14 @@ unclassified_statuses <- tibble(
       "No cluster — fewer than ", minimum_residential_units,
       "\npromoted residential units"
     ),
-    "No cluster — missing required\ncluster input(s)"
+    "No cluster — outside scope or\nincomplete evidence"
   ),
   interactive_label = c(
     paste0(
       "No cluster: fewer than ", minimum_residential_units,
       " promoted residential units"
     ),
-    "No cluster: missing required cluster input(s)"
+    "No cluster: outside scope or incomplete evidence"
   ),
   map_color = c("#CDD2D6", "#727B82"),
   fill_opacity = c(0.42, 0.68)
@@ -295,7 +305,7 @@ missing_cluster_input_names <- apply(profile_matrix, 1, function(values) {
 })
 
 map_data <- hex_features %>%
-  select(hex_id, residential_units, all_of(profile_vars)) %>%
+  select(hex_id, residential_units, primary_exclusion, all_of(profile_vars)) %>%
   mutate(
     missing_cluster_input_count = missing_cluster_input_count,
     missing_cluster_input_names = missing_cluster_input_names
@@ -307,7 +317,7 @@ map_data <- hex_features %>%
       !is.na(cluster),
       paste0(
         "Cluster ", display_cluster, " — ", tentative_name,
-        "\nRisk category: ", concern_level
+        "\nQualitative concern: ", concern_level
       ),
       NA_character_
     ),
@@ -451,10 +461,10 @@ p_static <- ggplot() +
     ),
     caption = paste0(
       "Cluster labels and risk categories are interpretive, not quantitative risk scores. ",
-      "Cool-to-warm colors show increasing displacement risk.\n",
+      "Colors distinguish profiles; concern tiers are qualitative.\n",
       "Gray outlined hexes remain visible but have no cluster membership: light gray = fewer than ",
       minimum_residential_units,
-      " promoted residential units; dark gray = missing required cluster input(s).\n",
+      " promoted residential units; dark gray = outside scope or incomplete evidence.\n",
       "Orientation overlay: ", orientation_reference$tiger_year,
       " U.S. Census Bureau TIGER/Line."
     )
@@ -506,7 +516,7 @@ interactive_data <- map_data %>%
       coverage_status == "eligible_but_missing_cluster_feature" ~ paste0(
         "<div style='min-width:260px;line-height:1.35'>",
         "<strong style='font-size:14px'>No cluster membership</strong><br>",
-        "<strong>Reason:</strong> Missing required cluster input(s)<br>",
+        "<strong>Exclusion:</strong> ", primary_exclusion, "<br>",
         "<strong>Missing inputs:</strong> ", missing_cluster_input_count,
         " of ", length(profile_vars), "<br>",
         "<strong>Unavailable input(s):</strong> ",
@@ -519,7 +529,7 @@ interactive_data <- map_data %>%
         "<div style='min-width:260px;line-height:1.35'>",
         "<strong style='font-size:14px'>Cluster ", display_cluster, ": ",
         tentative_name, "</strong><br>",
-        "<strong>Risk category:</strong> ", concern_level, "<br>",
+        "<strong>Qualitative concern:</strong> ", concern_level, "<br>",
         "<span>", interpretation, "</span><hr style='margin:7px 0'>",
         "<strong>Hex ID:</strong> ", hex_id, "<br>",
         "Rent pressure: ", round(rent_pressure_citywide_index, 1), "<br>",
@@ -644,7 +654,7 @@ cluster_layer_names <- paste0(
 cluster_legend_labels <- paste0(
   "<strong>Cluster ", cluster_labels$display_cluster, " — ",
   cluster_labels$tentative_name, "</strong>",
-  "<br><span style='font-size:11px'><strong>Risk category:</strong> ",
+  "<br><span style='font-size:11px'><strong>Qualitative concern:</strong> ",
   cluster_labels$concern_level, "</span>"
 )
 unclassified_legend_labels <- paste0(

@@ -34,6 +34,12 @@ or substantive interpretation deteriorates.
 
 ## Evidence and Implementation
 
+September 10 update: the measurement correction in [decision 0013](0013-harmonized-measurement.md)
+replaces the numerical baseline and labels. Seven clusters remain provisional;
+the [current audit](../audits/part1-harmonized-measurement-2026-09.md) reports the
+new diagnostics. The comparative and blocked-holdout claims above describe
+the August decision, not a repeated September spatial review.
+
 See [`docs/audits/part1-cluster-selection-2026-08.md`](../audits/part1-cluster-selection-2026-08.md)
 and [GitHub issue #10](https://github.com/aakarner/coa-displacement-ews/issues/10).
 The current value is in [`R/analysis_config.R`](../../R/analysis_config.R), and

@@ -35,16 +35,28 @@ if (!acs_current_year %in% acs_years) {
   stop("EWS_ACS_CURRENT_YEAR must be included in EWS_ACS_YEARS.", call. = FALSE)
 }
 
-# BLS CPI-U annual averages, used only to express ACS dollar measures in the
-# latest configured ACS year's dollars. Add a value here before adding a new ACS
-# vintage. Source: BLS CPI for All Urban Consumers, U.S. city average.
+# Default remains the current ACS year's dollars. Historical pairs can explicitly
+# share a dollar base, even when that base is not one of a profile's ACS vintages.
+acs_dollar_base_year <- suppressWarnings(as.integer(Sys.getenv(
+  "EWS_ACS_DOLLAR_BASE_YEAR", unset = as.character(acs_current_year)
+)))
+if (is.na(acs_dollar_base_year)) {
+  stop("EWS_ACS_DOLLAR_BASE_YEAR must be an integer year.", call. = FALSE)
+}
+
+# BLS CPI-U annual averages, U.S. city average, all items (CUUR0000SA0).
+# https://www.bls.gov/cpi/tables/supplemental-files/historical-cpi-u-202308.pdf
+# https://www.bls.gov/regions/mid-atlantic/data/ConsumerPriceIndexAnnualandSemiAnnual_Table.htm
 acs_cpi_u <- c(
+  `2013` = 232.957,
   `2014` = 236.736,
+  `2018` = 251.107,
   `2019` = 255.657,
+  `2023` = 304.702,
   `2024` = 313.689
 )
 
-missing_cpi_years <- setdiff(as.character(acs_years), names(acs_cpi_u))
+missing_cpi_years <- setdiff(as.character(c(acs_years, acs_dollar_base_year)), names(acs_cpi_u))
 if (length(missing_cpi_years) > 0) {
   stop(
     "Missing CPI-U annual average(s) for ACS year(s): ",
@@ -118,6 +130,7 @@ EWS_CONFIG <- list(
   h3_resolution = 9L,
   acs_years = acs_years,
   acs_current_year = acs_current_year,
+  acs_dollar_base_year = acs_dollar_base_year,
   acs_survey = "acs5",
   acs_counties = c("Travis", "Hays", "Williamson"),
   acs_cpi_u = acs_cpi_u,
@@ -139,5 +152,5 @@ EWS_CONFIG <- list(
   baseline_cluster_specification = baseline_cluster_specification,
   cluster_assignment_distance_quantile = 0.95,
   cluster_assignment_margin_quantile = 0.10,
-  forecast_horizons_years = c(1L, 3L, 5L)
+  forecast_horizons_years = c(1L, 3L)
 )

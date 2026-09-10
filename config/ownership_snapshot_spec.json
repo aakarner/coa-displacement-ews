@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "tax_years": [2024, 2025],
+  "analysis_cutoffs": ["2025-04-01", "2026-04-01"],
+  "upstream_repository": "../landlord-mapper",
+  "upstream_commit": "cd686394e51467541d5463422dcf7bed4aa9fee9",
+  "classifier_path": "historical_ownership.py",
+  "classifier_sha256": "bfba1b07ad3cc9996bf8050514e68d1249c6fabc89f3b078721e6573e439893b",
+  "classification_rule_version": "lm-historical-owner-v1-a8aadd8b18bb",
+  "travis_snapshot_sha256": "233d0d2beeb241179d1544867d0de1eead625d04a54971f46529e913a5944c82",
+  "unit_field": "units_calibrated_targeted",
+  "minimum_hex_units": 20,
+  "minimum_common_coverage": 0.95,
+  "support": "Fixed promoted EWS parcel coordinates, land-use exclusions, and validated unit counts at both vintages",
+  "semantics": "Retrospective appraisal-snapshot comparison; tax year does not imply ownership exactly at the analysis cutoff"
+}

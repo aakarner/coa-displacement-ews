@@ -1,0 +1,52 @@
+{
+  "schema_version": 2,
+  "certified_2024": {
+    "path": "data/raw_parcels/appraisal_history/williamson/2024/williamson_2024.zip",
+    "sha256": "eefd87008ec6673d861263015cd41764ce0762470b5d53f503802e9d97fe5017",
+    "landing_url": "https://www.wcad.org/historical-data/",
+    "source_url": "https://www.wcad.org/wp-content/uploads/2025/08/Certification-Report-2024.zip",
+    "report_date": "2024-07-12",
+    "semantics": "Existing 2024 certified printed appraisal roll; source-year owner, mailing, situs and exemption evidence. Printed names and addresses may be clipped."
+  },
+  "gis_2024": {
+    "path": "data/raw_parcels/ownership_research/williamson_2024_txgio/stratmap24-landparcels_48491_lp.zip",
+    "sha256": "8603a705b80fb9f22c2037b32a7935176fc736bde01f3ed1c8010a49fff7a4ad",
+    "source_url": "https://s3.amazonaws.com/data.tnris.org/d0f7da13-ab09-4994-a16f-d52589e2476e/resources/stratmap24-landparcels_48491_lp.zip",
+    "catalog_resource_url": "https://data.geographic.texas.gov/d0f7da13-ab09-4994-a16f-d52589e2476e/resources/stratmap24-landparcels_48491_lp.zip",
+    "collection_id": "d0f7da13-ab09-4994-a16f-d52589e2476e",
+    "resource_id": "bcf49541-a5b9-4227-9897-5574dd0986ca",
+    "layer": "stratmap24_landparcels_48491_williamson_202406",
+    "county_rows": 269465,
+    "field_count": 37,
+    "acquisition_date": "2024-06-01",
+    "metadata_acquisition_description": "Date acquired by TxGIO: July 2024",
+    "source_extract_date": "2024-07-12",
+    "processing_date": "2024-07-19",
+    "public_object_modified_date": "2024-08-22",
+    "tax_year": 2024,
+    "semantics": "2024 WCAD parcel database view distributed by TxGIO; DATE_ACQ is coded 20240601, XML says acquired July 2024 and records direct database extraction July 12. Not an exact June 1 inventory or certified roll; no homestead fields."
+  },
+  "certified_2025": {
+    "path": "data/raw_parcels/ownership_research/williamson_2025_certified/Certification-Report-2025.zip",
+    "sha256": "279692f8bb354cde93eb2e71cdd500d9ae7b598a19e40ba9d281cef6e6d96483",
+    "landing_url": "https://www.wcad.org/historical-data/",
+    "source_url": "https://williamsoncad.sharepoint.com/:u:/s/OperationsInfo/IQCilG6icMdMT4rDZYoXvQXGAZ2wIl2IOZiksNZuKN9Nqn4?e=OCQkek",
+    "report_date": "2025-07-11",
+    "public_posting_date": "2026-07-16",
+    "semantics": "2025 certified appraisal roll; later web posting is not evidence of public availability at the retrospective cutoff."
+  },
+  "gis_2025": {
+    "path": "data/raw_parcels/ownership_research/williamson_2025_txgio/stratmap25-landparcels_48491_lp.zip",
+    "sha256": "f3f086444b0936f8b06fa9a6b2e47dc42e16737ed7a9ae5278c179056cc0f75c",
+    "source_url": "https://s3.amazonaws.com/data.tnris.org/0fa04328-872e-481c-b453-126a74777593/resources/stratmap25-landparcels_48491_lp.zip",
+    "collection_id": "0fa04328-872e-481c-b453-126a74777593",
+    "layer": "stratmap25_landparcels_48491_williamson_202507",
+    "county_rows": 282983,
+    "field_count": 37,
+    "acquisition_date": "2025-07-01",
+    "processing_date": "2025-07-28",
+    "public_object_modified_date": "2025-09-04",
+    "tax_year": 2025,
+    "semantics": "July 2025 WCAD parcel database view distributed by TxGIO; not a certified roll; no homestead fields."
+  }
+}

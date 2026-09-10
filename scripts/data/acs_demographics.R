@@ -40,21 +40,33 @@ source(project_path("R", "acs_dasymetric.R"))
 
 print_header("02f - ACS DEMOGRAPHICS TO HEX GRID")
 
-OUTPUT_DIR <- project_path("output")
+OUTPUT_DIR <- Sys.getenv("EWS_ACS_OUTPUT_DIR", unset = project_path("output"))
 ACS_CACHE_DIR <- project_path("data", "raw_acs")
 ACS_YEAR <- EWS_CONFIG$acs_current_year
 ACS_SURVEY <- EWS_CONFIG$acs_survey
 ACS_COUNTIES <- EWS_CONFIG$acs_counties
 ANALYSIS_CRS <- 3857
+PRESERVE_MISSING <- tolower(Sys.getenv("EWS_ACS_PRESERVE_MISSING", unset = "false")) %in%
+  c("true", "t", "1", "yes")
+ACS_DOLLAR_BASE_YEAR <- EWS_CONFIG$acs_dollar_base_year
+if (is.null(ACS_DOLLAR_BASE_YEAR)) ACS_DOLLAR_BASE_YEAR <- ACS_YEAR
+ACS_DOLLAR_ADJUSTMENT <- unname(
+  EWS_CONFIG$acs_cpi_u[as.character(ACS_DOLLAR_BASE_YEAR)] /
+    EWS_CONFIG$acs_cpi_u[as.character(ACS_YEAR)]
+)
+if (length(ACS_DOLLAR_ADJUSTMENT) != 1L || !is.finite(ACS_DOLLAR_ADJUSTMENT) ||
+    ACS_DOLLAR_ADJUSTMENT <= 0) {
+  stop("ACS dollar conversion requires valid source/base CPI values.", call. = FALSE)
+}
 
 dir.create(OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
 sf::sf_use_s2(FALSE)
 
-hex_grid <- load_output(file.path(OUTPUT_DIR, "hex_grid.rds"), "hexagonal grid") %>%
+hex_grid <- load_output(project_path("output", "hex_grid.rds"), "hexagonal grid") %>%
   st_transform(4326)
 
-residential_parcel_support_file <- file.path(
-  OUTPUT_DIR,
+residential_parcel_support_file <- project_path(
+  "output",
   "residential_parcels_for_hex_sf.rds"
 )
 if (!file.exists(residential_parcel_support_file)) {
@@ -149,17 +161,26 @@ load_acs_extract <- function(geography, variables, cache_label) {
   }
 
   if (is.null(acs_extract)) {
-    acs_extract <- tidycensus::get_acs(
-      geography = geography,
-      variables = variables,
-      state = "TX",
-      county = ACS_COUNTIES,
-      year = ACS_YEAR,
-      survey = ACS_SURVEY,
-      geometry = TRUE,
-      output = "tidy",
-      cache_table = TRUE
-    )
+    # Some provider errors contain credential-bearing URLs. Do not echo raw
+    # messages, warnings, or stdout from requests using the configured key.
+    request_output <- capture.output(acs_extract <- tryCatch(
+      suppressMessages(suppressWarnings(tidycensus::get_acs(
+        geography = geography,
+        variables = variables,
+        state = "TX",
+        county = ACS_COUNTIES,
+        year = ACS_YEAR,
+        survey = ACS_SURVEY,
+        geometry = TRUE,
+        output = "tidy",
+        cache_table = TRUE
+      ))),
+      error = function(error) stop(
+        "ACS ", ACS_YEAR, " ", geography,
+        " request failed. Check network access and Census configuration; ",
+        "raw provider details were withheld to protect credentials.", call. = FALSE
+      )
+    ))
     saveRDS(acs_extract, acs_cache_file)
   }
 
@@ -222,7 +243,8 @@ count_results <- allocate_acs_count_variables(
   acs_long = acs_long,
   crosswalk = crosswalk_results$crosswalk,
   population_variables = population_count_vars,
-  housing_variables = housing_count_vars
+  housing_variables = housing_count_vars,
+  preserve_missing = PRESERVE_MISSING
 )
 
 print_progress("Assigning medians from dominant residential block groups with tract fallback...")
@@ -251,13 +273,20 @@ acs_hex <- hex_grid %>%
   mutate(
     acs_year = ACS_YEAR,
     acs_survey = ACS_SURVEY,
+    analysis_as_of_date = EWS_CONFIG$analysis_as_of_date,
+    acs_dollar_base_year = ACS_DOLLAR_BASE_YEAR,
+    acs_dollar_adjustment_factor = ACS_DOLLAR_ADJUSTMENT,
+    acs_preserve_missing = PRESERVE_MISSING,
+    acs_missing_count_policy = if (PRESERVE_MISSING) "preserve_missing" else "legacy_zero_fill",
     acs_count_source_geography = "block_group",
     acs_count_allocation_method =
       paste(
         "2020 Census block population/housing totals allocated within blocks",
         "by residential parcel floor-area support"
       ),
-    across(all_of(count_vars), ~replace_na(.x, 0)),
+    across(all_of(count_vars), ~if (PRESERVE_MISSING) .x else replace_na(.x, 0)),
+    across(all_of(c(median_vars, paste0(median_vars, "_moe"))),
+           ~.x * ACS_DOLLAR_ADJUSTMENT, .names = "{.col}_real"),
     below_poverty = poverty_under_050 + poverty_050_099,
     below_poverty_moe = sqrt(
       poverty_under_050_moe^2 + poverty_050_099_moe^2
@@ -314,6 +343,13 @@ acs_hex <- hex_grid %>%
     ),
     vulnerability_index = if_else(is.nan(vulnerability_index), NA_real_, vulnerability_index)
   ) %>%
+  mutate(
+    acs_missing_count_fields = rowSums(is.na(pick(all_of(count_vars)))),
+    acs_vulnerability_inputs_complete = if_all(
+      all_of(c("median_income_real", "pct_renter", "poverty_rate", "pct_rent_burden_30plus", "pct_college")),
+      ~is.finite(.x)
+    )
+  ) %>%
   st_transform(4326)
 
 output_rds <- file.path(OUTPUT_DIR, "acs_demographics_by_hex.rds")
@@ -351,13 +387,31 @@ allocation_qa <- bind_rows(
       value = conservation_difference,
       source_zone_estimate_total,
       expected_project_estimate,
-      allocated_project_estimate
+      allocated_project_estimate,
+      emitted_hex_estimate_total,
+      incomplete_estimate_hexes,
+      incomplete_moe_hexes
     )
 )
 write_csv(
   allocation_qa,
   file.path(OUTPUT_DIR, "acs_dasymetric_allocation_qa.csv")
 )
+
+demographic_qa <- acs_hex %>% st_drop_geometry() %>% summarise(
+  hexes = n(),
+  hexes_with_missing_count_fields = sum(acs_missing_count_fields > 0),
+  hexes_with_all_vulnerability_inputs = sum(acs_vulnerability_inputs_complete),
+  median_income_missing = sum(is.na(median_income)),
+  median_income_moe_missing_with_estimate = sum(!is.na(median_income) & is.na(median_income_moe)),
+  median_income_tract_fallback_hexes = sum(median_income_source_geography == "tract", na.rm = TRUE),
+  median_rent_tract_fallback_hexes = sum(median_rent_source_geography == "tract", na.rm = TRUE),
+  acs_year = ACS_YEAR,
+  analysis_as_of_date = EWS_CONFIG$analysis_as_of_date,
+  acs_dollar_base_year = ACS_DOLLAR_BASE_YEAR,
+  preserve_missing = PRESERVE_MISSING
+)
+write_csv(demographic_qa, file.path(OUTPUT_DIR, "acs_demographics_qa.csv"))
 
 save_output(acs_hex, output_rds, "ACS demographic hex summary")
 

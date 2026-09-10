@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "measurement_version": "part2-fixed-components-v2",
+  "baseline_centers_sha256": "a0b242512ecc72f353fa7bec45653024e0a5fd0f1543f6d4d7d1c376e7f8a441",
+  "review_date": "2026-09-10",
+  "eligibility_rule": "rolling_scored_24_months_v1",
+  "rationale": "Apply the user's qualitative Low/Moderate/High/Very high framework after reviewing the corrected 2025 profiles and raw event rates, before inspecting tier-transition counts. These are relative cluster-level concern categories, not calibrated probabilities. Low does not mean no vulnerability or no displacement. A changed model hash requires renewed interpretation.",
+  "clusters": [
+    {"cluster":"C1","profile":"Eviction filing concentration","concern":"Very high","concern_rank":4,"rationale":"Every baseline member has a mapped recent filing; mean recent filings are about 15.4 per 100 units versus at most 1.8 in other profiles, with a strongly positive rate change and elevated vulnerability."},
+    {"cluster":"C2","profile":"Corporate ownership concentration and vulnerability","concern":"Moderate","concern_rank":2,"rationale":"Strong ownership concentration and vulnerability; recent mean eviction rate remains far below the eviction-concentrated profile."},
+    {"cluster":"C3","profile":"Lower measured pressure","concern":"Low","concern_rank":1,"rationale":"Below-average measured pressure across the six signal indices; vulnerability remains present and is not uniformly low."},
+    {"cluster":"C4","profile":"Higher and rising rents, lower vulnerability","concern":"Low","concern_rank":1,"rationale":"Higher real rents and positive rent growth combine with the lowest vulnerability and generally low acute-event and ownership signals; high rents alone are not treated as high displacement concern."},
+    {"cluster":"C5","profile":"Demolition concentration","concern":"High","concern_rank":3,"rationale":"Every baseline member has a mapped recent residential demolition permit; the demolition index is the dominant defining feature. Permits are proxies, not confirmed displacement."},
+    {"cluster":"C6","profile":"Selected 311 activity and vulnerability","concern":"Moderate","concern_rank":2,"rationale":"Strong selected-request activity and above-average vulnerability, without the distinctive acute filing or demolition concentration of C1/C5."},
+    {"cluster":"C7","profile":"Nearby amenity activity","concern":"Moderate","concern_rank":2,"rationale":"Strong nearby opening exposure with some ownership concentration; amenity change is a contextual smoke signal, not direct evidence of displacement."}
+  ]
+}

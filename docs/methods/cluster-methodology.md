@@ -4,7 +4,15 @@
 
 Part 1 discovers a baseline typology of current displacement pressure and
 vulnerability. Part 2 tracks change by assigning later observations to those
-same definitions. Part 2 does not rerun k-means.
+same definitions. Its primary fixed-assignment comparison does not rerun
+k-means. The separate retrospective April 2025/2026 proof of concept also
+refits the later centers as a **structural-stability sensitivity**, without
+replacing the fixed-assignment results. Its harmonized common-sample baseline
+is distinct from the current Part 1 model. Both now use the same corrected
+component recipes, but Part 1 uses current-only eligibility and 2026 reference
+scales; Part 2 requires paired support and freezes its 2025 scales. See the
+[current measurement contract](current-measurement.md) and
+[historical comparison methods](historical-cluster-comparison.md).
 
 ## Part 1 Inputs
 
@@ -37,11 +45,11 @@ completed indices are then standardized equally for clustering.
 
 | Cluster input | Role | Key source and vintage | Construction |
 | --- | --- | --- | --- |
-| **Citywide rent pressure** (`rent_pressure_citywide_index`) | Displacement proxy | ACS 5-year median gross rent for Hays, Travis, and Williamson Counties, using vintages ending in 2014, 2019, and 2024 | Combines inflation-adjusted 2024 median rent, annualized real growth from 2019 to 2024, and acceleration relative to 2014-2019 growth. Growth and acceleration are included only when all three vintages meet the ACS reliability rule. Each hex receives the median from its dominant residential block group, with tract fallback; block-group medians are never averaged. |
+| **Citywide rent pressure** (`rent_pressure_citywide_index`) | Displacement proxy | ACS 5-year median gross rent for Hays, Travis, and Williamson Counties, using vintages ending in 2014, 2019, and 2024 | Equal thirds: inflation-adjusted 2024 median rent, annualized real log growth from 2019 to 2024, and acceleration relative to 2014-2019 growth. Require all three reliable estimates at the dominant residential block group; otherwise all three at the tract; otherwise the index is missing. Never mix geography levels or average block-group medians. |
 | **Residential demolition pressure** (`demolition_pressure_index`) | Displacement proxy | City of Austin issued construction permits through April 1, 2026 | Keeps issued permits classified as residential demolition and compares April 2, 2024-April 1, 2026 with the preceding 24 months. Combines recent demolition density, positive change between the two periods, and recent density of permits whose description identifies a total demolition. An issued permit indicates authorized activity, not necessarily a completed demolition. |
-| **Eviction pressure** (`eviction_pressure_index`) | Displacement proxy | Travis County Justice of the Peace filing records through April 1, 2026 | Compares April 2, 2025-April 1, 2026 with the preceding 12 months. Combines recent unique filings per 100 promoted residential units, percentage change between periods, and the share of all observed filings occurring recently. Rates require at least 20 residential units. Equivalent Hays and Williamson filings are not yet integrated. |
-| **Selected 311 pressure** (`sr_311_pressure_index`) | Smoke signal | Austin 311 records from January 1, 2020 through April 1, 2026 | Uses only the three versioned code-officer intake descriptions in `config/311_smoke_signal_types.csv`, not all 311 activity. Combines selected requests during the latest 12 months per 100 residential units, requests per square kilometer, and change from the preceding 12 months. A request records reported concern, not a verified violation. |
-| **Corporate ownership pressure** (`ownership_pressure_index`) | Smoke signal | Current county appraisal ownership records, primarily the 2025 certified or current rolls for Hays, Travis, and Williamson Counties | Combines the percentage of residential units owned by corporate entities, corporate-owned residential units per square kilometer, and the percentage of residential parcels associated with financialized owners. Corporate ownership means ownership by a company or other legal entity; it does not necessarily identify a large institutional investor. |
+| **Eviction pressure** (`eviction_pressure_index`) | Displacement proxy | Travis County and Williamson JP1/JP2 filing records through April 1, 2026 | Compares April 2, 2025-April 1, 2026 with the preceding 12 months. Equal halves: recent mapped filings per 100 fixed promoted units and signed recent-minus-previous rate change. Require at least 20 units and observed source coverage. Hays and Williamson JP3 gaps remain missing, not zero. Percentage change and the expanding-history recent share are not scored. |
+| **Selected 311 pressure** (`sr_311_pressure_index`) | Smoke signal | Austin 311 records from January 1, 2020 through April 1, 2026 | Uses only the three versioned code-officer intake descriptions in `config/311_smoke_signal_types.csv`, not all 311 activity. Equal thirds: latest-12-month requests per 100 fixed units, requests per square kilometer, and signed rate change from the preceding 12 months. Rate and density deliberately give current activity two-thirds weight. A request records reported concern, not a verified violation. |
+| **Corporate ownership pressure** (`ownership_pressure_index`) | Smoke signal | Reviewed 2025 county appraisal ownership snapshots for Hays, Travis, and Williamson Counties | Equal thirds: corporate share of observed units, corporate units per whole-hex square kilometer, and financialized share of observed parcels. Use parcels with both classifications known in 2025; require at least 20 observed units and 95% unit and parcel coverage. No 2024 gate in Part 1. Corporate ownership does not necessarily identify a large institutional investor. |
 | **Amenity change pressure** (`amenity_change_index`) | Smoke signal | Texas Comptroller permitted sales-tax locations, with mixed-beverage and Austin food-inspection records used for corroboration; events are truncated at April 1, 2026 | Compares openings during October 2, 2024-April 1, 2026 with the preceding 18 months. Measures distance-weighted exposure within 800 meters for cafes, full-service restaurants, and drinking places. Each category combines its recent opening level with positive change, and the three category scores receive equal weight. The index measures selected openings rather than overall amenity density. |
 
 The seventh input, `demographic_vulnerability_index`, is intentionally not
@@ -50,6 +58,12 @@ pressure occurs. It gives equal weight to lower household income, renter share,
 poverty, rent burden, and lower educational attainment. This distinction lets
 the clusters identify places where similar market or event pressure may have
 different consequences for current residents.
+
+Every index requires its complete fixed recipe, including all five vulnerability
+components. Missing components never redistribute weights. Signed event changes
+are centered at 50 for zero change, so a composite is not a probability or a
+literal zero-to-maximum risk scale. Part 1 requires current city-center membership,
+20 fixed units, current evidence coverage and all seven complete indices.
 
 ## Selecting the Solution
 
@@ -84,8 +98,11 @@ No single diagnostic mechanically selects k. The current shared solution uses
 `k = 7`, configured in `R/analysis_config.R`, with tentative display labels in
 `config/amenity_cluster_labels.csv`. The decision rationale is in
 [`docs/decisions/0008-select-seven-clusters.md`](../decisions/0008-select-seven-clusters.md),
-and the run-specific comparison is in
-[`docs/audits/part1-cluster-selection-2026-08.md`](../audits/part1-cluster-selection-2026-08.md).
+and the current corrected fit is documented in the
+[September harmonization audit](../audits/part1-harmonized-measurement-2026-09.md).
+The [August selection audit](../audits/part1-cluster-selection-2026-08.md)
+is superseded for current numerical results. Its spatial holdouts have not been
+rerun under the corrected specification; seven clusters remain provisional.
 Current metrics are generated in `output/part1/baseline_cluster_summary.csv`
 rather than copied into this evergreen methods document.
 
@@ -112,8 +129,10 @@ agree.
 - the baseline cutoff and H3 resolution;
 - ordered feature names;
 - baseline means and standard deviations;
+- current component reference scales and a pinned measurement manifest;
 - selected centroids;
 - cluster labels and concern levels;
+- a centroid- and label-hash-pinned interpretation review;
 - the distance metric;
 - cluster-specific 95th-percentile baseline distances;
 - the baseline 10th-percentile nearest-versus-second-nearest margin.

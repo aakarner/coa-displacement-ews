@@ -28,6 +28,7 @@ project_path <- function(...) {
 
 source(project_path("R", "utils.R"))
 source(project_path("R", "analysis_config.R"))
+source(project_path("R", "amenity_scoring.R"))
 
 suppressPackageStartupMessages({
   library(data.table)
@@ -40,11 +41,17 @@ suppressPackageStartupMessages({
 
 print_header("02n - AMENITY CHANGE PROCESSING")
 
-OUTPUT_DIR <- project_path("output")
+OUTPUT_DIR <- Sys.getenv("EWS_AMENITY_OUTPUT_DIR", unset = project_path("output"))
 RAW_DIR <- project_path("data", "raw_amenities")
-CANDIDATES_FILE <- file.path(OUTPUT_DIR, "amenity_source_candidates.rds")
-HEX_GRID_FILE <- file.path(OUTPUT_DIR, "hex_grid.rds")
-GEOCODE_CACHE <- file.path(RAW_DIR, "amenity_census_geocodes.csv")
+CANDIDATES_FILE <- Sys.getenv(
+  "EWS_AMENITY_CANDIDATES_FILE",
+  unset = project_path("output", "amenity_source_candidates.rds")
+)
+HEX_GRID_FILE <- project_path("output", "hex_grid.rds")
+GEOCODE_CACHE <- Sys.getenv(
+  "EWS_AMENITY_GEOCODE_CACHE", unset = file.path(RAW_DIR, "amenity_census_geocodes.csv")
+)
+SCALING_REFERENCE <- Sys.getenv("EWS_AMENITY_SCALING_REFERENCE", unset = "")
 
 required_files <- c(CANDIDATES_FILE, HEX_GRID_FILE)
 missing_files <- required_files[!file.exists(required_files)]
@@ -57,6 +64,8 @@ if (length(missing_files) > 0L) {
 }
 
 dir.create(RAW_DIR, recursive = TRUE, showWarnings = FALSE)
+dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+dir.create(dirname(GEOCODE_CACHE), recursive = TRUE, showWarnings = FALSE)
 
 source_candidates <- load_output(
   CANDIDATES_FILE,
@@ -84,6 +93,16 @@ recent_start <- as.Date(source_candidates$recent_window_start)
 window_months <- as.integer(source_candidates$window_months)
 access_radius_m <- as.numeric(EWS_CONFIG$amenity_access_radius_m)
 core_categories <- c("cafe", "full_service_restaurant", "drinking_place")
+coverage_contract <- amenity_coverage_contract(
+  source_candidates$coverage_contract,
+  legacy_mode = !nzchar(Sys.getenv("EWS_AMENITY_CANDIDATES_FILE")) &&
+    !nzchar(Sys.getenv("EWS_ANALYSIS_AS_OF_DATE"))
+)
+corroboration_status <- source_candidates$corroboration_status
+if (is.null(corroboration_status)) corroboration_status <- "source_audit_matches"
+if (length(corroboration_status) != 1L || is.na(corroboration_status)) {
+  stop("Amenity corroboration_status must be one nonmissing string.", call. = FALSE)
+}
 
 if (!is.finite(access_radius_m) || access_radius_m <= 0) {
   stop("Amenity access radius must be positive.", call. = FALSE)
@@ -275,8 +294,21 @@ events_geocoded <- events %>%
   ) %>%
   mutate(
     geocode_matched = is.finite(lat) & is.finite(long) &
-      match_indicator == "Match"
+      !is.na(match_indicator) & match_indicator == "Match",
+    geometry_available = geocode_matched,
+    within_study_buffer = NA,
+    within_hex_grid = NA,
+    within_access_radius_of_hex_centroid = NA,
+    contributes_positive_exposure = NA,
+    direct_hex_id = NA_character_
   )
+
+# Preserve unmatched events even if a coverage gate prevents spatial scoring.
+save_output(
+  events_geocoded, file.path(OUTPUT_DIR, "amenity_events_all_audit.rds"),
+  "all amenity opening events, including unmatched addresses"
+)
+write_csv(events_geocoded, file.path(OUTPUT_DIR, "amenity_events_all_audit.csv"))
 
 geocode_qa <- events_geocoded %>%
   group_by(county, category_classified, event_window) %>%
@@ -285,11 +317,8 @@ geocode_qa <- events_geocoded %>%
     unique_addresses = n_distinct(address_key),
     geocoded_events = sum(geocode_matched),
     geocode_match_pct = 100 * mean(geocode_matched),
-    mixed_beverage_address_matches = sum(
-      mixed_beverage_address_match,
-      na.rm = TRUE
-    ),
-    austin_food_address_matches = sum(austin_food_address_match, na.rm = TRUE),
+    mixed_beverage_address_matches = amenity_count_confirmed(mixed_beverage_address_match),
+    austin_food_address_matches = amenity_count_confirmed(austin_food_address_match),
     .groups = "drop"
   )
 
@@ -324,6 +353,7 @@ if (any(category_geocode_pct$match_pct < 75)) {
 
 events_sf <- events_geocoded %>%
   filter(geocode_matched) %>%
+  select(-direct_hex_id) %>%
   st_as_sf(coords = c("long", "lat"), crs = 4326, remove = FALSE)
 
 projection_crs <- 26914
@@ -354,14 +384,7 @@ direct_hex <- st_join(
     .groups = "drop"
   )
 events_sf <- events_sf %>% left_join(direct_hex, by = "event_id")
-
-spatial_event_qa <- st_drop_geometry(events_sf) %>%
-  group_by(county, category_classified, event_window) %>%
-  summarise(
-    events_within_study_buffer = sum(within_study_buffer),
-    events_inside_hex_grid = sum(!is.na(direct_hex_id)),
-    .groups = "drop"
-  )
+events_sf$within_hex_grid <- !is.na(events_sf$direct_hex_id)
 
 nearby_events <- st_is_within_distance(
   hex_centroids,
@@ -385,6 +408,31 @@ links[, distance_m := as.numeric(st_distance(
   by_element = TRUE
 ))]
 links[, exposure_weight := pmax(0, 1 - distance_m / access_radius_m)]
+events_sf$within_access_radius_of_hex_centroid <- seq_len(nrow(events_sf)) %in%
+  links$event_row
+events_sf$contributes_positive_exposure <- seq_len(nrow(events_sf)) %in%
+  links$event_row[links$exposure_weight > 0]
+
+spatial_flag_cols <- c(
+  "within_study_buffer", "within_hex_grid", "within_access_radius_of_hex_centroid",
+  "contributes_positive_exposure", "direct_hex_id"
+)
+events_geocoded <- events_geocoded %>%
+  select(-all_of(spatial_flag_cols)) %>%
+  left_join(
+    st_drop_geometry(events_sf) %>% select(event_id, all_of(spatial_flag_cols)),
+    by = "event_id"
+  )
+spatial_event_qa <- events_geocoded %>%
+  group_by(county, category_classified, event_window) %>%
+  summarise(
+    events_within_study_buffer = sum(within_study_buffer, na.rm = TRUE),
+    events_inside_hex_grid = sum(within_hex_grid, na.rm = TRUE),
+    events_influencing_hex_exposure = sum(contributes_positive_exposure, na.rm = TRUE),
+    geocoded_events_outside_study_buffer = sum(!within_study_buffer, na.rm = TRUE),
+    unmatched_events_scope_unknown = sum(!geocode_matched),
+    .groups = "drop"
+  )
 
 event_attributes <- as.data.table(st_drop_geometry(events_sf))[, .(
   event_id,
@@ -400,9 +448,9 @@ links <- merge(links, event_attributes, by = "event_row", all.x = TRUE)
 weighted_exposure <- links[, .(
   weighted_openings = sum(exposure_weight),
   opening_events = uniqueN(event_id),
-  active_opening_events = uniqueN(event_id[active_as_of]),
-  mixed_beverage_matches = uniqueN(event_id[mixed_beverage_address_match]),
-  austin_food_matches = uniqueN(event_id[austin_food_address_match])
+  active_opening_events = amenity_count_confirmed(active_as_of, event_id),
+  mixed_beverage_matches = amenity_count_confirmed(mixed_beverage_address_match, event_id),
+  austin_food_matches = amenity_count_confirmed(austin_food_address_match, event_id)
 ), by = .(hex_row, category, event_window)]
 
 weighted_wide <- dcast(
@@ -442,28 +490,33 @@ for (column in c(expected_weighted, expected_counts)) {
   set(hex_features, which(is.na(hex_features[[column]])), column, 0)
 }
 
-normalize_robust <- function(x) {
-  normalize_robust_to_100(as.numeric(x))
+if (nzchar(SCALING_REFERENCE)) {
+  if (!file.exists(SCALING_REFERENCE)) {
+    stop("Amenity scaling reference does not exist: ", SCALING_REFERENCE, call. = FALSE)
+  }
+  amenity_scaling <- readRDS(SCALING_REFERENCE)
+  scaling_mode <- "frozen_reference"
+} else {
+  amenity_scaling <- amenity_fit_scaling(
+    as.data.frame(hex_features), analysis_as_of_date = analysis_as_of
+  )
+  scaling_mode <- "fit_this_vintage"
 }
-
-for (category in core_categories) {
-  recent_col <- paste0(category, "_recent")
-  previous_col <- paste0(category, "_previous")
-  change_col <- paste0("amenity_", category, "_weighted_change")
-  score_col <- paste0("amenity_", category, "_score")
-
-  hex_features[, (change_col) := get(recent_col) - get(previous_col)]
-  hex_features[, (score_col) := rowMeans(cbind(
-    normalize_robust(get(recent_col)),
-    normalize_robust(pmax(get(change_col), 0))
-  ), na.rm = FALSE)]
+scored <- amenity_apply_scaling(as.data.frame(hex_features), amenity_scaling)
+hex_features <- as.data.table(scored$features)
+scaling_qa <- as_tibble(scored$qa) %>% mutate(
+  scaling_mode = scaling_mode,
+  scaling_reference_as_of_date = amenity_scaling$analysis_as_of_date,
+  analysis_as_of_date = analysis_as_of
+)
+if (any(scaling_qa$degenerate_baseline_range)) {
+  warning(
+    "Amenity baseline scaling has zero-range component(s): ",
+    paste(scaling_qa$component[scaling_qa$degenerate_baseline_range], collapse = ", "),
+    ". Their scores remain zero under the legacy scoring rule; inspect scaling QA.",
+    call. = FALSE
+  )
 }
-
-category_score_cols <- paste0("amenity_", core_categories, "_score")
-hex_features[, amenity_change_index := rowMeans(
-  as.matrix(.SD),
-  na.rm = FALSE
-), .SDcols = category_score_cols]
 hex_features[, `:=`(
   amenity_recent_weighted_openings = cafe_recent +
     full_service_restaurant_recent + drinking_place_recent,
@@ -479,7 +532,11 @@ hex_features[, `:=`(
     count_full_service_restaurant_recent + count_drinking_place_recent,
   amenity_previous_opening_events = count_cafe_previous +
     count_full_service_restaurant_previous + count_drinking_place_previous,
-  amenity_window_complete = TRUE,
+  amenity_window_complete = coverage_contract$window_complete,
+  amenity_coverage_status = coverage_contract$status,
+  amenity_retrospective_usable = coverage_contract$retrospective_usable,
+  amenity_scaling_mode = scaling_mode,
+  amenity_scaling_reference_as_of_date = amenity_scaling$analysis_as_of_date,
   amenity_geocode_match_pct = overall_geocode_pct,
   amenity_analysis_as_of_date = analysis_as_of,
   amenity_previous_window_start = previous_start,
@@ -514,13 +571,15 @@ geocoding_qa <- geocode_qa %>%
     analysis_as_of_date = analysis_as_of,
     previous_window_start = previous_start,
     recent_window_start = recent_start,
-    access_radius_m = access_radius_m
+    access_radius_m = access_radius_m,
+    corroboration_status = corroboration_status
   )
 
 geocoding_method_qa <- events_geocoded %>%
   count(geocode_method, geocode_matched, name = "opening_events") %>%
   mutate(
     opening_event_pct = 100 * opening_events / sum(opening_events),
+    corroboration_status = corroboration_status,
     analysis_as_of_date = analysis_as_of
   )
 
@@ -540,6 +599,11 @@ hex_distribution_qa <- as_tibble(hex_features) %>%
     geocoded_events = sum(events_geocoded$geocode_matched),
     events_within_study_buffer = sum(events_sf$within_study_buffer),
     events_inside_hex_grid = sum(!is.na(events_sf$direct_hex_id)),
+    events_influencing_hex_exposure = sum(events_sf$contributes_positive_exposure),
+    unmatched_events_scope_unknown = sum(!events_geocoded$geocode_matched),
+    amenity_window_complete = coverage_contract$window_complete,
+    amenity_coverage_status = coverage_contract$status,
+    amenity_retrospective_usable = coverage_contract$retrospective_usable,
     analysis_as_of_date = analysis_as_of,
     previous_window_start = previous_start,
     recent_window_start = recent_start,
@@ -552,6 +616,22 @@ save_output(
   file.path(OUTPUT_DIR, "amenity_events_geocoded.rds"),
   "geocoded amenity opening events"
 )
+save_output(
+  events_geocoded, file.path(OUTPUT_DIR, "amenity_events_all_audit.rds"),
+  "all amenity opening events with spatial scope flags"
+)
+write_csv(events_geocoded, file.path(OUTPUT_DIR, "amenity_events_all_audit.csv"))
+save_output(
+  amenity_scaling, file.path(OUTPUT_DIR, "amenity_scaling.rds"),
+  "amenity scoring reference bounds"
+)
+write_csv(
+  as_tibble(amenity_scaling$components) %>% mutate(
+    scaling_reference_as_of_date = amenity_scaling$analysis_as_of_date
+  ),
+  file.path(OUTPUT_DIR, "amenity_scaling.csv")
+)
+write_csv(scaling_qa, file.path(OUTPUT_DIR, "amenity_scaling_qa.csv"))
 save_output(
   as_tibble(hex_features),
   file.path(OUTPUT_DIR, "amenity_change_features_by_hex.rds"),

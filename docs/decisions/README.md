@@ -26,6 +26,8 @@ record established an exact date.
 | [0009](0009-fixed-baseline-updates.md) | Assign later vintages to frozen Part 1 definitions | Accepted architecture |
 | [0010](0010-city-land-use-validation.md) | Exclude unsupported modeled units on exclusively nonresidential City land | Accepted |
 | [0011](0011-neighborhood-reporting-areas.md) | Use City Neighborhood Reporting Areas for neighborhood cluster summaries | Accepted |
+| [0012](0012-part3-eviction-demolition-pilot.md) | Pilot joint eviction and demolition forecasts at 1- and 3-year horizons | Accepted architecture |
+| [0013](0013-harmonized-measurement.md) | Share complete measurement recipes while separating current and temporal eligibility | Accepted |
 
 ## What Qualifies
 

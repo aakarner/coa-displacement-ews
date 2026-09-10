@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "review_date": "2026-09-10",
+  "measurement_version": "complete-components-v2",
+  "analysis_as_of_date": "2026-04-01",
+  "centroids_sha256": "b374d1b993acbd3d030a901b93d39611d4b89c6c96185ffb7ac94e7a587963c9",
+  "labels_sha256": "124ab29c76ec74264540b454229231b30659ee80620d123c74f7a1355cc11dea",
+  "eligibility_rule": "rolling_scored_24_months_v1",
+  "rationale": "Names and qualitative tiers reviewed against the newly fitted full-current-sample profiles and raw events. Numeric IDs are nominal, not risk ranks. Low groups are lower measured pressure or lower vulnerability, not no-displacement areas. Mapped filings and permits do not establish completed displacement.",
+  "human_concern_rank_by_cluster": {"1": 4, "2": 2, "3": 2, "4": 1, "5": 1, "6": 3, "7": 2},
+  "probability_calibration": false,
+  "review_required_when_centroids_change": true
+}

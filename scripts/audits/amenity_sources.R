@@ -36,6 +36,7 @@ project_path <- function(...) {
 
 source(project_path("R", "utils.R"))
 source(project_path("R", "analysis_config.R"))
+source(project_path("R", "amenity_classification.R"))
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -112,41 +113,8 @@ safe_max_date <- function(x) {
   if (all(is.na(x))) as.Date(NA) else max(x, na.rm = TRUE)
 }
 
-normalize_name <- function(x) {
-  x <- str_to_upper(coalesce(as.character(x), ""))
-  x <- str_replace_all(x, "[[:punct:]]+", " ")
-  x <- str_replace_all(
-    x,
-    "\\b(LLC|L L C|INC|CORP|LTD|LP|COMPANY|CO)\\b",
-    " "
-  )
-  str_squish(x)
-}
-
-normalize_address <- function(x) {
-  x <- str_to_upper(coalesce(as.character(x), ""))
-  x <- str_replace(x, ",.*$", "")
-  x <- str_replace_all(x, "[[:punct:]]+", " ")
-  x <- str_replace(
-    x,
-    "\\b(SUITE|STE|UNIT|APT|APARTMENT|ROOM|RM)\\b.*$",
-    ""
-  )
-  replacements <- c(
-    " STREET\\b" = " ST",
-    " ROAD\\b" = " RD",
-    " AVENUE\\b" = " AVE",
-    " BOULEVARD\\b" = " BLVD",
-    " DRIVE\\b" = " DR",
-    " HIGHWAY\\b" = " HWY",
-    " LANE\\b" = " LN",
-    " PARKWAY\\b" = " PKWY"
-  )
-  for (pattern in names(replacements)) {
-    x <- str_replace_all(x, pattern, replacements[[pattern]])
-  }
-  str_squish(x)
-}
+normalize_name <- amenity_normalize_name
+normalize_address <- amenity_normalize_address
 
 download_socrata_csv <- function(
     endpoint,
@@ -285,73 +253,9 @@ sales_duplicate_rows <- nrow(sales) - n_distinct(
   paste(sales$tp_number, sales$loc_number, sep = ":")
 )
 
-institutional_pattern <- paste(
-  "SODEXO", "ARAMARK", "COMPASS GROUP", "CHARTWELLS", "DELAWARE NORTH",
-  "LEVY", "SCHOOL", "UNIVERSITY", "HOSPITAL", "MEDICAL CENTER",
-  sep = "|"
+sales_categorized <- amenity_classify_sales(
+  sales, taxonomy, analysis_as_of, window_months
 )
-
-sales_categorized <- sales %>%
-  transmute(
-    event_id = paste(tp_number, loc_number, sep = ":"),
-    taxpayer_number = tp_number,
-    location_number = loc_number,
-    location_name = loc_name,
-    street = str_squish(paste(address_number, address_text)),
-    city = coalesce(juris_city, loc_city),
-    state = loc_state,
-    zip = str_sub(loc_zip, 1L, 5L),
-    county_code = loc_county,
-    county = unname(county_lookup[loc_county]),
-    naics = as.character(naics),
-    permit_date = parse_api_date(permit_date),
-    first_sale_date = parse_api_date(first_sale_date),
-    out_of_business_date = parse_api_date(out_of_business_date)
-  ) %>%
-  distinct(event_id, .keep_all = TRUE) %>%
-  left_join(taxonomy, by = "naics") %>%
-  mutate(
-    opening_date = first_sale_date,
-    normalized_name = normalize_name(location_name),
-    street_key = normalize_address(street),
-    address_key = paste(street_key, zip, sep = "|"),
-    name_filter_pass = !name_filter_required |
-      str_detect(normalized_name, regex(coalesce(name_pattern, "$^"))),
-    home_business_flag = str_detect(
-      str_to_upper(coalesce(street, "")),
-      "\\b(APT|APARTMENT|TRLR|TRAILER|LOT)\\b"
-    ),
-    institutional_flag = category == "full_service_restaurant" &
-      str_detect(normalized_name, regex(institutional_pattern)),
-    category_classified = if_else(
-      category == "cafe" & !name_filter_pass,
-      "other_snack_non_alcoholic",
-      category
-    ),
-    record_available_as_of = is.na(permit_date) |
-      permit_date <= analysis_as_of,
-    source_eligible = !is.na(opening_date) & record_available_as_of &
-      opening_date >= previous_start &
-      opening_date <= analysis_as_of,
-    core_index_eligible = include_in_index & name_filter_pass &
-      !home_business_flag & !institutional_flag & source_eligible,
-    event_window = case_when(
-      opening_date >= recent_start & opening_date <= analysis_as_of ~ "recent",
-      opening_date >= previous_start & opening_date < recent_start ~ "previous",
-      TRUE ~ "outside"
-    ),
-    active_as_of = is.na(out_of_business_date) |
-      out_of_business_date > analysis_as_of,
-    first_of_month_flag = day(opening_date) == 1L,
-    january_first_flag = month(opening_date) == 1L & day(opening_date) == 1L,
-    permit_lag_days = as.integer(permit_date - first_sale_date),
-    permit_after_cutoff_flag = !is.na(permit_date) &
-      permit_date > analysis_as_of
-  )
-
-if (any(is.na(sales_categorized$county))) {
-  stop("Sales-tax rows contain an unmapped county code.", call. = FALSE)
-}
 
 ################################################################################
 # Collapse corroborating sources to stable establishment records

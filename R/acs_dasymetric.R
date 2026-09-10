@@ -491,7 +491,8 @@ allocate_acs_count_variables <- function(
   acs_long,
   crosswalk,
   population_variables,
-  housing_variables
+  housing_variables,
+  preserve_missing = FALSE
 ) {
   count_variables <- c(population_variables, housing_variables)
   variable_weight <- c(
@@ -547,12 +548,16 @@ allocate_acs_count_variables <- function(
   count_estimates <- allocation_long %>%
     group_by(hex_id, variable) %>%
     summarise(
-      value = if (all(is.na(allocated_estimate))) {
+      incomplete_estimate = any(is.na(allocated_estimate) & allocation_weight > 0),
+      incomplete_moe = any(is.na(allocated_moe) & allocation_weight > 0),
+      value = if ((preserve_missing && incomplete_estimate) ||
+                  all(is.na(allocated_estimate))) {
         NA_real_
       } else {
         sum(allocated_estimate, na.rm = TRUE)
       },
-      value_moe = if (all(is.na(allocated_moe))) {
+      value_moe = if ((preserve_missing && (incomplete_estimate || incomplete_moe)) ||
+                      all(is.na(allocated_moe))) {
         NA_real_
       } else {
         sqrt(sum(allocated_moe^2, na.rm = TRUE))
@@ -610,6 +615,14 @@ allocate_acs_count_variables <- function(
       conservation_difference =
         allocated_project_estimate - expected_project_estimate,
       .groups = "drop"
+    ) %>%
+    left_join(
+      count_estimates %>% group_by(variable) %>% summarise(
+        incomplete_estimate_hexes = sum(incomplete_estimate),
+        incomplete_moe_hexes = sum(incomplete_moe),
+        emitted_hex_estimate_total = sum(value, na.rm = TRUE),
+        .groups = "drop"
+      ), by = "variable"
     )
 
   list(
@@ -703,7 +716,13 @@ combine_acs_median_sources <- function(
       transmute(
         hex_id,
         !!variable := coalesce(primary_estimate, fallback_estimate),
-        !!moe_variable := coalesce(primary_moe, fallback_moe),
+        # MOE and estimate must describe the same source geography. An absent
+        # primary MOE is not repaired by borrowing the fallback estimate's MOE.
+        !!moe_variable := case_when(
+          source_choice == "primary" ~ primary_moe,
+          source_choice == "fallback" ~ fallback_moe,
+          TRUE ~ NA_real_
+        ),
         !!paste0(variable, "_source_geoid") := case_when(
           source_choice == "primary" ~ primary_source_geoid,
           source_choice == "fallback" ~ fallback_source_geoid,

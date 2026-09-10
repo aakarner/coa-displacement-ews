@@ -243,6 +243,17 @@ freeze_baseline_cluster_model <- function(
     training_margin_confidence = margin_confidence
   )
 
+  if (identical(results$measurement_version, "complete-components-v2")) {
+    model$measurement_version <- results$measurement_version
+    model$measurement_scope <- results$measurement_scope
+    model$component_scaling <- readRDS("output/part1/measurement/current_component_scaling.rds")
+    model$measurement_manifest_sha256 <- digest::digest(file = "output/part1/measurement/current_measurement_manifest.json", algo = "sha256")
+    interpretation <- jsonlite::fromJSON("config/part1_cluster_interpretation.json")
+    stopifnot(identical(interpretation$centroids_sha256, digest::digest(fit$centers, algo = "sha256")),
+      identical(interpretation$labels_sha256, digest::digest(file = label_file, algo = "sha256")))
+    model$interpretation <- interpretation
+  }
+
   dir.create(dirname(output_file), recursive = TRUE, showWarnings = FALSE)
   saveRDS(model, output_file)
   output_file

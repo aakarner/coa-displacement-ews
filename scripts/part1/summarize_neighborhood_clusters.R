@@ -685,6 +685,7 @@ p_map <- ggplot() +
   geom_sf(
     data = map_data,
     aes(fill = map_cluster_label),
+    show.legend = TRUE,
     color = "#FFFFFF",
     linewidth = 0.28
   ) +

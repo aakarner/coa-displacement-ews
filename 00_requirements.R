@@ -47,7 +47,7 @@ EWS_PACKAGE_GROUPS <- list(
     "sf", "units", "h3jsr", "tigris", "lwgeom", "spdep", "terra",
     "tidygeocoder", "arcgisgeocode", "arcgisutils"
   ),
-  census_and_api = c("tidycensus", "httr", "jsonlite"),
+  census_and_api = c("tidycensus", "httr", "httr2", "jsonlite"),
   clustering = c("cluster", "factoextra", "dbscan", "Rtsne"),
   modeling = c(
     "caret", "randomForest", "xgboost", "glmnet", "blockCV", "mgcv"

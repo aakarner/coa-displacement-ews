@@ -14,6 +14,9 @@
 #   - output/acs_rent_trends_by_hex.rds/.csv
 #   - output/acs_rent_dominant_sources_by_hex_vintage.csv
 #   - output/acs_rent_dasymetric_crosswalk_qa.csv
+# EWS_ACS_OUTPUT_DIR namespaces derived outputs; canonical geography/support
+# remain in output/. EWS_ACS_DOLLAR_BASE_YEAR selects a common comparison dollar
+# base through EWS_CONFIG, independently of the newest ACS source year.
 #
 ################################################################################
 
@@ -40,18 +43,40 @@ source(project_path("R", "acs_dasymetric.R"))
 
 print_header("02h - HISTORICAL ACS RENT TO HEX GRID")
 
-OUTPUT_DIR <- project_path("output")
+CANONICAL_OUTPUT_DIR <- project_path("output")
+OUTPUT_DIR <- Sys.getenv("EWS_ACS_OUTPUT_DIR", unset = CANONICAL_OUTPUT_DIR)
 ACS_CACHE_DIR <- project_path("data", "raw_acs")
 ANALYSIS_CRS <- 3857
 
+validate_acs_rent_profile <- function(years, current_year, dollar_base_year, cpi) {
+  if (length(years) != 3L || anyNA(years) || anyDuplicated(years) ||
+      !identical(as.integer(sort(years)),
+                 as.integer(current_year - c(10L, 5L, 0L)))) {
+    stop("ACS rent requires exactly three vintages, five years apart, ending at the current ACS year.",
+         call. = FALSE)
+  }
+  required_cpi <- as.character(unique(c(years, dollar_base_year)))
+  if (length(dollar_base_year) != 1L || is.na(dollar_base_year) ||
+      any(!required_cpi %in% names(cpi)) ||
+      any(!is.finite(cpi[required_cpi]) | cpi[required_cpi] <= 0)) {
+    stop("ACS rent requires positive finite CPI values for each source year and the dollar-base year.",
+         call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+validate_acs_rent_profile(EWS_CONFIG$acs_years, EWS_CONFIG$acs_current_year,
+                          EWS_CONFIG$acs_dollar_base_year, EWS_CONFIG$acs_cpi_u)
+
 dir.create(OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
+dir.create(ACS_CACHE_DIR, showWarnings = FALSE, recursive = TRUE)
 sf::sf_use_s2(FALSE)
 
-hex_grid <- load_output(file.path(OUTPUT_DIR, "hex_grid.rds"), "hexagonal grid") %>%
+hex_grid <- load_output(file.path(CANONICAL_OUTPUT_DIR, "hex_grid.rds"), "hexagonal grid") %>%
   st_transform(4326)
 
 residential_parcel_support_file <- file.path(
-  OUTPUT_DIR,
+  CANONICAL_OUTPUT_DIR,
   "residential_parcels_for_hex_sf.rds"
 )
 if (!file.exists(residential_parcel_support_file)) {
@@ -81,7 +106,7 @@ block_hex_results <- build_census_block_hex_allocation(
 annualized_log_change <- function(current, previous, current_year, previous_year) {
   if (
     length(current) == 0 || length(previous) == 0 ||
-      is.na(current) || is.na(previous) || current <= 0 || previous <= 0 ||
+      !is.finite(current) || !is.finite(previous) || current <= 0 || previous <= 0 ||
       is.na(current_year) || is.na(previous_year) || current_year <= previous_year
   ) {
     return(NA_real_)
@@ -105,7 +130,9 @@ load_acs_rent_extract <- function(acs_year, geography) {
     return(readRDS(acs_cache_file))
   }
 
-  acs_rent <- tidycensus::get_acs(
+  # Network failures can include credential-bearing request URLs. Keep messages
+  # and error details out of logs; the contextual error below contains no key.
+  acs_rent <- tryCatch(suppressWarnings(suppressMessages(tidycensus::get_acs(
     geography = geography,
     variables = c(median_rent = "B25064_001"),
     state = "TX",
@@ -114,8 +141,19 @@ load_acs_rent_extract <- function(acs_year, geography) {
     survey = EWS_CONFIG$acs_survey,
     geometry = TRUE,
     output = "tidy",
-    cache_table = TRUE
-  )
+    cache_table = TRUE,
+    show_call = FALSE,
+    progress_bar = FALSE
+  ))), error = function(error) {
+    stop("ACS rent acquisition failed for ", acs_year, " ", geography,
+         ". Check network access/Census authorization and retry. Raw error suppressed to protect credentials.",
+         call. = FALSE)
+  })
+  if (!inherits(acs_rent, "sf") || !all(c("GEOID", "variable", "estimate", "moe") %in% names(acs_rent)) ||
+      nrow(acs_rent) == 0L || anyDuplicated(acs_rent$GEOID) ||
+      !identical(unique(acs_rent$variable), "median_rent")) {
+    stop("Unexpected ACS rent extract schema or duplicate geography.", call. = FALSE)
+  }
   saveRDS(acs_rent, acs_cache_file)
   acs_rent
 }
@@ -172,7 +210,7 @@ fetch_acs_rent_vintage <- function(acs_year) {
     median_variables = "median_rent"
   )
 
-  current_cpi <- unname(EWS_CONFIG$acs_cpi_u[[as.character(EWS_CONFIG$acs_current_year)]])
+  base_cpi <- unname(EWS_CONFIG$acs_cpi_u[[as.character(EWS_CONFIG$acs_dollar_base_year)]])
   vintage_cpi <- unname(EWS_CONFIG$acs_cpi_u[[as.character(acs_year)]])
 
   vintage <- hex_grid %>%
@@ -181,13 +219,16 @@ fetch_acs_rent_vintage <- function(acs_year) {
     mutate(
       acs_year = acs_year,
       acs_survey = EWS_CONFIG$acs_survey,
+      analysis_as_of_date = EWS_CONFIG$analysis_as_of_date,
+      acs_dollar_base_year = EWS_CONFIG$acs_dollar_base_year,
       acs_median_primary_geography = "block_group",
       acs_median_fallback_geography = "tract",
       cpi_u = vintage_cpi,
-      median_rent_real = median_rent * current_cpi / vintage_cpi,
-      median_rent_moe_real = median_rent_moe * current_cpi / vintage_cpi,
+      median_rent_real = median_rent * base_cpi / vintage_cpi,
+      median_rent_moe_real = median_rent_moe * base_cpi / vintage_cpi,
       median_rent_relative_moe = if_else(
-        median_rent > 0,
+        is.finite(median_rent) & median_rent > 0 &
+          is.finite(median_rent_moe) & median_rent_moe >= 0,
         median_rent_moe / median_rent,
         NA_real_
       )
@@ -233,6 +274,8 @@ rent_crosswalk_qa <- lapply(vintage_results, `[[`, "qa") %>%
 
 trend_from_vintages <- function(data) {
   data <- data %>% arrange(acs_year)
+  validate_acs_rent_profile(data$acs_year, EWS_CONFIG$acs_current_year,
+                            EWS_CONFIG$acs_dollar_base_year, EWS_CONFIG$acs_cpi_u)
   current <- data %>% filter(acs_year == EWS_CONFIG$acs_current_year)
   prior <- data %>% filter(acs_year < EWS_CONFIG$acs_current_year)
 
@@ -282,14 +325,19 @@ trend_from_vintages <- function(data) {
     current_value, earliest_value, current_year, earliest_year
   )
 
-  relative_moes <- data$median_rent_relative_moe[
-    is.finite(data$median_rent_relative_moe)
-  ]
-  vintage_count <- sum(!is.na(data$median_rent))
+  valid_moe <- is.finite(data$median_rent_relative_moe) & data$median_rent_relative_moe >= 0
+  relative_moes <- data$median_rent_relative_moe[valid_moe]
+  vintage_count <- sum(is.finite(data$median_rent) & data$median_rent > 0)
+  moe_vintage_count <- sum(valid_moe)
   max_relative_moe <- if (length(relative_moes) > 0) max(relative_moes, na.rm = TRUE) else NA_real_
 
   tibble(
     acs_rent_current_year = current_year,
+    acs_rent_previous_year = previous_year,
+    acs_rent_earliest_year = earliest_year,
+    acs_rent_recent_interval_years = current_year - previous_year,
+    acs_rent_prior_interval_years = previous_year - pre_previous_year,
+    acs_rent_dollar_base_year = EWS_CONFIG$acs_dollar_base_year,
     acs_rent_source_geoid = current_source_geoid,
     acs_rent_source_geography = current_source_geography,
     acs_rent_source_residential_share = current_source_share,
@@ -303,7 +351,9 @@ trend_from_vintages <- function(data) {
     acs_rent_relative_moe_current = current_moe,
     acs_rent_relative_moe_max = max_relative_moe,
     acs_rent_vintages_available = vintage_count,
+    acs_rent_moe_vintages_available = moe_vintage_count,
     acs_rent_trend_reliable = vintage_count == length(EWS_CONFIG$acs_years) &
+      moe_vintage_count == length(EWS_CONFIG$acs_years) &
       !is.na(max_relative_moe) &
       max_relative_moe <= EWS_CONFIG$acs_rent_relative_moe_limit
   )
@@ -318,7 +368,8 @@ acs_rent_trend_values <- acs_rent_vintages %>%
 acs_rent_trends <- hex_grid %>%
   select(hex_id, geometry) %>%
   left_join(acs_rent_trend_values, by = "hex_id") %>%
-  mutate(analysis_as_of_date = EWS_CONFIG$analysis_as_of_date)
+  mutate(analysis_as_of_date = EWS_CONFIG$analysis_as_of_date,
+         acs_dollar_base_year = EWS_CONFIG$acs_dollar_base_year)
 
 save_output(
   acs_rent_vintages,
@@ -352,6 +403,7 @@ acs_rent_trends %>%
 print_header("STEP 02h COMPLETE")
 cat(paste0("ACS vintages: ", paste(EWS_CONFIG$acs_years, collapse = ", "), "\n"))
 cat(paste0("Current ACS year: ", EWS_CONFIG$acs_current_year, "\n"))
+cat(paste0("ACS dollar-base year: ", EWS_CONFIG$acs_dollar_base_year, "\n"))
 cat(
   paste0(
     "Hexagons with reliable three-vintage rent trends: ",

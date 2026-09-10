@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "purpose": "Pinned source acquisition for retrospective annual amenity reconstruction; not an exact information-available-at-the-time replay.",
+  "dataset_id": "3kx8-uryv",
+  "source_page": "https://data.texas.gov/dataset/All-Permitted-Sales-Tax-Locations-and-Local-Sales-/3kx8-uryv",
+  "raw_directory": "data/raw_amenities/historical",
+  "counties": ["105", "227", "246"],
+  "naics": ["722410", "722511", "722515"],
+  "date_filter": null,
+  "columns": ["tp_number", "loc_number", "loc_name", "address_number", "address_text", "permit_date", "juris_city", "loc_city", "loc_state", "loc_zip", "loc_county", "naics", "first_sale_date", "out_of_business_date"],
+  "archive": {
+    "source_id": "texas_sales_tax_archive_20250208",
+    "source_url": "https://data.texas.gov/views/3kx8-uryv/rows.csv",
+    "replay_urls": [
+      "https://web.archive.org/web/20250208113718/https://data.texas.gov/views/3kx8-uryv/rows.csv",
+      "https://web.archive.org/web/20250208113718id_/https://data.texas.gov/views/3kx8-uryv/rows.csv"
+    ],
+    "archive_capture_utc": "2025-02-08T11:37:18Z",
+    "source_last_modified_utc": "2025-02-03T19:45:00Z",
+    "expected_sha256": "930aacba3293c9c626f1d9bba494b5c7f5f1075177afc6881f31873b412c5b9f",
+    "expected_bytes": 300879159,
+    "expected_rows": 1375129,
+    "expected_columns": 33,
+    "expected_core_rows": 5808
+  },
+  "sources": [
+    {
+      "kind": "archive",
+      "source_id": "texas_sales_tax_archive_20250208",
+      "normalized_path": "data/raw_amenities/historical/texas_sales_tax_archive_20250208/normalized.csv",
+      "normalized_sha256": "d1d90afcb4dead56f56f19d206f7fd47f2a4797d57c51e96ba614ac23a8b25c4",
+      "normalized_rows": 5808,
+      "raw_path": "data/raw_amenities/historical/texas_sales_tax_archive_20250208/raw.csv",
+      "raw_sha256": "930aacba3293c9c626f1d9bba494b5c7f5f1075177afc6881f31873b412c5b9f",
+      "raw_bytes": 300879159,
+      "raw_rows": 1375129,
+      "raw_columns": 33,
+      "manifest_path": "data/raw_amenities/historical/texas_sales_tax_archive_20250208/manifest.json",
+      "source_last_modified_utc": "2025-02-03T19:45:00Z",
+      "archive_capture_utc": "2025-02-08T11:37:18Z",
+      "retrieved_utc": "2026-09-08T10:18:39Z"
+    },
+    {
+      "kind": "live",
+      "source_id": "texas_sales_tax_live_20260908T102000Z",
+      "normalized_path": "data/raw_amenities/historical/texas_sales_tax_live_20260908T102000Z/normalized.csv",
+      "normalized_sha256": "b834a1d33bcf0cbd277c64c67492982a21ae5dbb66583c69bd841231eef145f3",
+      "normalized_rows": 6417,
+      "raw_path": "data/raw_amenities/historical/texas_sales_tax_live_20260908T102000Z/raw.csv",
+      "raw_sha256": "9ffaa3647d70194343636dba1743ea2d52ebe649aafc2ae4dbe23dd28b3fb84f",
+      "raw_bytes": 1115186,
+      "raw_rows": 6417,
+      "raw_columns": 14,
+      "manifest_path": "data/raw_amenities/historical/texas_sales_tax_live_20260908T102000Z/manifest.json",
+      "source_last_modified_utc": "2026-09-07T15:46:53Z",
+      "archive_capture_utc": null,
+      "retrieved_utc": "2026-09-08T10:18:27Z"
+    }
+  ],
+  "live": {
+    "endpoint": "https://data.texas.gov/resource/3kx8-uryv.csv",
+    "metadata_url": "https://data.texas.gov/api/views/3kx8-uryv.json",
+    "limit": 50000,
+    "order": "tp_number,loc_number",
+    "scope_note": "All retained records in core NAICS and three counties, without date restriction. Records reclassified outside these NAICS or counties are not represented by this query."
+  }
+}

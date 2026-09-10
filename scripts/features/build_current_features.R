@@ -40,6 +40,9 @@ CORPORATE_HEX_OVERRIDE_FILE <- Sys.getenv(
   "EWS_CORPORATE_HEX_FILE",
   unset = ""
 )
+if (nzchar(CORPORATE_HEX_OVERRIDE_FILE)) stop(
+  "The harmonized current measurement uses reviewed ownership evidence. ",
+  "A legacy corporate-hex override cannot silently substitute for that measurement.", call. = FALSE)
 HEX_FEATURE_OUTPUT_FILE <- Sys.getenv(
   "EWS_HEX_FEATURE_OUTPUT_FILE",
   unset = file.path(OUTPUT_DIR, "hex_features.rds")
@@ -779,6 +782,22 @@ for (col in setdiff(required_311_cols, names(hex_features))) {
   hex_features[[col]] <- NA_real_
 }
 
+# All seven selected indices are built once under the harmonized contract.
+# Rebuilding a current feature table must not silently restore partial recipes.
+measurement_path <- file.path(OUTPUT_DIR, "part1/measurement/current_measurement.rds")
+measurement_manifest_path <- file.path(OUTPUT_DIR, "part1/measurement/current_measurement_manifest.json")
+measurement_manifest <- jsonlite::fromJSON(measurement_manifest_path)
+stopifnot(measurement_manifest$status == "current_measurement_complete_v2",
+  as.Date(measurement_manifest$cutoff) == EWS_CONFIG$analysis_as_of_date)
+for (entry in list(measurement_manifest$inputs, measurement_manifest$outputs)) {
+  hashes <- vapply(entry$path, digest::digest, character(1), file = TRUE, algo = "sha256")
+  stopifnot(identical(unname(hashes), entry$sha256))
+}
+corrected <- readRDS(measurement_path)
+stopifnot(!anyDuplicated(corrected$hex_id), setequal(corrected$hex_id, hex_features$hex_id))
+corrected <- corrected[match(hex_features$hex_id, corrected$hex_id), ]
+stopifnot(isTRUE(all.equal(corrected$residential_units, hex_features$residential_units, check.attributes = FALSE)))
+
 hex_features <- hex_features %>%
   mutate(
     costar_present = replace_na(costar_present, 0),
@@ -875,14 +894,7 @@ hex_features <- hex_features %>%
       ),
       na.rm = TRUE
     ),
-    rent_pressure_citywide_index = rowMeans(
-      cbind(
-        normalize_robust_to_100(acs_rent_current_real),
-        normalize_robust_to_100(acs_rent_growth_recent_for_clustering),
-        normalize_robust_to_100(acs_rent_acceleration_for_clustering)
-      ),
-      na.rm = TRUE
-    ),
+    rent_pressure_citywide_index = corrected[["rent_pressure_citywide_index"]],
     land_value_pressure_index = if_else(
       appraisal_adjusted_trend_reliable,
       rowMeans(
@@ -911,40 +923,10 @@ hex_features <- hex_features %>%
       ),
       na.rm = TRUE
     ),
-    eviction_pressure_index = rowMeans(
-      cbind(
-        normalize_robust_to_100(eviction_latest_12mo_per_100_units),
-        normalize_robust_to_100(eviction_cases_latest_12mo_change_pct),
-        normalize_robust_to_100(eviction_recent_share)
-      ),
-      na.rm = TRUE
-    ),
-    ownership_pressure_index = rowMeans(
-      cbind(
-        normalize_robust_to_100(pct_corporate_units),
-        normalize_robust_to_100(corporate_owned_units_per_km2),
-        normalize_robust_to_100(pct_financialized_owner_parcels)
-      ),
-      na.rm = TRUE
-    ),
-    demolition_pressure_index = rowMeans(
-      cbind(
-        normalize_robust_to_100(demo_recent_density),
-        normalize_robust_to_100(demo_trend_positive),
-        normalize_robust_to_100(demo_total_recent_density)
-      ),
-      na.rm = TRUE
-    ),
-    demographic_vulnerability_index = rowMeans(
-      cbind(
-        normalize_robust_to_100(-median_income),
-        normalize_robust_to_100(pct_renter),
-        normalize_robust_to_100(poverty_rate),
-        normalize_robust_to_100(pct_rent_burden_30plus),
-        normalize_robust_to_100(-pct_college)
-      ),
-      na.rm = TRUE
-    ),
+    eviction_pressure_index = corrected[["eviction_pressure_index"]],
+    ownership_pressure_index = corrected[["ownership_pressure_index"]],
+    demolition_pressure_index = corrected[["demolition_pressure_index"]],
+    demographic_vulnerability_index = corrected[["demographic_vulnerability_index"]],
     demographic_vulnerability_equity_index = rowMeans(
       cbind(
         normalize_robust_to_100(-median_income),
@@ -956,14 +938,7 @@ hex_features <- hex_features %>%
       ),
       na.rm = TRUE
     ),
-    sr_311_pressure_index = rowMeans(
-      cbind(
-        normalize_robust_to_100(sr_311_smoke_signal_latest_12mo_per_100_units),
-        normalize_robust_to_100(sr_311_smoke_signal_latest_12mo_density),
-        normalize_robust_to_100(sr_311_smoke_signal_latest_12mo_change_pct)
-      ),
-      na.rm = TRUE
-    )
+    sr_311_pressure_index = corrected[["sr_311_pressure_index"]]
   ) %>%
   mutate(
     eviction_cases_per_100_units = cap_upper_quantile(eviction_cases_per_100_units, 0.99),
@@ -986,6 +961,14 @@ hex_features <- hex_features %>%
       ~if_else(is.nan(.x), NA_real_, .x)
     )
   )
+
+# Promote current source evidence and missingness along with the scores before
+# computing lags/interactions. Legacy zero-fill and capped diagnostic fields
+# cannot leak into the selected current measurement or its map/profile fields.
+for (field in setdiff(names(corrected), c("hex_id", "geometry"))) hex_features[[field]] <- corrected[[field]]
+hex_features$demo_recent <- hex_features$demo_latest_24mo
+hex_features$demo_previous <- hex_features$demo_previous_24mo
+hex_features$has_recent_demos <- ifelse(is.na(hex_features$demo_recent), NA_integer_, as.integer(hex_features$demo_recent > 0))
 
 ################################################################################
 # Spatial lag features
@@ -1141,8 +1124,7 @@ hex_features <- hex_features %>%
     missing_feature_count = rowSums(is.na(st_drop_geometry(select(., all_of(feature_cols))))),
     missing_feature_pct = 100 * missing_feature_count / length(feature_cols),
     sufficient_data = missing_feature_pct < 50,
-    primary_cluster_eligible = residential_units >=
-      EWS_CONFIG$minimum_residential_units_for_rates,
+    primary_cluster_eligible = corrected$primary_cluster_eligible,
     analysis_as_of_date = EWS_CONFIG$analysis_as_of_date
   )
 

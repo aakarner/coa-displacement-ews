@@ -107,6 +107,13 @@ hex_features <- load_output(
   file.path(OUTPUT_DIR, "hex_features.rds"),
   "engineered features"
 )
+stopifnot(all(c("measurement_version", "measurement_scope", "component_scaling_reference_as_of_date",
+    "all_required_components_available", "primary_cluster_eligible") %in% names(hex_features)),
+  !anyNA(hex_features$primary_cluster_eligible),
+  all(hex_features$measurement_version == "complete-components-v2"),
+  all(hex_features$measurement_scope == "single_cutoff_current_sample"),
+  all(hex_features$component_scaling_reference_as_of_date == EWS_CONFIG$analysis_as_of_date),
+  all(hex_features$all_required_components_available[hex_features$primary_cluster_eligible]))
 
 baseline_vars <- c(
   "rent_pressure_citywide_index",
@@ -728,6 +735,9 @@ write_csv(
 
 results <- list(
   created_at = Sys.time(),
+  measurement_version = "complete-components-v2",
+  measurement_scope = "single_cutoff_current_sample",
+  analysis_as_of_date = EWS_CONFIG$analysis_as_of_date,
   seed = seed,
   n_observations = nrow(analysis_data),
   baseline_vars = baseline_vars,
