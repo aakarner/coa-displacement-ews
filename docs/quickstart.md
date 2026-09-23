@@ -167,6 +167,15 @@ targets::tar_make(part1_baseline_model)
 
 ## Key Outputs
 
+The CARTO basemaps in the cluster and high-risk-island maps require
+`CARTO_BASEMAP_API_KEY` in the environment or the project-root `.Renviron`
+(Git-ignored). Both scripts load that file when the key is not already set.
+The generated HTML includes the browser basemap key, so restrict it to
+`aakarner.github.io` in CARTO's dashboard. To refresh the published cluster map,
+run `Rscript scripts/part1/visualize_baseline_clusters.R`, then publish the updated
+`site/index.html` through the GitHub Pages workflow. Force-refresh the browser
+if old watermarked tiles remain cached.
+
 - `output/hex_features.rds`: current shared feature surface.
 - `output/amenity_cluster_sensitivity.rds`: Part 1 cluster diagnostics.
 - `output/part1/baseline_cluster_model.rds`: frozen Part 1 model.

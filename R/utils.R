@@ -22,6 +22,35 @@ print_progress <- function(text) {
   cat(paste0(">>> ", text, "\n"))
 }
 
+#' Add the authenticated CARTO Positron basemap to a Leaflet map
+#' The key is embedded in exported HTML; restrict it to the publishing domain.
+add_carto_basemap <- function(map, env_file = ".Renviron") {
+  key <- trimws(Sys.getenv("CARTO_BASEMAP_API_KEY"))
+  if (!nzchar(key) && file.exists(env_file)) {
+    readRenviron(env_file)
+    key <- trimws(Sys.getenv("CARTO_BASEMAP_API_KEY"))
+  }
+  if (!nzchar(key)) {
+    stop(
+      "Set CARTO_BASEMAP_API_KEY in the project .Renviron before building maps.",
+      call. = FALSE
+    )
+  }
+  leaflet::addTiles(
+    map,
+    urlTemplate = paste0(
+      "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png?key=",
+      utils::URLencode(key, reserved = TRUE)
+    ),
+    attribution = paste0(
+      '&copy; <a href="https://www.openstreetmap.org/copyright">',
+      'OpenStreetMap</a> contributors &copy; ',
+      '<a href="https://carto.com/attributions">CARTO</a>'
+    ),
+    options = leaflet::tileOptions(maxZoom = 19)
+  )
+}
+
 #' Calculate spatial lag (average of neighboring cells)
 #' @param sf_data An sf object with the data
 #' @param value_col Name of the column to calculate lag for

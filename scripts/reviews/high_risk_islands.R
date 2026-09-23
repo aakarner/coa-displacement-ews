@@ -1864,7 +1864,7 @@ interactive_candidates <- candidate_map %>%
 interactive_map <- leaflet(
   options = leafletOptions(preferCanvas = TRUE, minZoom = 8)
 ) %>%
-  addProviderTiles(providers$CartoDB.Positron) %>%
+  add_carto_basemap(env_file = project_path(".Renviron")) %>%
   addPolygons(
     data = st_transform(map_data, 4326),
     fillColor = "#C9CCCA",

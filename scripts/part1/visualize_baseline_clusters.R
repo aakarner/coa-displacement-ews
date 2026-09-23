@@ -551,10 +551,7 @@ interactive_map <- leaflet(
 ) %>%
   addMapPane("orientation_water", zIndex = 410) %>%
   addMapPane("orientation_roads", zIndex = 420) %>%
-  addProviderTiles(
-    providers$CartoDB.Positron,
-    options = providerTileOptions(maxZoom = 19)
-  )
+  add_carto_basemap(env_file = project_path(".Renviron"))
 
 for (status_index in seq_len(nrow(unclassified_statuses))) {
   status_row <- unclassified_statuses[status_index, ]
