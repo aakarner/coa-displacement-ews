@@ -717,7 +717,7 @@ saveWidget(
   interactive_map,
   file = site_path,
   selfcontained = TRUE,
-  title = "Amenity-Augmented Displacement Pressure Clusters"
+  title = "Austin Displacement Pressure Clusters"
 )
 site_dependency_dir <- paste0(tools::file_path_sans_ext(site_path), "_files")
 if (dir.exists(site_dependency_dir)) {
