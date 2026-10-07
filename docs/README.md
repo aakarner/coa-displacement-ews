@@ -58,6 +58,9 @@ Files under `audits/` record results for a stated data and method vintage. They
 support methodological decisions but are not automatically updated when the
 pipeline changes:
 
+- [`audits/hays-eviction-jp4-update-2026-10.md`](audits/hays-eviction-jp4-update-2026-10.md):
+  canonical JP4 filing inventory, collection of 15 added cases, and refreshed
+  Austin boundary screening with preserved prior observations.
 - [`audits/parcel-acs-unit-audit-2026-07.md`](audits/parcel-acs-unit-audit-2026-07.md):
   parcel/ACS housing-unit reconciliation and populated zero-unit review.
 - [`audits/part1-cluster-selection-2026-08.md`](audits/part1-cluster-selection-2026-08.md):

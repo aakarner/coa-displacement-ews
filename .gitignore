@@ -84,6 +84,7 @@ data/raw_amenities/
 data/raw_acs/
 data/raw_311/
 data/raw_williamson_evictions/
+data/raw_hays_evictions/
 
 # Keep directory structure
 !output/.gitkeep
