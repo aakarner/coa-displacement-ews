@@ -132,8 +132,10 @@ the official Williamson precinct map applicable in each period. Travis JP1-JP5
 cover the 5,711 current-full Travis cells. Of 295 current-full Williamson cells,
 the supplied court periods cover 128 in 2020-2021 and 266 from 2022 onward; the
 29 cells assigned to current JP3 remain missing. All 54 Hays cells also remain
-missing. Candidate hex-years are unavailable when a case has multiple plausible
-in-source hexes or mixed in-source/out-of-source addresses.
+missing. Cases with multiple plausible in-source hexes or mixed in-source/out-of-source
+addresses remain flagged and unassigned. Candidate hex-years retain counts
+from uniquely mapped cases, with separate ambiguity audit flags. A zero means
+no accepted mapped filing, not complete evidence of no filings.
 
 Demolition source coverage is reconstructed by replaying effective-dated City
 jurisdiction baselines and actions from the first day of each observed annual

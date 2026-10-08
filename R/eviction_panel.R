@@ -390,7 +390,7 @@ assign_eviction_hex_counties <- function(
 #' @param observed_through_date Last requested date represented in the panel.
 #' @param analysis_as_of_date Requested analysis cutoff recorded for provenance.
 #' @param uncertain_hex_years Candidate hex-years for cases that have multiple
-#'   reliable candidate hexes. Their labels remain unavailable.
+#'   reliable candidate hexes. These are audit flags, never count exclusions.
 #' @param covered_county Legacy single-county coverage used only when
 #'   `hex_year_coverage` is not supplied.
 #' @param hex_year_coverage Optional complete row-specific coverage table with
@@ -582,7 +582,12 @@ build_complete_eviction_panel <- function(
         as.integer(.data$unresolved_candidate_cases),
         0L
       ),
-      measurement_complete = .data$unresolved_candidate_cases == 0L,
+      # Completeness refers to the accepted uniquely mapped filing tally,
+      # not to residential locations for every source case.
+      measurement_complete = TRUE,
+      has_unassigned_ambiguous_cases = .data$unresolved_candidate_cases > 0L,
+      eviction_ambiguity_rule = "flag_unassigned_cases_keep_cells_v1",
+      all_filing_locations_complete = FALSE,
       count_observed = .data$source_covered &
         .data$period_complete &
         .data$measurement_complete,
@@ -610,8 +615,8 @@ build_complete_eviction_panel <- function(
       coverage_reason = dplyr::case_when(
         !.data$source_covered ~ .data$uncovered_reason,
         !.data$period_complete ~ "covered_partial_year",
-        !.data$measurement_complete ~
-          "covered_complete_year_with_ambiguous_case_location",
+        .data$has_unassigned_ambiguous_cases ~
+          "covered_complete_with_unassigned_ambiguous_cases",
         TRUE ~ "covered_complete"
       )
     ) |>
@@ -629,6 +634,9 @@ build_complete_eviction_panel <- function(
       "measurement_complete",
       "count_observed",
       "coverage_reason",
+      "has_unassigned_ambiguous_cases",
+      "eviction_ambiguity_rule",
+      "all_filing_locations_complete",
       "unresolved_candidate_cases",
       "eviction_cases_observed_to_date",
       "observed_from_date",
@@ -657,6 +665,8 @@ validate_complete_eviction_panel <- function(
       "hex_id", "outcome_year", "eviction_cases", "source_covered",
       "period_complete", "measurement_complete", "count_observed",
       "coverage_reason", "unresolved_candidate_cases",
+      "has_unassigned_ambiguous_cases", "eviction_ambiguity_rule",
+      "all_filing_locations_complete",
       "eviction_cases_observed_to_date", "source_county",
       "county_assignment_method", "coverage_jp_district",
       "coverage_boundary_vintage", "coverage_source_ids",
@@ -683,6 +693,10 @@ validate_complete_eviction_panel <- function(
       anyNA(panel$source_covered) ||
       anyNA(panel$period_complete) ||
       anyNA(panel$measurement_complete) ||
+      anyNA(panel$has_unassigned_ambiguous_cases) ||
+      anyNA(panel$unresolved_candidate_cases) ||
+      anyNA(panel$eviction_ambiguity_rule) ||
+      anyNA(panel$all_filing_locations_complete) ||
       anyNA(panel$count_observed) ||
       anyNA(panel$coverage_reason) ||
       anyNA(panel$analysis_as_of_date)
@@ -734,10 +748,15 @@ validate_complete_eviction_panel <- function(
     stop("Uncovered hex-years may not contain observed coverage dates.", call. = FALSE)
   }
   if (any(
-    panel$measurement_complete != (panel$unresolved_candidate_cases == 0L)
+    !panel$measurement_complete |
+      panel$all_filing_locations_complete |
+      panel$eviction_ambiguity_rule != "flag_unassigned_cases_keep_cells_v1" |
+      panel$unresolved_candidate_cases < 0L |
+      panel$unresolved_candidate_cases %% 1 != 0 |
+      panel$has_unassigned_ambiguous_cases != (panel$unresolved_candidate_cases > 0L)
   )) {
     stop(
-      "Eviction measurement_complete flags do not match unresolved cases.",
+      "Eviction ambiguity audit flags or mapped-filing measurement policy are invalid.",
       call. = FALSE
     )
   }
@@ -805,7 +824,7 @@ summarize_complete_eviction_panel <- function(
       source_covered_hexes = sum(.data$source_covered),
       period_complete = all(.data$period_complete[.data$source_covered]),
       measurement_complete_hexes = sum(.data$measurement_complete),
-      hexes_with_ambiguous_case_location = sum(!.data$measurement_complete),
+      hexes_with_ambiguous_case_location = sum(.data$has_unassigned_ambiguous_cases),
       unresolved_candidate_case_hex_links = sum(
         .data$unresolved_candidate_cases
       ),
@@ -823,4 +842,37 @@ summarize_complete_eviction_panel <- function(
         .data$assigned_inside_coverage_cases
     ) |>
     dplyr::arrange(.data$outcome_year)
+}
+# Shared by paired/current and annual pipelines. Match confidence is not spatial
+# precision: a perfect ZIP or street-name match cannot locate a filing in a hex.
+eviction_geocode_precision_rule <- function() "address_or_segment_precision_v1"
+
+assess_eviction_geocodes <- function(rows) {
+  eviction_panel_required_columns(rows, c("status", "score", "longitude", "latitude", "addr_type"), "Eviction geocodes")
+  type <- toupper(trimws(dplyr::coalesce(as.character(rows$addr_type), "")))
+  matched <- rows$status %in% c("M", "T") & is.finite(rows$score) & rows$score >= 90
+  coordinates <- is.finite(rows$longitude) & is.finite(rows$latitude) &
+    rows$longitude >= -180 & rows$longitude <= 180 & rows$latitude >= -90 & rows$latitude <= 90
+  allowed <- type %in% c("POINTADDRESS", "SUBADDRESS", "APT", "UNIT", "STREETADDRESS", "STREETADDRESSEXT")
+  rows$geocode_precision_rule <- eviction_geocode_precision_rule()
+  rows$geocode_location_quality <- dplyr::case_when(
+    !matched ~ "unmatched_or_low_score", !coordinates ~ "invalid_coordinates",
+    !allowed ~ "insufficient_or_unknown_precision",
+    type %in% c("STREETADDRESS", "STREETADDRESSEXT") ~ "street_segment", TRUE ~ "address_point")
+  rows$geocode_location_usable <- matched & coordinates & allowed
+  rows
+}
+
+flag_eviction_precision_cases <- function(resolved, assessed) {
+  rejected <- assessed[assessed$geocode_location_quality == "insufficient_or_unknown_precision", , drop = FALSE]
+  flags <- rejected %>% dplyr::mutate(case_number = eviction_panel_normalize_case_number(case_number)) %>%
+    dplyr::group_by(case_number) %>% dplyr::summarise(
+    rejected_geocode_types = paste(sort(unique(dplyr::coalesce(addr_type, "missing"))), collapse = ";"), .groups = "drop")
+  resolved$cases <- resolved$cases %>% dplyr::left_join(flags, by = "case_number") %>%
+    dplyr::mutate(geocode_precision_rule = eviction_geocode_precision_rule(),
+      has_rejected_imprecise_geocode = !is.na(rejected_geocode_types),
+      assignment_status = dplyr::if_else(assignment_status == "excluded_no_reliable_location" &
+        has_rejected_imprecise_geocode, "excluded_insufficient_geocode_precision", assignment_status))
+  resolved$issues <- dplyr::filter(resolved$cases, assignment_status != "assigned_unique_hex")
+  resolved
 }

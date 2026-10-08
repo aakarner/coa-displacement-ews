@@ -11,13 +11,13 @@ units <- sf::st_drop_geometry(readRDS("output/corporate_ownership_by_hex.rds"))
 dates <- as.Date(c("2025-04-01", "2026-04-01"))
 manifest <- jsonlite::fromJSON(file.path(root, "eviction_run_manifest.json"))
 stopifnot(identical(manifest$status, "paired_eviction_features_complete_v2"))
-stopifnot(identical(manifest$eligibility_rule,"rolling_scored_24_months_v1"))
+stopifnot(identical(manifest$eligibility_rule,"rolling_scored_24_months_v2"))
 summary <- read_csv(file.path(root, "eviction_snapshot_summary.csv"), show_col_types = FALSE)
 stopifnot(all(c("usable_rate_change_hexes", "usable_legacy_percent_change_hexes") %in% names(summary)),
   !"usable_change_hexes" %in% names(summary))
 baseline <- paired[paired$analysis_as_of_date == dates[1], ]
 stopifnot(identical(scale, part2_fit_index_scaling(baseline, scale$components, scale$index_name,
-  dates[1], preserved_scaling = scale)))
+  dates[1])))
 bound <- as.numeric(quantile(abs(baseline$eviction_latest_12mo_rate_change_per_100_units), .99, na.rm=TRUE, type=7))
 stopifnot(identical(scale$bounds$upper_bound[2], bound), identical(scale$bounds$lower_bound[2], -bound))
 
@@ -84,8 +84,9 @@ for (i in seq_along(dates)) local({
     expect_setequal(paste(uncertainty$case_number,uncertainty$hex_id),paste(expected_uncertainty$case_number,expected_uncertainty$hex_id))
     expected_n <- table(factor(expected_uncertainty$hex_id,levels=f$hex_id))
     expect_equal(f$eviction_unresolved_candidate_cases,as.integer(expected_n))
-    expect_equal(f$eviction_count_observed,f$eviction_source_covered & as.integer(expected_n)==0L)
-    expect_true(all(!f$eviction_count_observed[f$hex_id %in% uncertainty$hex_id]))
+    expect_equal(f$eviction_count_observed,f$eviction_source_covered)
+    expect_equal(f$eviction_has_unassigned_ambiguous_cases, as.integer(expected_n) > 0L)
+    expect_true(all(is.na(ledger$assigned_hex_key[ledger$case_number %in% ambiguous])))
     expect_true(all(is.na(f$eviction_pressure_index[f$source_county == "Hays"])))
     rescored <- part2_apply_index_scaling(f, scale)$features
     expect_equal(f$eviction_pressure_index, rescored$eviction_pressure_index)

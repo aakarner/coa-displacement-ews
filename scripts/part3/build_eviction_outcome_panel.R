@@ -295,6 +295,7 @@ read_geocode_registry <- function(path, registry) {
       score = col_double(),
       longitude = col_double(),
       latitude = col_double(),
+      addr_type = col_character(),
       .default = col_skip()
     ),
     show_col_types = FALSE
@@ -351,20 +352,17 @@ validate_geocode_registry(
 )
 geocoded_addresses <- bind_rows(travis_geocodes, williamson_geocodes)
 
-reliable_geocoded_rows <- source_filings |>
+assessed_geocoded_rows <- source_filings |>
   inner_join(
     geocoded_addresses,
     by = c("geocode_registry", "address_for_geocoding"),
     na_matches = "never"
   ) |>
-  filter(
-    .data$status %in% c("M", "T"),
-    .data$score >= 90,
-    is.finite(.data$longitude),
-    is.finite(.data$latitude),
-    dplyr::between(.data$longitude, -180, 180),
-    dplyr::between(.data$latitude, -90, 90)
-  )
+  assess_eviction_geocodes()
+write_csv(select(assessed_geocoded_rows, case_number, geocode_registry, addr_type,
+  geocode_precision_rule, geocode_location_quality, geocode_location_usable),
+  file.path(PART3_DIR, "eviction_geocode_precision_audit.csv"))
+reliable_geocoded_rows <- assessed_geocoded_rows |> filter(.data$geocode_location_usable)
 reliably_geocoded_case_numbers <- reliable_geocoded_rows |>
   distinct(.data$case_number) |>
   pull(.data$case_number)
@@ -670,6 +668,8 @@ resolved_cases <- resolve_eviction_case_hexes(
   reliably_geocoded_outside_study_case_numbers =
     reliably_geocoded_outside_study_case_numbers
 )
+
+resolved_cases <- flag_eviction_precision_cases(resolved_cases, assessed_geocoded_rows)
 
 print_progress("Expanding to the complete covered and uncovered hex-year grid...")
 eviction_panel <- build_complete_eviction_panel(

@@ -41,7 +41,7 @@ test_that("source coverage requires exactly the scored window, not pre-window hi
   expect_false(part2_eviction_source_coverage(counties, sources, jp, as.Date("2026-04-01"))$coverage$eviction_scored_window_source_covered[1])
 })
 
-test_that("case resolution deduplicates and masks all dates/candidatehexes conservatively", {
+test_that("case resolution deduplicates and flags ambiguity without suppressing candidate hexes", {
   source <- data.frame(case_number = c("A", "A", "B", "C", "D", "D", "E", "E", "F", "G", "H", "I"),
     file_date = as.Date(c("2024-04-02", "2024-04-02", "2024-04-01", "2022-01-01", "2025-01-01", "2026-06-01",
       "2024-06-01", "2024-06-01", "2025-04-01", "2025-04-02", "2023-04-02", "2023-04-01")),
@@ -69,7 +69,11 @@ test_that("case resolution deduplicates and masks all dates/candidatehexes conse
   expect_equal(b$features$eviction_cases_previous_12mo[1], 2L)
   expect_equal(b$features$eviction_latest_12mo_rate_change_per_100_units[1], -5)
   expect_equal(b$features$eviction_cases_latest_12mo_change_pct[1], -50)
-  expect_true(all(is.na(a$features$eviction_cases_latest_12mo[c(2:4, 6:7)])))
+  expect_equal(a$features$eviction_cases_latest_12mo[2:4], rep(0L, 3))
+  expect_true(all(a$features$eviction_has_unassigned_ambiguous_cases[2:4]))
+  expect_true(all(is.na(a$membership$hex_id[a$membership$case_number %in% c("D", "E")])))
+  expect_false(any(a$membership$contributes_to_feature[a$membership$case_number %in% c("D", "E")]))
+  expect_true(all(is.na(a$features$eviction_cases_latest_12mo[6:7])))
   expect_true(a$features$eviction_valid_zero_recent[5])
   expect_true(is.na(a$features$eviction_latest_12mo_per_100_units[5]))
   expect_true(is.na(a$features$eviction_latest_12mo_rate_change_per_100_units[5]))
@@ -87,7 +91,7 @@ test_that("case resolution deduplicates and masks all dates/candidatehexes conse
   }
 })
 
-test_that("only potentially in-window ambiguities suppress a cell", {
+test_that("only potentially in-window ambiguities flag a cell, and none suppress it", {
   # Each case has one physical candidate. Date conflicts retain all source
   # dates; neither an older nor a later row can hide an in-window possibility.
   source <- data.frame(case_number=c("OLD","START","END","FUTURE","MISSING",
@@ -101,14 +105,15 @@ test_that("only potentially in-window ambiguities suppress a cell", {
   coverage <- data.frame(hex_id=1:7,eviction_scored_window_source_covered=TRUE)
   result <- part2_eviction_snapshot(list(source=source,cases=cases,candidates=candidates),support,coverage,
     as.Date("2026-04-01"))
-  expect_equal(result$features$eviction_count_observed,c(TRUE,FALSE,FALSE,TRUE,FALSE,FALSE,FALSE))
-  expect_equal(result$features$eviction_latest_12mo_per_100_units[c(1,4)],c(0,0))
+  expect_true(all(result$features$eviction_count_observed))
+  expect_equal(result$features$eviction_has_unassigned_ambiguous_cases,c(FALSE,TRUE,TRUE,FALSE,TRUE,TRUE,TRUE))
+  expect_equal(result$features$eviction_latest_12mo_per_100_units,rep(0,7))
   expect_true(all(result$features$eviction_eligibility_window_start==as.Date("2024-04-02")))
-  # OLD is recent enough for the earlier snapshot: paired eligibility still
-  # requires both independent windows, not just the latest one.
+  # OLD is recent enough to flag the earlier snapshot; it still stays usable.
   earlier <- part2_eviction_snapshot(list(source=source,cases=cases,candidates=candidates),support,coverage,
     as.Date("2025-04-01"))
-  expect_false(earlier$features$eviction_count_observed[1])
+  expect_true(earlier$features$eviction_count_observed[1])
+  expect_true(earlier$features$eviction_has_unassigned_ambiguous_cases[1])
 })
 
 test_that("event points require fixedcity county and court, with boundaryties retained", {
@@ -124,7 +129,7 @@ test_that("event points require fixedcity county and court, with boundaryties re
     source_county = c("Travis", "Williamson", "Travis", "Williamson", "Travis", "Travis", "Travis", "Travis"),
     jp_district = c("JP1", "JP1", "JP1", "JP2", "JP1", "JP1", "JP1", "JP1"),
     address_for_geocoding = letters[1:8], case_identity_valid = c(rep(TRUE,7),FALSE), geocode_registry = "fixture")
-  geo <- data.frame(address_for_geocoding = letters[1:8], geocode_registry = "fixture", status = "M",
+  geo <- data.frame(address_for_geocoding = letters[1:8], geocode_registry = "fixture", status = "M", addr_type = "PointAddress",
     score = c(100,100,100,100,89,100,100,100), longitude = c(-97.995,-97.985,-97.975,-97.985,-97.995,-97.99,-97.985,-97.995), latitude=30.005)
   annual <- data.frame(hex_id = 1:3, outcome_year=2025L, source_covered=TRUE, coverage_jp_district=c("ALL","JP1","ALL"))
   r <- suppressWarnings(part2_eviction_resolve(source, geo, grid, counties, city, cityref, annual, crs=4326))

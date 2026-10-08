@@ -26,11 +26,13 @@ location does not impose a two-date requirement on Part 1.
   explicit. Part 2 restricts the observed parcel cohort to both years.
 - **Evictions:** recent 12-month mapped filings per 100 fixed promoted units
   and recent-minus-previous rate change, each half the score. Retain the
-  reviewed source/ambiguity rules; historical share and percentage change are
+  reviewed source and case-assignment rules; historical share and percentage change are
   diagnostics only, not scored terms.
-  Coverage and localizable ambiguity checks span only April 2, 2024–April 1,
-  2026, the two scored years. Older-only issues do not exclude a current cell;
-  missing dates and conflicting dates potentially in-window still do.
+  Coverage checks span April 2, 2024–April 1, 2026, the two scored years.
+  Ambiguous cases remain flagged and unassigned. Candidate hexes receive audit
+  flags for potentially in-window cases, including missing or conflicting dates,
+  but retain counts from uniquely mapped cases and remain eligible. A zero
+  describes this mapped-filing proxy, not complete filing incidence.
 - **311:** recent selected-request rate, density and signed rate change, each
   one third. Rate and density intentionally put two thirds of the weight on
   current activity. Only the configured Code Officer intake types are used.

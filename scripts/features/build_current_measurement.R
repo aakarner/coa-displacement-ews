@@ -60,7 +60,7 @@ for (domain in c("sr311", "demolitions", "evictions")) {
   index <- c(sr311 = "sr_311_pressure_index", demolitions = "demolition_pressure_index", evictions = "eviction_pressure_index")[[domain]]
   if (domain == "evictions") {
     stopifnot("eviction_eligibility_rule" %in% names(x),
-      all(x$eviction_eligibility_rule == "rolling_scored_24_months_v1"),
+      all(x$eviction_eligibility_rule == "rolling_scored_24_months_v2"),
       all(x$eviction_eligibility_window_start == as.Date("2024-04-02")))
     scaling[[domain]] <- part2_fit_index_scaling(x, part2_index_components(index), index, cutoff)
     domains[[domain]] <- part2_apply_index_scaling(x, scaling[[domain]])$features

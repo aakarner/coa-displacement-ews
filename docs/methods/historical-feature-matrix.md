@@ -29,7 +29,7 @@ For April 2025, the recent window is April 2, 2024–April 1, 2025 and the previ
 window is April 2, 2023–April 1, 2024. Both shift forward one year for April
 2026. Endpoints are inclusive. History length and window-day counts remain
 diagnostics, but percentage change and expanding-history recent share no longer
-enter the index. The eligibility contract is `rolling_scored_24_months_v1`.
+enter the index. The eligibility contract is `rolling_scored_24_months_v2`.
 
 Source coverage is checked continuously from April 2, 2023 through April 1,
 2025 for the earlier snapshot, and April 2, 2024 through April 1, 2026 for the
@@ -40,15 +40,14 @@ Williamson court geography are unknown, never filled with zero.
 
 Events must lie inside the fixed April 29, 2026 Austin FULL-purpose boundary
 and be assigned to a canonical hex whose center is inside that boundary.
-Known ambiguous locations or conflicting/missing filing dates mask candidate
-hexes if any retained date could affect either scored window, or a missing date
-cannot exclude that possibility. All rows of a potentially relevant case are
-retained: a conflicting older or post-cutoff date is not discarded to manufacture
-a clean case. An ambiguity known to be older than the scored window is not a
-gate. Malformed
-case IDs remain audit-only records, not invented valid filings. An entirely
-unlocated record cannot identify a particular hex to mask; court/window QA
-reports those records without suppressing every cell in the court.
+Ambiguous cases remain flagged and unassigned: multiple candidate locations,
+conflicting or missing filing dates, inconsistent jurisdictions, and invalid
+identifiers cannot manufacture a clean case. All original case evidence is
+retained. Candidate hexes receive audit flags when any retained date could
+fall in either scored window or a missing date cannot exclude that possibility.
+Those flags do not suppress counts, scores or eligibility in either candidate
+cell. Entirely unlocated records remain in court/window QA. See
+[decision 0014](../decisions/0014-eviction-ambiguity-keeps-cells.md).
 
 Consequently, this is a **reliably mapped filing proxy**, not complete eviction
 incidence, completed displacement, or a verified City-of-Austin match rate.
@@ -70,8 +69,10 @@ cohort uses both years' evidence and is explicitly retrospective.
 
 ## Scoring and common-sample assembly
 
-Unchanged components retain the original earlier-observed 1st/99th-percentile
-bounds. The new eviction and 311 signed rate-change components use an earlier
+Eviction component bounds are refitted on the revised 2025 domain support
+when rebuilding the ambiguity-policy contract; the current rate uses the
+1st/99th percentiles. Other domains retain their reviewed bounds. Eviction
+and 311 signed rate-change components use an earlier
 bound `B = q99(abs(rate change))`: clip to `[-B, B]` and map to 0–100, with zero
 change at 50. If B is zero, observed changes receive the documented neutral 50
 score and a degeneracy flag. Later observations never refit these scales.

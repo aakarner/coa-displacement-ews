@@ -17,6 +17,16 @@ current_preservation_entries <- function(entries) {
     p %in% c("output/hex_features.rds","output/feature_list.csv","output/feature_coverage_audit.csv",
       "output/part2/baseline_fixed_cluster_assignments.csv","output/part2/baseline_fixed_cluster_assignment_summary.csv") |
     grepl("^output/amenity_cluster_",p) | grepl("^figures/03[deg]_",p)
+  # The older event-stage inventory pins this annual panel. Verify the new
+  # policy before releasing that one derived file; retain its original hash.
+  if (file.exists("docs/decisions/0014-eviction-ambiguity-keeps-cells.md")) {
+    annual <- read.csv("output/eviction_filings_complete_by_hex_year.csv")
+    stopifnot(all(annual$eviction_ambiguity_rule == "flag_unassigned_cases_keep_cells_v1"),
+      identical(annual$count_observed, annual$source_covered & annual$period_complete),
+      identical(annual$has_unassigned_ambiguous_cases, annual$unresolved_candidate_cases > 0L),
+      identical(is.na(annual$eviction_cases), !annual$count_observed))
+    replaced <- replaced | p == "output/eviction_filings_complete_by_hex_year.csv"
+  }
   # Decision 0020 explicitly supersedes these derived aggregations. Raw
   # source caches are deliberately absent from this allowlist. Current source
   # manifests and the independent grid-coverage test validate replacements.

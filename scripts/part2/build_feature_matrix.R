@@ -29,7 +29,7 @@ protected_paths <- protected_paths[!startsWith(protected_paths, "output/part2/")
 protected_before <- build_file_manifest(protected_paths, require_all = TRUE, hash_files = TRUE)
 saveRDS(protected_before, file.path(root, "existing_outputs_before.rds"))
 domains <- setNames(lapply(sources$feature_path, readRDS), sources$domain)
-stopifnot(all(domains$evictions$eviction_eligibility_rule == "rolling_scored_24_months_v1"),
+stopifnot(all(domains$evictions$eviction_eligibility_rule == "rolling_scored_24_months_v2"),
   "eviction_eligibility_rule" %in% names(domains$evictions))
 grid <- readRDS("output/hex_grid.rds")
 units <- st_drop_geometry(readRDS("output/corporate_ownership_by_hex.rds"))
@@ -87,7 +87,7 @@ manifest <- list(schema_version = 2L, status = "paired_seven_feature_matrix_comp
   geography = "Fixed canonical integer-ID grid; fixed 2026-04-29 Austin FULL city-center mask; event points also inside current city",
   eligibility = "Both dates: city-center; fixed promoted units>=20; ownership common units>=20 and >=95% unit/parcel coverage; usable 311, demolition and mapped-eviction source coverage; retrospective-usable amenities; all seven indices finite",
   measurement_version = "part2-fixed-components-v2",
-  eviction_eligibility_rule = "rolling_scored_24_months_v1",
+  eviction_eligibility_rule = "rolling_scored_24_months_v2",
   partial_components = "All required terms at both dates; fixed equal weights, never average available terms. Amenity categories each require complete exposure inputs",
   scoring = "Consume earlier-frozen 0-100 component scores unchanged; no renormalization on the common sample; final cluster z-scores and centroids not fit",
   exclusion_counts = "Nonexclusive reasons can overlap; primary reasons use the ordered gates in R/part2_feature_matrix.R and sum to the audit grid",

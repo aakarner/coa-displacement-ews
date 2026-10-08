@@ -38,7 +38,8 @@ part2_eviction_read_filings <- function(path, county, registry) {
 part2_eviction_read_geocodes <- function(path, registry, filings) {
   x <- readr::read_csv(path, col_types = readr::cols(address_for_geocoding = readr::col_character(),
     status = readr::col_character(), score = readr::col_double(), longitude = readr::col_double(),
-    latitude = readr::col_double(), .default = readr::col_skip()), show_col_types = FALSE)
+    latitude = readr::col_double(), addr_type = readr::col_character(), .default = readr::col_skip()), show_col_types = FALSE)
+  eviction_panel_required_columns(x, "addr_type", "Geocode registry")
   candidates <- unique(filings$address_for_geocoding[filings$geocoding_candidate & !is.na(filings$address_for_geocoding) &
                                                      nzchar(filings$address_for_geocoding)])
   if (anyNA(x$address_for_geocoding) || anyDuplicated(x$address_for_geocoding) ||
@@ -86,9 +87,9 @@ part2_eviction_resolve <- function(filings, geocodes, grid, hex_counties, city, 
   relevant <- filings %>% dplyr::filter(is.na(file_date) | (file_date >= history_start & file_date <= max_cutoff)) %>%
     dplyr::distinct(case_number)
   source <- dplyr::semi_join(filings, relevant, by = "case_number")
-  reliable <- source %>% dplyr::inner_join(geocodes, by = c("geocode_registry", "address_for_geocoding"), na_matches = "never") %>%
-    dplyr::filter(status %in% c("M", "T"), score >= 90, is.finite(longitude), is.finite(latitude),
-                  longitude >= -180, longitude <= 180, latitude >= -90, latitude <= 90)
+  assessed <- source %>% dplyr::inner_join(geocodes, by = c("geocode_registry", "address_for_geocoding"), na_matches = "never") %>%
+    assess_eviction_geocodes()
+  reliable <- assessed %>% dplyr::filter(geocode_location_usable)
   reliable$row_id <- seq_len(nrow(reliable))
   target <- sf::st_transform(grid, crs) %>% dplyr::select(hex_id) %>%
     dplyr::left_join(dplyr::rename(hex_counties, target_source_county = source_county), by = "hex_id") %>%
@@ -118,6 +119,7 @@ part2_eviction_resolve <- function(filings, geocodes, grid, hex_counties, city, 
     reliably_geocoded_case_numbers = unique(reliable$case_number),
     reliably_geocoded_outside_grid_case_numbers = unique(evidence$case_number[is.na(evidence$hex_id)]),
     reliably_geocoded_outside_study_case_numbers = unique(evidence$case_number[!is.na(evidence$hex_id) & !evidence$inside_source_geography]))
+  resolved <- flag_eviction_precision_cases(resolved, assessed)
   invalid_ids <- if ("case_identity_valid" %in% names(source)) unique(source$case_number[!source$case_identity_valid]) else character()
   invalid <- resolved$cases$case_number %in% invalid_ids
   resolved$cases$assignment_status[invalid] <- "excluded_missing_valid_case_identifier"
@@ -130,7 +132,8 @@ part2_eviction_resolve <- function(filings, geocodes, grid, hex_counties, city, 
                                          eviction_inside_current_city %in% TRUE) %>%
     dplyr::distinct(case_number, hex_id)
   list(source = source, cases = resolved$cases, assigned = resolved$assigned_cases,
-       issues = resolved$issues, row_qc = resolved$row_qc, evidence = evidence, candidates = candidates)
+       issues = resolved$issues, row_qc = resolved$row_qc, evidence = evidence, candidates = candidates,
+       geocode_quality = assessed)
 }
 
 part2_eviction_uncertainty <- function(cases, candidates, source, cutoff, history_start) {
@@ -163,15 +166,17 @@ part2_eviction_snapshot <- function(resolved, support, coverage, cutoff, history
       analysis_as_of_date = cutoff, eviction_history_start = history_start,
       eviction_eligibility_window_start = w$previous_start,
       eviction_eligibility_window_end = cutoff,
-      eviction_eligibility_rule = "rolling_scored_24_months_v1",
+      eviction_eligibility_rule = "rolling_scored_24_months_v2",
       eviction_history_days = w$history_days, eviction_recent_window_days = w$recent_days,
       eviction_previous_window_days = w$previous_days, eviction_recent_window_start = w$recent_start,
       eviction_previous_window_start = w$previous_start,
       eviction_source_covered = eviction_inside_current_city & eviction_scored_window_source_covered,
-      eviction_count_observed = eviction_source_covered & eviction_unresolved_candidate_cases == 0L,
+      eviction_has_unassigned_ambiguous_cases = eviction_unresolved_candidate_cases > 0L,
+      eviction_ambiguity_rule = "flag_unassigned_cases_keep_cells_v1",
+      eviction_count_observed = eviction_source_covered,
       eviction_coverage_reason = dplyr::case_when(!eviction_inside_current_city ~ "outside_fixed_city_center_scope",
         !eviction_scored_window_source_covered ~ "county_court_or_scored_window_uncovered",
-        eviction_unresolved_candidate_cases > 0L ~ "localizable_case_ambiguity_in_scored_window", TRUE ~ "covered_mapped_filing_proxy"),
+        eviction_unresolved_candidate_cases > 0L ~ "covered_mapped_filing_proxy_with_unassigned_ambiguous_cases", TRUE ~ "covered_mapped_filing_proxy"),
       eviction_cases_total = dplyr::if_else(eviction_count_observed, eviction_history_observed_cases, NA_integer_),
       eviction_cases_latest_12mo = dplyr::if_else(eviction_count_observed, eviction_recent_observed_cases, NA_integer_),
       eviction_cases_previous_12mo = dplyr::if_else(eviction_count_observed, eviction_previous_observed_cases, NA_integer_),

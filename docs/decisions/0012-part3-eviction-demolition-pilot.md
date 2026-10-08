@@ -51,7 +51,10 @@ exact April 29, 2026 City of Austin FULL polygon. Filing and permit coordinates
 must themselves pass the exact boundary test; a point outside the City cannot
 enter merely because its H3 cell straddles the boundary. Eviction uncertainty
 from multiple plausible in-study hexes or mixed in-study/out-of-study addresses
-makes the affected candidate hex-years unavailable.
+previously made the affected candidate hex-years unavailable.
+[Decision 0014](0014-eviction-ambiguity-keeps-cells.md) supersedes that veto:
+ambiguous cases stay flagged and unassigned, and candidate cells retain their
+accepted uniquely mapped counts with separate audit flags.
 
 Historical source coverage is still evaluated at the panel date. Demolition
 coverage is reconstructed from effective-dated City jurisdiction baselines and

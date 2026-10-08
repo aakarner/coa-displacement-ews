@@ -670,13 +670,17 @@ point-on-surface is inside the exact April 29, 2026 Austin FULL polygon. A
 reliable filing coordinate must also fall inside that exact polygon; landing in
 a boundary-straddling H3 cell is not sufficient. Outside-study rows remain
 explicitly unavailable rather than becoming zeroes. Within the fixed subset,
-the panel uses zero only for a complete source-covered hex-year with no filing
+the panel uses zero only for a complete source-covered hex-year with no accepted mapped filing
 and preserves 2026 activity only as a partial observed-to-date count. The
 outcome is a unique filed case, regardless of later disposition. Cases whose
 reliable defendant addresses imply more than one location—multiple in-source
-hexes or both an in-source and out-of-source location—are quarantined instead
-of being assigned selectively; their candidate hex-years are marked
-measurement-incomplete and therefore cannot become false zero labels.
+hexes or both an in-source and out-of-source location—remain flagged and
+unassigned. Their candidate hex-years retain accepted uniquely mapped filing
+counts and separate ambiguity audit flags. A zero describes that mapped-filing
+proxy; it does not establish the absence of all filings. The annual
+`measurement_complete` flag refers to this accepted tally, while
+`all_filing_locations_complete` remains false. See
+[decision 0014](../docs/decisions/0014-eviction-ambiguity-keeps-cells.md).
 
 Williamson coverage is court- and year-specific rather than countywide. Of the
 295 Williamson cells selected by the fixed current-full rule, the official

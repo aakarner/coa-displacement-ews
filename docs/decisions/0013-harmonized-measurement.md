@@ -62,3 +62,10 @@ unscored audit evidence, not an eligibility condition.
 Reconsider source coverage, rent reliability, unit thresholds, qualitative
 labels and k when sources or evidence change. Document the choice here or in
 a successor decision and add a changelog entry. ML remains paused.
+
+## September 11 follow-up
+
+[Decision 0014](0014-eviction-ambiguity-keeps-cells.md) supersedes the
+zero-in-window-ambiguity eligibility requirement above. Ambiguous cases stay
+flagged and unassigned, while covered candidate cells retain their uniquely
+mapped filing counts. The two-year source-coverage window still applies.
