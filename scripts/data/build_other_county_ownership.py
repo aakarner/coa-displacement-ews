@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PINNED_CLASSIFIER_COMMIT = "cd68639"
 HAYS_URL = "https://hayscad.com/wp-content/uploads/{year}/07/{year}-Certified-Data-Export.zip"
 WCAD_REPORT_URL = "https://www.wcad.org/wp-content/uploads/2025/08/Certification-Report-{year}.zip"
-ADAPTER_VERSION = "ews-other-county-owner-v3"
+ADAPTER_VERSION = "ews-other-county-owner-v4"
 YEARS = (2024, 2025)
 COUNTIES = ("Hays", "Williamson")
 EXTRA_FIELDS = [
@@ -57,7 +57,10 @@ BOOL_FIELDS = {
 def input_paths(root=ROOT):
     config_path = root / "config/williamson_ownership_sources.json"
     config = json.loads(config_path.read_text())
-    return [config_path, *(root / item["path"] for item in config.values() if isinstance(item, dict)),
+    review_path = root / "config/williamson_ownership_reference_reviews.json"
+    review = json.loads(review_path.read_text())
+    return [config_path, review_path, *(root / item["path"] for item in review["evidence"]),
+            *(root / item["path"] for item in config.values() if isinstance(item, dict)),
             *[root / "data/raw_parcels/appraisal_history" / county.lower() /
             str(year) / f"{county.lower()}_{year}.zip"
             for county in COUNTIES for year in YEARS if county != "Williamson"]]
@@ -387,13 +390,46 @@ def verified_gis(args, config, lm, year=2025):
                   "preparation_manifest_sha256": digest(manifest_path), "deduplication": qa}
 
 
-def reconcile_snapshots(selected, owners, gis, lm, year=2025):
+def read_reference_reviews(root=ROOT):
+    config = json.loads((root / "config/williamson_ownership_reference_reviews.json").read_text())
+    if config["source_configuration_sha256"] != digest(root / "config/williamson_ownership_sources.json"):
+        raise ValueError("Ownership reference source configuration changed; re-review required")
+    for item in config["evidence"]:
+        if digest(root / item["path"]) != item["sha256"]:
+            raise ValueError("Ownership reference evidence changed: " + item["path"])
+    rows = json.loads((root / config["review_path"]).read_text())["reviews"]
+    keys = [(r["tax_year"], r["parcel_id"]) for r in rows]
+    if len(keys) != len(set(keys)):
+        raise ValueError("Duplicate ownership reference review")
+    return dict(zip(keys, rows))
+
+
+def apply_reference_review(cert_rows, gis_rows, review, year, key):
+    if review["tax_year"] != year or review["parcel_id"] != key:
+        raise ValueError("Ownership reference year or target mismatch")
+    if cert_rows != review["expected_certified"] or gis_rows != review["expected_gis"]:
+        raise ValueError("Ownership reference target evidence changed; re-review required: " + key)
+    rows = review["rows"]
+    if not rows or any(int(r["tax_year"]) != year or r["parcel_id"] != key for r in rows):
+        raise ValueError("Ownership reference cannot backfill another year or property")
+    return rows
+
+
+def reconcile_snapshots(selected, owners, gis, lm, year=2025, reference_reviews=None):
     primary, certified_only, review = [], [], []
     flags = ("is_owner_occupied", "has_financialized_owner", "is_corporate_owned")
     for key, target in sorted(selected.items()):
         cert_rows, gis_rows = owners.get(key, []), gis.get(key, [])
         rows, diagnostic = reconciliation.reconcile_year(cert_rows, gis_rows, lm, year=year)
+        reference_review = (reference_reviews or {}).get((year, key))
+        if reference_review:
+            rows = apply_reference_review(cert_rows, gis_rows, reference_review, year, key)
+            diagnostic.update(reconciliation_status="reviewed_same_year_reference_account",
+                              reconciliation_conflict=False, name_completeness_confirmed=True,
+                              name_extended=True)
         result = snapshot(target, year, rows, lm)
+        if reference_review:
+            result["classification_note"] = "; ".join(filter(None, [result.get("classification_note"), reference_review["basis"]]))
         result.update({"source_" + field: diagnostic[field] for field in
             ("reconciliation_status", "reconciliation_conflict", "reconciliation_version",
              "name_extended", "name_completeness_confirmed", "mailing_extended", "situs_extended")})
@@ -441,6 +477,7 @@ def run(args):
     lm = load_classifier(args.classifier)
     lm.ews_rule_version = lm.classifier_rule_version()
     targets = read_target(args.target)
+    reference_reviews = read_reference_reviews(args.root)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     config_path = args.root / "config/williamson_ownership_sources.json"
     config = json.loads(config_path.read_text())
@@ -472,7 +509,8 @@ def run(args):
                 # the other year's GIS to fill a missing ID.
                 if not set(gis).issubset(selected):
                     raise ValueError("Prepared GIS evidence contains non-target Williamson IDs")
-                current, certified_only, review = reconcile_snapshots(selected, owners, gis, lm, year=year)
+                current, certified_only, review = reconcile_snapshots(selected, owners, gis, lm, year=year,
+                                                                     reference_reviews=reference_reviews)
                 fields = [name for name in lm.SNAPSHOT_FIELDS if name != "property_units"] + EXTRA_FIELDS
                 supplementary_tables = {
                     f"williamson_{year}_certified_only_snapshots.csv": (certified_only, fields),

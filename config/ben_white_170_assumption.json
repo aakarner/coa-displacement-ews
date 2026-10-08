@@ -1,0 +1,34 @@
+{
+  "review_date": "2026-10-07",
+  "parcel_id": "291453",
+  "property": "South Austin Marketplace, 2101 E Ben White Blvd",
+  "adopted_units": 170,
+  "count_status": "provisional_assumption",
+  "authorization": "User explicitly requested adopting 170, documenting the assumption, citing the source, and proceeding.",
+  "interpretation": "Use 170 as a housing-unit proxy for probable SRO/rooming-house housing. This is an adopted analytical assumption, not a verified count of separate dwellings or a formal SRO classification.",
+  "sources": [
+    {
+      "title": "South Austin Market Place property listing",
+      "url": "https://www.loopnet.com/Listing/2101-E-Ben-White-Blvd-Austin-TX/16495941/",
+      "publication_date": "2019-07-01",
+      "reviewed_date": "2026-10-07",
+      "reported_quantity": 178,
+      "reported_measure": "approximately 178 rooms",
+      "description": "Listing identifies parcel 291453, temporary/transitional residential use and shared kitchen facilities. It supports room-based residential use; it does not report 170 verified housing units."
+    },
+    {
+      "title": "Travis County Reentry Guidebook 2018",
+      "url": "https://www.austintexas.gov/sites/default/files/files/HR/TravisCountyReentryGuidebook2018.pdf",
+      "reviewed_date": "2026-10-07",
+      "reported_quantity": 100,
+      "reported_measure": "beds",
+      "description": "Entry describes weekly single and double room rentals at the matching address. This older bed count is retained as conflicting historical capacity evidence."
+    }
+  ],
+  "limitations": [
+    "The user's 170-bed reference has not been independently pinned to a separate source; 170 is recorded as the authorized assumption.",
+    "Rooms, beds and independently rented dwellings are not necessarily equivalent.",
+    "Apply the same fixed inventory to both retrospective comparison vintages; do not infer year-specific capacity or historical ownership.",
+    "Replace the assumption if a reliable room/unit inventory becomes available; further research is not a prerequisite to this update."
+  ]
+}

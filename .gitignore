@@ -91,6 +91,25 @@ data/raw_hays_evictions/
 !figures/.gitkeep
 !data/.gitkeep
 !data/README.md
+# Case-level eviction/unit audit evidence stays local.
+/output/eviction_low_unit_audit/
+/output/property_geography/
+/output/residential_geography_repair/
+/output/residential_property_batch1/
+/output/residential_property_batch2/
+/data/reviewed_eviction_properties/
+/output/property_review_production/
+/data/reviewed_unit_properties/
+/output/reviewed_units_20261007/
+/output/ben_white_170_20261007/
 
-# Public county/precinct source caches remain local.
+# Reviewed private source-year owner evidence retained locally.
+/data/reviewed_ownership_references/
+/data/reviewed_manufactured_housing/oak_ranch_20261007/integration/owner_rows_*.json
+/data/reviewed_manufactured_housing/oak_ranch_20261007/integration/home_owner_snapshots.csv
+
+# Local source caches and private residential audit bundles.
 /data/raw_geography/
+/data/reviewed_manufactured_housing/
+/output/residential_followup_20261007/
+/output/residential_repair_closeout_20261007/

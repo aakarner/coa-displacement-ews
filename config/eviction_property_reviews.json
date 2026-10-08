@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "batches": [
+    {
+      "batch_id": "batch1_20261007",
+      "path": "data/reviewed_eviction_properties/batch1_20261007/cases.json",
+      "sha256": "d3341e5b49d9286824b9a4ea371df4962b180d6cb6050ac3642eec89e5da37b9",
+      "case_count": 71,
+      "scope": "54 Bell, 6 Asher, 11 Monarch; case-specific location corrections only"
+    },
+    {
+      "batch_id": "batch2_20261007",
+      "path": "data/reviewed_eviction_properties/batch2_20261007/cases.json",
+      "sha256": "63f5c1b535a97e311eff8e107350e3c5ef06edfb10f9341594ce36e51eeca60d",
+      "case_count": 31,
+      "scope": "18 Canyon Creek, 9 Caliza, 3 Nexus, 1 Ocotillo; only one case individually court-reviewed"
+    },
+    {
+      "batch_id": "oak_ranch_20261007",
+      "path": "data/reviewed_eviction_properties/oak_ranch_20261007/cases.json",
+      "sha256": "c07c35afe882a38a3dd95abb79e3a3f2748e5ac4764bef818935c6d2c0930816",
+      "case_count": 24,
+      "scope": "24 exact-address filings linked to 17 individually reviewed Oak Ranch homes"
+    },
+    {
+      "batch_id": "residual_20261007",
+      "path": "data/reviewed_eviction_properties/residual_20261007/cases.json",
+      "sha256": "514e05ef90509d806ee0958f07265317a094fe05e7fb0b0e556415ffd74419e3",
+      "case_count": 18,
+      "scope": "12 Pecan Park phase/space reviews and six exact-home Trails of Oak Hill reviews"
+    }
+  ]
+}

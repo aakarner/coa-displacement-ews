@@ -236,7 +236,25 @@ validate_acs_geography <- function(geography, output_prefix) {
     )
   )
 
-  acs_units <- tryCatch(
+  # Reuse the pinned local Census observations. A failed network request must
+  # never leave an older targeted parcel universe in place after new inputs.
+  cache_file <- file.path(DATA_DIR, "raw_acs", paste0("acs_", ACS_YEAR,
+    "_acs5_", gsub(" ", "_", geography), "_total_housing_units.rds"))
+  prior_file <- file.path(OUTPUT_DIR, paste0("unit_calibration_", output_prefix, "_validation.rds"))
+  acs_columns <- c("GEOID", "NAME", "acs_year", "acs_survey", "acs_geography",
+    "acs_total_housing_units", "acs_total_housing_units_moe")
+  acs_units <- if (file.exists(cache_file)) readRDS(cache_file) else NULL
+  if (is.null(acs_units) && file.exists(prior_file)) {
+    prior <- readRDS(prior_file)
+    if (all(acs_columns %in% names(prior)) && all(prior$acs_year == ACS_YEAR) &&
+        all(prior$acs_geography == geography)) {
+      # Only original Census counts, MOEs and full source polygons are reused;
+      # every parcel allocation and validation statistic is recomputed below.
+      acs_units <- prior %>% select(all_of(acs_columns))
+      saveRDS(acs_units, cache_file)
+    }
+  }
+  if (is.null(acs_units)) acs_units <- tryCatch(
     {
       get_acs(
         geography = geography,
@@ -272,6 +290,12 @@ validate_acs_geography <- function(geography, output_prefix) {
       NULL
     }
   )
+
+  if (!is.null(acs_units)) {
+    stopifnot(inherits(acs_units, "sf"), !anyDuplicated(acs_units$GEOID),
+      all(acs_units$acs_year == ACS_YEAR), all(acs_units$acs_geography == geography))
+    saveRDS(acs_units, cache_file)
+  }
 
   if (is.null(acs_units)) {
     return(
@@ -812,13 +836,7 @@ overcount_diagnostics <- write_overcount_diagnostics(block_group_results$validat
 
 write_targeted_unit_adjustment <- function(block_group_validation, parcels_sf) {
   if (is.null(block_group_validation)) {
-    print_progress("Skipping targeted unit adjustment because block group validation is unavailable.")
-    return(tibble(
-      metric_group = "targeted_unit_adjustment",
-      metric = "targeted_adjustment_status",
-      value = NA_real_,
-      note = "Block group validation was unavailable."
-    ))
+    stop("Block group housing-unit validation is unavailable; refusing to leave a stale targeted parcel file.")
   }
 
   print_progress("Writing targeted parcel unit counts for high-error block groups...")

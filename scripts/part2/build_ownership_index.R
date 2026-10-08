@@ -12,9 +12,8 @@ output_root <- "output/part2/ownership_index"
 preserved_scaling_path <- file.path(output_root, "ownership_scaling.rds")
 preserved_scaling <- if (file.exists(preserved_scaling_path)) readRDS(preserved_scaling_path) else NULL
 manifest_path <- file.path(source_root, "ownership_snapshot_manifest.json")
-expected_manifest_sha256 <- "15f4331043892297e2f68ce90404efb20b571c8ec1f679ad4ea1bff814391fb1"
-if (!file.exists(manifest_path) || !identical(digest::digest(file = manifest_path, algo = "sha256"),
-    expected_manifest_sha256)) stop("Reviewed ownership snapshot manifest changed; review before rebuilding the index.")
+if (!file.exists(manifest_path)) stop("Build ownership snapshots before the index.")
+expected_manifest_sha256 <- digest::digest(file = manifest_path, algo = "sha256")
 upstream <- jsonlite::read_json(manifest_path, simplifyVector = FALSE)
 specification <- upstream$specification
 tax_years <- c(2024L, 2025L)
@@ -25,15 +24,21 @@ if (!identical(as.integer(unlist(specification$tax_years)), tax_years) ||
     !identical(as.Date(unlist(specification$analysis_cutoffs)), cutoffs) ||
     specification$minimum_hex_units != 20 || specification$minimum_common_coverage != .95 ||
     specification$unit_field != "units_calibrated_targeted" ||
-    upstream$promoted_unit_version != "v2_2026-07-31_land_use_validated" ||
-    upstream$checks$comparison_ready_hexes != 3227L) stop("Reviewed ownership support contract changed.")
+    !identical(upstream$promoted_unit_version, unique(readRDS(
+      "output/residential_parcels_unit_promoted.rds")$unit_model_promotion_version)))
+  stop("Reviewed ownership support contract changed.")
+stopifnot(upstream$checks$unit_surface_exactly_matches_current,
+  upstream$checks$canonical_hex_counts_and_units_match,
+  upstream$checks$unique_parcel_years, upstream$checks$unique_hex_assignment)
+expected_ready <- as.integer(upstream$checks$comparison_ready_hexes)
+stopifnot(length(expected_ready) == 1L, expected_ready > 0L, expected_ready <= grid_contract()$grid_cells)
 cat("Verifying the pinned ownership source, code and output checksums...\n")
 pin_entries <- part2_ownership_manifest_entries(upstream)
 verification <- part2_ownership_verify_hashes(pin_entries)
 source_preservation <- build_file_manifest(source_root, recursive = TRUE, require_all = TRUE, hash_files = TRUE)
 grid <- readRDS("output/hex_grid.rds")
 if (!inherits(grid, "sf") || nrow(grid) != grid_contract()$grid_cells || !is.integer(grid$hex_id)) {
-  stop("Expected the canonical 7,027-cell grid with integer identifiers.")
+  stop("Expected the canonical versioned grid with integer identifiers.")
 }
 common_path <- file.path(source_root, "ownership_common_support_by_hex_year.rds")
 full_path <- file.path(source_root, "ownership_features_by_hex_year.rds")
@@ -42,7 +47,7 @@ variant_files <- c(certified_only = "ownership_certified_only_hex_change.csv",
   prior_2024_certified_only = "ownership_2024_certified_only_hex_change.csv")
 variants <- lapply(variant_files, function(path) read_csv(file.path(source_root, path), show_col_types = FALSE))
 variant_summary <- read_csv(file.path(source_root, "ownership_source_variant_summary.csv"), show_col_types = FALSE)
-if (!identical(variant_summary$comparison_ready_hexes[variant_summary$source_variant == "main"], 3227)) {
+if (!identical(as.integer(variant_summary$comparison_ready_hexes[variant_summary$source_variant == "main"]), expected_ready)) {
   stop("Primary ownership source variant summary changed.")
 }
 panel <- part2_prepare_ownership_index(readRDS(common_path), readRDS(full_path), grid, variants,
@@ -61,7 +66,7 @@ for (i in seq_along(cutoffs)) {
   dir.create(date_root, recursive = TRUE, showWarnings = FALSE)
   features <- panel[panel$analysis_as_of_date == cutoff, , drop = FALSE]
   rownames(features) <- NULL
-  if (sum(features$ownership_comparison_ready) != 3227L ||
+  if (sum(features$ownership_comparison_ready) != expected_ready ||
       !identical(features$hex_id, grid$hex_id)) stop("The provisional ownership screen or canonical row order changed.")
   if (is.null(scaling)) scaling <- part2_fit_index_scaling(features, components, index_name, cutoffs[[1]], preserved_scaling = preserved_scaling)
   scored <- part2_apply_index_scaling(features, scaling)

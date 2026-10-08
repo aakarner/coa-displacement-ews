@@ -7,6 +7,8 @@ suppressPackageStartupMessages({
   library(tidyr)
 })
 source("R/ownership_snapshots.R")
+source("R/reviewed_unit_properties.R")
+unit_reviews <- read_reviewed_unit_properties()
 spec_path <- "config/ownership_snapshot_spec.json"
 spec <- jsonlite::read_json(spec_path, simplifyVector = TRUE)
 out <- "output/part2/ownership"
@@ -69,6 +71,23 @@ read_owners <- function(path) read_csv(path, col_types = cols(.default = col_cha
   select(-any_of(c("property_units", "residential_use_category")))
 owners <- bind_rows(read_owners(travis_path), read_owners(other_path)) |>
   mutate(tax_year = as.integer(tax_year))
+owners <- append_reviewed_home_owners(owners, unit_reviews, spec$classification_rule_version)
+# Newly recovered accounts were outside the pinned historical target extract.
+# Keep historical ownership unknown rather than backfilling today's owner into
+# either year. All other missing source rows still fail the complete-key check.
+supplement_ids <- reviewed_unit_supplement_ids(unit_reviews)
+missing_reviewed <- tidyr::expand_grid(parcel_id = supplement_ids, tax_year = spec$tax_years) |>
+  anti_join(owners, by = c("parcel_id", "tax_year"))
+if (nrow(missing_reviewed)) {
+  missing_rows <- owners[rep(NA_integer_, nrow(missing_reviewed)), ]
+  missing_rows$parcel_id <- missing_reviewed$parcel_id
+  missing_rows$tax_year <- missing_reviewed$tax_year
+  missing_rows$source_county <- surface$source_county[match(missing_reviewed$parcel_id, surface$parcel_id)]
+  missing_rows$classification_status <- "source_snapshot_unavailable"
+  missing_rows$classification_rule_version <- spec$classification_rule_version
+  missing_rows$source_snapshot_id <- "reviewed_account_absent_from_pinned_historical_target_extract"
+  owners <- bind_rows(owners, missing_rows)
+}
 owners <- ownership_validate_rows(owners, surface, spec$tax_years, spec$classification_rule_version)
 owners$source_reconciliation_conflict <- ownership_bool(owners$source_reconciliation_conflict)
 
@@ -275,7 +294,7 @@ for (name in names(artifacts)) write_csv(artifacts[[name]], file.path(out, paste
 write_csv(panel |> filter(is.na(is_corporate_owned) | is.na(has_financialized_owner)),
   file.path(out, "ownership_unknown_review.csv"), na = "NA")
 input_paths <- c(spec_path, classifier, travis_path, travis_manifest_path, surface_path,
-  grid_path, "output/residential_parcels_for_hex_sf.rds", "output/corporate_ownership_by_hex.rds", "R/ownership_snapshots.R",
+  grid_path, unit_reviews$input_paths, "output/residential_parcels_for_hex_sf.rds", "output/corporate_ownership_by_hex.rds", "R/ownership_snapshots.R",
   "scripts/part2/build_ownership_snapshots.R", "scripts/data/build_other_county_ownership.py",
   "scripts/data/prepare_williamson_txgio.R", "scripts/data/williamson_ownership_reconciliation.py",
   "config/williamson_ownership_sources.json", unname(txgio_paths), certified_only_paths,

@@ -24,6 +24,7 @@ suppressPackageStartupMessages({
 })
 
 source(here::here("R", "utils.R"))
+source(here::here("R", "reviewed_unit_properties.R"))
 
 print_header("PROMOTE VALIDATED RESIDENTIAL UNIT HIERARCHY")
 
@@ -55,7 +56,7 @@ BOUNDARY_FILE <- here::here(
   "BOUNDARIES_jurisdictions_20260429.geojson"
 )
 ARCHIVE_DIR <- file.path(OUTPUT_DIR, "pre_unit_model_promotion")
-PROMOTION_VERSION <- "v2_2026-07-31_land_use_validated"
+PROMOTION_VERSION <- "v3_2026-10-07_reviewed_projects"
 
 required_files <- c(
   BASELINE_FILE,
@@ -170,6 +171,16 @@ promoted <- baseline %>%
       TRUE ~ unit_estimation_notes_targeted
     )
   )
+
+# The model remains reproducible on its original inputs. Pinned direct evidence
+# overrides its project totals here, before geography and ownership aggregation.
+unit_reviews <- read_reviewed_unit_properties()
+reviewed <- apply_reviewed_unit_properties(promoted, unit_reviews,
+  readRDS(file.path(OUTPUT_DIR, "hex_grid.rds")))
+promoted <- reviewed$parcels
+reviewed_unit_delta <- sum(reviewed$audit$delta)
+reviewed_added_accounts <- length(reviewed_unit_supplement_ids(unit_reviews))
+write_csv(reviewed$audit, file.path(OUTPUT_DIR, "residential_unit_reviewed_projects.csv"))
 
 land_use_codes <- read_csv(
   LAND_USE_CODE_FILE,
@@ -401,18 +412,19 @@ promoted <- promoted %>%
   select(-parcel_match_key, -appraisal_multiunit_signal)
 
 if (
-  nrow(promoted) != nrow(baseline) ||
+  nrow(promoted) != nrow(baseline) + reviewed_added_accounts ||
     anyDuplicated(promoted$parcel_id) ||
     any(!is.finite(promoted$units_calibrated_targeted)) ||
     any(promoted$units_calibrated_targeted < 0) ||
     abs(
       sum(promoted$units_calibrated_targeted) +
         sum(promoted$unit_land_use_excluded_units) -
-        sum(shadow$promoted_units)
+        sum(shadow$promoted_units) - reviewed_unit_delta
     ) > 1e-6
 ) {
   stop("Promoted parcel surface failed final validation.", call. = FALSE)
 }
+validate_reviewed_unit_surface(promoted, unit_reviews)
 
 dir.create(ARCHIVE_DIR, recursive = TRUE, showWarnings = FALSE)
 archive_files <- c(
@@ -468,7 +480,10 @@ manifest <- tibble(
   unit_delta = promoted_units - baseline_units,
   changed_parcels = sum(promoted$unit_model_units_changed),
   hierarchy_applied_parcels = sum(promoted$unit_model_promotion_applied),
-  model_prediction_parcels = sum(promoted$unit_model_used)
+  model_prediction_parcels = sum(promoted$unit_model_used),
+  reviewed_projects = nrow(reviewed$audit), reviewed_added_accounts = reviewed_added_accounts,
+  reviewed_unit_delta = reviewed_unit_delta,
+  review_config_sha256 = digest::digest(file = "config/residential_unit_property_reviews.json", algo = "sha256")
 )
 write_csv(manifest, MANIFEST_FILE)
 

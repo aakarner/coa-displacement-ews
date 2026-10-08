@@ -1,0 +1,3 @@
+parcel_id,outcome,evidence,source_path,review_date
+WILLIAMSON:R401725,residential_multifamily,"Certified DBA BRIDGE @ BALCONES (N), positive residential floor area, and county polygon contains the 12220 Hunters Chase address; City URO records Bridge at Balcones - 12220 (137 units). City primary-use code 100 is insufficiently specific.",data/raw_parcels/unit_sources/austin_uro_units.csv,2026-10-02
+WILLIAMSON:R081218,non_unit_companion,"Certified DBA CORNER STORE at 13014 Pond Springs Road; commercial retail account despite City apartment/condo polygon label. Do not infer housing units from its 3136 square feet.",data/raw_parcels/williamson/wcad_property_certified.csv,2026-10-02

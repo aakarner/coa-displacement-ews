@@ -42,6 +42,7 @@ source(here::here("R/utils.R"))
 source(here::here("R/analysis_config.R"))
 source(here::here("R/eviction_panel.R"))
 source(here::here("R/eviction_coverage.R"))
+source(here::here("R/eviction_property_geography.R"))
 
 print_header("PART 3 - BUILD COMPLETE EVICTION OUTCOME PANEL")
 
@@ -670,6 +671,11 @@ resolved_cases <- resolve_eviction_case_hexes(
 )
 
 resolved_cases <- flag_eviction_precision_cases(resolved_cases, assessed_geocoded_rows)
+resolved_cases <- apply_eviction_property_geography(resolved_cases,
+  reliable_geocode_grid_evidence |> mutate(case_number = eviction_panel_normalize_case_number(case_uid)),
+  read_eviction_property_geography(), hex_year_coverage,
+  hex_counties, city_hex_reference$hex_id[city_hex_reference$hex_center_inside_current_austin_full])
+write_csv(resolved_cases$cases, file.path(PART3_DIR, "eviction_property_assignment_ledger.csv"))
 
 print_progress("Expanding to the complete covered and uncovered hex-year grid...")
 eviction_panel <- build_complete_eviction_panel(
@@ -784,7 +790,11 @@ names(configured_raw_paths) <- sprintf(
   "configured_raw_eviction_%02d",
   seq_along(configured_raw_paths)
 )
-manifest_inputs <- c(input_files, configured_raw_paths)
+manifest_inputs <- c(input_files, configured_raw_paths,
+  property_geography = "output/property_geography/eviction_address_properties.rds",
+  property_geography_manifest = "output/property_geography/property_geography_manifest.json",
+  property_geography_code = "R/eviction_property_geography.R",
+  property_review_code = "R/eviction_property_reviews.R")
 missing_manifest_inputs <- manifest_inputs[!file.exists(manifest_inputs)]
 if (length(missing_manifest_inputs) > 0L) {
   stop(

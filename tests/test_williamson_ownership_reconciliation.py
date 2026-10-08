@@ -93,6 +93,99 @@ def classify(rows, year=2025):
 
 
 class WilliamsonOwnershipReconciliationTests(unittest.TestCase):
+    def long_gis_mailing(self, **changes):
+        delivery = "Attn: TCAS GLOBAL INVESTMENTS LLC 1 SOUTH WACKER DR  STE 1050"
+        return raw_gis(OWNER_NAME="MLVI MARTHAS VINEYARD APARTMENTS LLC",
+                       **dict({"MAIL_LINE1": delivery[:60],
+                               "MAIL_ADDR": delivery + ", CHICAGO, IL 60606",
+                               "MAIL_CITY": "CHICAGO", "MAIL_STAT": "IL", "MAIL_ZIP": "60606"},
+                              **changes))
+
+    def test_full_gis_address_recovers_suite_in_each_source_year(self):
+        for year in (2024, 2025):
+            with self.subTest(year=year):
+                raw = self.long_gis_mailing(TAX_YEAR=str(year), DATE_ACQ=f"{year}0701")
+                before = deepcopy(raw)
+                supplement = reconciliation.standardize_gis(raw, LM, year=year,
+                                                            acquisition_date=f"{year}0701")
+                self.assertEqual(raw, before)
+                self.assertTrue(supplement["source_gis_mailing_full_address_recovered"])
+                self.assertTrue(supplement["owner_addr_line1"].endswith("1050"))
+                primary = certified(name="MLVI MARTHAS VINEYARD APARTMEN", year=year)
+                primary.update(owner_addr_line1="ATTN: TCAS GLOBAL INVESTMENTS",
+                               owner_addr_line2="1 SOUTH WACKER DR", owner_addr_line3="STE 1050",
+                               owner_addr_city="CHICAGO", owner_addr_state="IL", owner_addr_zip="60606",
+                               source_address_may_be_truncated=True)
+                selected, diag = reconciliation.reconcile_year([primary], [supplement], LM, year=year)
+                self.assertTrue(diag["gis_mailing_full_address_recovered"])
+                self.assertFalse(diag["reconciliation_conflict"])
+                self.assertEqual(selected[0]["owner_name"], raw["OWNER_NAME"])
+                self.assertTrue(classify(selected, year)["is_corporate_owned"])
+
+    def test_full_gis_address_must_corroborate_delivery_and_locality(self):
+        original = self.long_gis_mailing()
+        for changes in (
+            {"MAIL_ADDR": original["MAIL_ADDR"].replace("1050", "1090")},
+            {"MAIL_CITY": "DALLAS"}, {"MAIL_STAT": "TX"}, {"MAIL_ZIP": "99999"},
+            {"MAIL_CITY": ""}, {"MAIL_ADDR": "UNAVAILABLE"},
+            {"MAIL_LINE1": "1 SOUTH WACKER DR STE 105"},
+            {"MAIL_LINE2": "UNIT 8"}, {"MAIL_LINE1": "WITHHELD"},
+        ):
+            with self.subTest(changes=changes):
+                raw = self.long_gis_mailing(**changes)
+                supplement = reconciliation.standardize_gis(raw, LM)
+                self.assertFalse(supplement["source_gis_mailing_full_address_recovered"])
+
+    def clipped_heading_pair(self, heading="ATTN: VIRTUAL REAL ESTATE CAPI",
+                             full_heading="ATTN: VIRTUAL REAL ESTATE CAPITAL"):
+        primary = certified(name="CALIZA PROPERTY LP")
+        primary.update(owner_addr_line1=heading, owner_addr_line2="PO BOX 4697",
+                       owner_addr_line3="", source_address_may_be_truncated=True)
+        supplement = gis(OWNER_NAME="CALIZA PROPERTY LP",
+                         MAIL_LINE1=full_heading + " PO BOX 4697")
+        return primary, supplement
+
+    def test_clipped_non_delivery_line_before_intact_address(self):
+        for heading, full in (
+            ("ATTN: VIRTUAL REAL ESTATE CAPI", "ATTN: VIRTUAL REAL ESTATE CAPITAL"),
+            ("C/O RIVENDELL GLOBAL REAL ESTA", "C/O RIVENDELL GLOBAL REAL ESTATE INC"),
+            ("BLESSY YOHANNAN REVOCABLE TRU", "BLESSY YOHANNAN REVOCABLE TRUST"),
+        ):
+            # Printed fields retain padding up to the column boundary.
+            primary, supplement = self.clipped_heading_pair(heading.ljust(30), full)
+            with self.subTest(heading=heading):
+                self.assertIsNone(classify([primary])["is_corporate_owned"])
+                before = deepcopy(primary)
+                selected, diagnostic = reconciliation.reconcile_2025([primary], [supplement], LM)
+                self.assertEqual(primary, before)
+                self.assertEqual(diagnostic["mailing_relation"], "certified_non_delivery_prefix")
+                self.assertTrue(classify(selected)["is_corporate_owned"])
+
+    def test_clipped_heading_does_not_override_conflicting_evidence(self):
+        for changes in (
+            {"owner_addr_line1": "ATTN: VIRTUAL REAL ESTATE CAPITAL PO BOX 4698"},
+            {"owner_addr_city": "HOUSTON"},
+            {"owner_addr_state": "UT"},
+            {"owner_addr_zip": "99999"},
+            {"owner_name": "DIFFERENT OWNER LLC"},
+            {"situs_street": "900 DIFFERENT ST"},
+        ):
+            with self.subTest(changes=changes):
+                primary, supplement = self.clipped_heading_pair()
+                supplement.update(changes)
+                selected, diagnostic = reconciliation.reconcile_2025([primary], [supplement], LM)
+                self.assertTrue(diagnostic["reconciliation_conflict"])
+                self.assertEqual(selected[0]["owner_addr_line1"], primary["owner_addr_line1"])
+                self.assertIsNone(classify(selected)["is_corporate_owned"])
+
+    def test_heading_extension_cannot_add_unit_or_box_digits(self):
+        primary, supplement = self.clipped_heading_pair(
+            full_heading="ATTN: VIRTUAL REAL ESTATE CAPITAL UNIT 2")
+        self.assertEqual(reconciliation.address_relation(primary, supplement, LM), "disagree")
+        primary["source_address_may_be_truncated"] = False
+        supplement["owner_addr_line1"] = "ATTN: VIRTUAL REAL ESTATE CAPITAL PO BOX 4697"
+        self.assertEqual(reconciliation.address_relation(primary, supplement, LM), "disagree")
+
     def test_clipped_name_extends_only_after_owner_and_mail_agreement(self):
         full_name = "THE NORTH AUSTIN HOUSING COMPANY LLC"
         primary = certified(name=full_name[:30], homestead=True)
@@ -516,6 +609,37 @@ class AnnualWilliamsonReconciliationTests(unittest.TestCase):
             reconciliation.reconcile_2025([primary], [default_row], LM),
             reconciliation.reconcile_year([primary], [explicit_row], LM, year=2025),
         )
+
+
+class ReviewedReferenceTests(unittest.TestCase):
+    def test_reviewed_source_year_accounts_and_raw_sensitivity(self):
+        reviews = adapter.read_reference_reviews(ROOT)
+        self.assertEqual(len(reviews), 2)
+        for (year, key), r in reviews.items():
+            target = {key: {"parcel_id": key, "property_units": "128", "is_residential": "TRUE", "source_county": "Williamson",
+                           "residential_use_category": "multifamily"}}
+            raw, cert, qa = adapter.reconcile_snapshots(target,
+                {key: r["expected_certified"]}, {key: r["expected_gis"]}, LM,
+                year=year, reference_reviews=reviews)
+            original = adapter.snapshot(target[key], year, r["expected_certified"], LM)
+            self.assertEqual(cert[0], original)
+            self.assertEqual(raw[0]["classification_status"], "matched_classified")
+            self.assertEqual(raw[0]["tax_year"], 2025)
+            self.assertFalse(raw[0]["source_reconciliation_conflict"])
+            self.assertIn("reviewed_same_year", raw[0]["source_reconciliation_status"])
+            self.assertEqual(raw[0]["is_corporate_owned"], key.endswith("R605025"))
+
+    def test_review_rejects_drift_and_cross_year_backfill(self):
+        r = next(iter(adapter.read_reference_reviews(ROOT).values()))
+        args = (r["expected_certified"], r["expected_gis"], r)
+        with self.assertRaisesRegex(ValueError, "year or target"):
+            adapter.apply_reference_review(*args, 2024, r["parcel_id"])
+        with self.assertRaisesRegex(ValueError, "evidence changed"):
+            adapter.apply_reference_review([], [{"changed": True}], r, 2025, r["parcel_id"])
+        bad = deepcopy(r)
+        bad["rows"][0]["tax_year"] = 2026
+        with self.assertRaisesRegex(ValueError, "another year"):
+            adapter.apply_reference_review(r["expected_certified"], r["expected_gis"], bad, 2025, r["parcel_id"])
 
 
 if __name__ == "__main__":

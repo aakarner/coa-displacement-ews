@@ -5,6 +5,8 @@ source("R/pipeline.R")
 source("R/cluster_assignment.R")
 source("R/forecast_labels.R")
 source("R/forecast_spec.R")
+source("R/eviction_property_reviews.R")
+source("R/reviewed_unit_properties.R")
 
 tar_option_set(
   error = "stop",
@@ -32,7 +34,11 @@ list(
         "data/raw_parcels/williamson",
         "config/residual_unit_parcel_reviews.csv",
         "config/williamson_project_groups.csv",
-        "config/williamson_unit_validation_sources.csv"
+        "config/williamson_unit_validation_sources.csv",
+        "config/wcad_residential_evidence_reviews.csv",
+        "config/wcad_residential_geometry_reviews.csv",
+        "data/austin_land_use_inventory_202607.csv",
+        "R/wcad_residential_evidence.R", "R/wcad_residential_supplement.R", "R/wcad_unit_eligibility.R"
       ),
       recursive = TRUE
     ),
@@ -434,6 +440,12 @@ list(
     format = "file"
   ),
   tar_target(
+    reviewed_unit_property_inputs,
+    build_file_manifest(read_reviewed_unit_properties()$input_paths,
+      require_all = TRUE, hash_files = TRUE),
+    cue = tar_cue(mode = "always")
+  ),
+  tar_target(
     unit_promotion_script,
     "scripts/data/unit_counts/promote_integration.R",
     format = "file"
@@ -445,11 +457,13 @@ list(
       c(
         "output/residential_parcels_unit_promoted.rds",
         "output/residential_unit_promotion_manifest.csv",
-        "output/residential_unit_land_use_exclusions.csv"
+        "output/residential_unit_land_use_exclusions.csv",
+        "output/residential_unit_reviewed_projects.csv"
       ),
       dependencies = list(
         unit_validation,
         unit_integration,
+        reviewed_unit_property_inputs,
         land_use_input_manifest,
         land_use_codes
       )
@@ -895,6 +909,11 @@ list(
   # Audited reconstructions are read-only inputs, not the paired eligible mask.
   tar_target(
     current_measurement_inputs,
+    {
+    paired_eviction_snapshots
+    paired_311_snapshots
+    paired_acs_snapshots
+    paired_ownership_index
     build_file_manifest(c(
       "output/part2/acs/acs_run_manifest.json",
       "output/part2/acs/acs_rent_source_candidates.rds",
@@ -912,7 +931,8 @@ list(
       "R/current_measurement.R", "R/acs_snapshot_scoring.R",
       "R/part2_index_scoring.R", "R/part2_event_scoring.R",
       "R/part2_feature_matrix.R", "R/amenity_scoring.R", "R/ownership_snapshots.R"
-    ), require_all = TRUE, hash_files = TRUE),
+    ), require_all = TRUE, hash_files = TRUE)
+    },
     cue = tar_cue(mode = "always")
   ),
   tar_target(current_measurement_script, "scripts/features/build_current_measurement.R", format = "file"),
@@ -1242,6 +1262,86 @@ list(
     format = "file"
   ),
   tar_target(
+    paired_unit_dependent_helpers,
+    c("scripts/part2/build_311_snapshots.R", "R/part2_311.R", "R/part2_event_scoring.R",
+      "scripts/part2/rebuild_acs_support.R", "scripts/part2/build_acs_snapshots.R",
+      "scripts/data/acs_rent_history.R", "scripts/data/acs_demographics.R", "R/acs_dasymetric.R",
+      "scripts/part2/build_ownership_index.R", "R/part2_ownership_index.R", "R/part2_index_scoring.R"),
+    format = "file"
+  ),
+  tar_target(
+    paired_311_snapshots,
+    run_r_script_stage("scripts/part2/build_311_snapshots.R",
+      c("output/part2/311/311_features_paired.rds", "output/part2/311/311_run_manifest.json"),
+      dependencies = list(corporate_features, paired_unit_dependent_helpers)),
+    format = "file"
+  ),
+  tar_target(
+    paired_acs_snapshots,
+    run_r_script_stage("scripts/part2/rebuild_acs_support.R",
+      c("output/part2/acs/acs_features_paired.rds", "output/part2/acs/acs_run_manifest.json"),
+      dependencies = list(corporate_features, acs_cache_manifest, paired_unit_dependent_helpers)),
+    format = "file"
+  ),
+  tar_target(
+    paired_ownership_index,
+    run_r_script_stage("scripts/part2/build_ownership_index.R",
+      c("output/part2/ownership_index/ownership_features_paired.rds",
+        "output/part2/ownership_index/ownership_index_run_manifest.json"),
+      dependencies = list(part2_ownership_snapshots, paired_unit_dependent_helpers)),
+    format = "file"
+  ),
+  tar_target(
+    reviewed_eviction_property_inputs,
+    build_file_manifest(c(read_property_review_batches()$paths, reviewed_property_address_paths(),
+      "R/eviction_property_reviews.R"), require_all = TRUE, hash_files = TRUE),
+    cue = tar_cue(mode = "always")
+  ),
+  tar_target(
+    eviction_property_geography_inputs,
+    {
+    reviewed_eviction_property_inputs
+    promoted_unit_surface
+    corporate_features
+    eviction_geocode_input
+    williamson_eviction_arcgis_geocodes
+    build_file_manifest(c("scripts/data/build_eviction_property_geography.R", "R/eviction_property_geography.R",
+      "output/williamson_residential_geometry_links.csv", "output/residential_parcels_unit_promoted.rds",
+      "output/corporate_ownership_by_hex.rds", "data/raw_parcels/travis/Parcel_poly.zip",
+      "data/raw_parcels/williamson/wcad_parcels.rds", "output/eviction_addresses_geocoded.csv",
+      "output/williamson_eviction_addresses_geocoded_with_arcgis.csv"), require_all = TRUE, hash_files = TRUE)
+    },
+    cue = tar_cue(mode = "always")
+  ),
+  tar_target(
+    eviction_property_geography,
+    run_r_script_stage("scripts/data/build_eviction_property_geography.R",
+      c("output/property_geography/eviction_address_properties.rds", "output/property_geography/property_geography_manifest.json",
+        "output/property_geography/eviction_case_property_reviews.csv"),
+      dependencies = list(eviction_property_geography_inputs, promoted_unit_surface, corporate_features,
+        eviction_geocode_input, williamson_eviction_arcgis_geocodes, reviewed_eviction_property_inputs)),
+    format = "file"
+  ),
+  tar_target(
+    paired_eviction_helpers,
+    c("scripts/part2/build_eviction_snapshots.R", "R/part2_evictions.R",
+      "R/part2_index_scoring.R", "R/eviction_property_geography.R", "R/eviction_property_reviews.R"),
+    format = "file"
+  ),
+  tar_target(
+    paired_eviction_snapshots,
+    run_r_script_stage("scripts/part2/build_eviction_snapshots.R",
+      c("output/part2/evictions/eviction_features_paired.rds",
+        "output/part2/evictions/eviction_case_ledger.rds",
+        "output/part2/evictions/eviction_run_manifest.json"),
+      dependencies = list(paired_eviction_helpers, eviction_property_geography,
+        eviction_panel_helpers, eviction_coverage_helpers, prepared_evictions,
+        prepared_williamson_evictions, eviction_geocode_input, williamson_eviction_arcgis_geocodes,
+        corporate_features, hex_grid, current_austin_jurisdiction_boundary,
+        hex_county_assignment_reference, eviction_source_config, eviction_input_manifest)),
+    format = "file"
+  ),
+  tar_target(
     eviction_coverage_helpers,
     "R/eviction_coverage.R",
     format = "file"
@@ -1257,6 +1357,7 @@ list(
       eviction_outcome_panel_script,
       c(
         "output/eviction_filings_complete_by_hex_year.csv",
+        "output/part3/eviction_property_assignment_ledger.csv",
         "output/part3/eviction_case_assignment_issues.csv",
         "output/part3/eviction_case_assignment_summary.csv",
         "output/part3/eviction_complete_panel_qa.csv",
@@ -1266,6 +1367,7 @@ list(
       ),
       dependencies = list(
         eviction_panel_helpers,
+        eviction_property_geography,
         eviction_coverage_helpers,
         prepared_evictions,
         prepared_williamson_evictions,

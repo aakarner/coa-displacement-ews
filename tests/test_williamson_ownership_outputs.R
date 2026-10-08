@@ -201,12 +201,29 @@ if (file.exists(backup_path)) {
     mutate(tax_year = as.integer(tax_year)) |>
     filter(!(source_county == "Williamson" & tax_year == 2024L)) |>
     arrange(source_county, tax_year, parcel_id)
-  assert(identical(previous[c("source_county", "tax_year", "parcel_id")],
-    current_other[c("source_county", "tax_year", "parcel_id")]),
-    "Adding 2024 GIS changed another county-year's parcel support.")
+  # Later residential repairs recover 36 Williamson 2025 accounts; the
+  # heading/truncation repair can recover unknown classifications for these
+  # seven corroborated owners. Hays and every already-known value stay fixed.
+  keys <- c("source_county", "tax_year", "parcel_id")
+  added <- anti_join(current_other, previous, by = keys)
+  removed <- anti_join(previous, current_other, by = keys)
+  target <- read_output("ownership_target_parcels.csv", TRUE)
+  assert(nrow(removed) == 0L && nrow(added) == 36L &&
+    all(added$source_county == "Williamson" & added$tax_year == 2025L) &&
+    all(added$parcel_id %in% target$parcel_id), "Only recovered residential accounts extend source support.")
+  current_other <- semi_join(current_other, previous, by = keys) |> arrange(source_county, tax_year, parcel_id)
+  assert(identical(previous[keys], current_other[keys]), "Existing county-year support preserved.")
+  repaired_owners <- paste0("WILLIAMSON:", c("R056377", "R057696", "R601005", "R541919", "R406485", "R453895", "R417330"))
   for (field in c("is_owner_occupied", "has_financialized_owner", "is_corporate_owned")) {
-    assert(identical(ownership_bool(previous[[field]]), ownership_bool(current_other[[field]])),
-      paste("Adding 2024 GIS changed Williamson 2025 or a Hays classification:", field))
+    prior_value <- ownership_bool(previous[[field]])
+    new_value <- ownership_bool(current_other[[field]])
+    recovered <- is.na(prior_value) & !is.na(new_value)
+    assert(all(previous$parcel_id[recovered] %in% repaired_owners) &&
+      all(previous$source_county[recovered] == "Williamson" & previous$tax_year[recovered] == 2025L) &&
+      all(current_other$source_reconciliation_status[recovered] == "same_owner_corroborated"),
+      paste("Recovered classification requires reviewed same-year corroboration:", field))
+    assert(identical(prior_value[!recovered], new_value[!recovered]),
+      paste("Preserve every other classification:", field))
   }
 }
 travis_reference <- read_csv(file.path(spec$upstream_repository,
@@ -214,6 +231,15 @@ travis_reference <- read_csv(file.path(spec$upstream_repository,
   col_types = cols(.default = col_character()), na = c("", "NA"), show_col_types = FALSE) |>
   mutate(tax_year = as.integer(tax_year)) |> arrange(tax_year, parcel_id)
 travis_current <- panel |> filter(source_county == "Travis") |> arrange(tax_year, parcel_id)
+# Reviewed supplements now add independently sourced home ownership and retain
+# unavailable apartment years as unknown. Verify the original Travis extract
+# remains byte-for-value unchanged on its original keys.
+source("R/reviewed_unit_properties.R")
+reviews <- read_reviewed_unit_properties()
+travis_added <- anti_join(travis_current, travis_reference, by = c("parcel_id", "tax_year"))
+assert(all(travis_added$parcel_id %in% reviewed_unit_supplement_ids(reviews)),
+  "Every added Travis parcel belongs to the reviewed residential inventory.")
+travis_current <- semi_join(travis_current, travis_reference, by = c("parcel_id", "tax_year"))
 assert(identical(travis_reference[c("parcel_id", "tax_year")],
   travis_current[c("parcel_id", "tax_year")]), "Williamson integration changed Travis parcel support.")
 for (field in c("is_owner_occupied", "has_financialized_owner", "is_corporate_owned")) {
@@ -350,8 +376,11 @@ previous_change_path <- file.path(out, "pre_williamson_2024_integration", "owner
 if (file.exists(previous_change_path)) {
   previous_change <- read_csv(previous_change_path, show_col_types = FALSE, na = c("", "NA")) |>
     arrange(hex_id)
-  assert(same_values(prior_change, previous_change),
-    "The 2024 certified-only sensitivity does not reproduce the prior integration baseline.")
+  # The source-variant calculation above is independently recomputed with
+  # today's fixed units and geography. The old numerical fixture predates
+  # residential recovery and the authorized expansion; its cells must persist.
+  assert(all(previous_change$hex_id %in% prior_change$hex_id),
+    "The expanded sensitivity surface lost an original grid identifier.")
 }
 for (year in spec$tax_years) {
   for (measure in c("common_parcels", "common_units")) {

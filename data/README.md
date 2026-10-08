@@ -1,5 +1,38 @@
 # Data Sources and Processing
 
+## Reviewed housing-property evidence, October 2026
+
+The ignored local bundle `reviewed_unit_properties/batch1_20261007/` supports
+the production overrides in `config/residential_unit_property_reviews.json`.
+It contains operator unit maps, compact county account/footprint records,
+public-document downloads and explicitly labeled web-review transcriptions.
+The configuration pins each consumed evidence file with SHA-256. A missing or
+changed file fails promotion; the pipeline never substitutes a new live source
+silently. `scripts/data/prepare_reviewed_unit_batch1.R` records the one-time
+packaging procedure and refuses to overwrite an existing review configuration.
+`scripts/data/prepare_reviewed_unit_evidence.py` records per-document download
+success/failure; an unavailable PDF is not represented as an archived PDF.
+
+Reproduction needs this local bundle as well as the ordinary source caches.
+`R/reviewed_unit_properties.R` validates project membership, supplemental
+accounts and physical references. `output/residential_unit_reviewed_projects.csv`
+records before/after totals. Local before/after artifacts and case diagnostics
+are under `output/reviewed_units_20261007/`; neither bundle is committed.
+See [decision 0017](../docs/decisions/0017-reviewed-unit-counts-and-geography.md)
+and the [production audit](../docs/audits/reviewed-unit-properties-2026-10.md).
+
+The subsequent Ben White update adopts 170 provisional housing-unit equivalents,
+with low confidence, for account 291453. The tracked
+[`ben_white_170_assumption.json`](../config/ben_white_170_assumption.json) records
+authorization and source citations: the 2019 listing reports approximately 178
+rooms and the 2018 county guide reports 100 beds; neither verifies 170 dwellings.
+Its checksum is pinned with the other evidence. See
+[decision 0018](../docs/decisions/0018-ben-white-provisional-denominator.md).
+The incremental before/after artifacts are under
+`output/ben_white_170_20261007/`.
+
+## Source inventory
+
 This directory contains the external data used by the Early Warning System
 (EWS), along with saved local copies of downloads and geocoding results. These
 saved copies are called **caches** and avoid repeating slow or rate-limited
@@ -10,6 +43,18 @@ The pipeline reads each source from a specific location declared in
 and whether it enters the main clusters, a sensitivity test, or a descriptive
 profile is documented in
 [`config/feature_dictionary.csv`](../config/feature_dictionary.csv).
+
+Completed case-specific property reviews are stored privately under
+`data/reviewed_eviction_properties/`, with their immutable source snapshots and
+screenshots. The tracked `config/eviction_property_reviews.json` pins each batch
+and its case count. Required missing/changed evidence fails the property build;
+it is never silently replaced by an empty review table. These inputs must travel
+with the other private data when reproducing production results. The October 7
+batch covers 71 Bell/Asher/Monarch filings and changes locations only. Original
+court addresses remain intact, including an unresolved apartment-number flag.
+`scripts/data/prepare_reviewed_property_batch1.py` is the explicit, one-time
+promotion of the reviewed evidence snapshot, not a routine pipeline stage;
+create a new versioned batch for later review changes.
 
 From the repository root, install or confirm the required R packages and then
 run the pipeline:

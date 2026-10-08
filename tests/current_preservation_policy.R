@@ -1,6 +1,7 @@
 # A dated run's before/after evidence remains valid; it does not permanently
 # lock a different stage's outputs against an approved subsequent rebuild.
-# Only generated current Part1 products are released by decision 0013.
+# Generated current Part1 products are released by decision 0013.
+# Decision 0014 also authorizes rebuilding the annual eviction proxy.
 current_preservation_entries <- function(entries) {
   model_path <- "output/part1/baseline_cluster_model.rds"
   if (!file.exists(model_path)) return(entries)
@@ -26,6 +27,24 @@ current_preservation_entries <- function(entries) {
       identical(annual$has_unassigned_ambiguous_cases, annual$unresolved_candidate_cases > 0L),
       identical(is.na(annual$eviction_cases), !annual$count_observed))
     replaced <- replaced | p == "output/eviction_filings_complete_by_hex_year.csv"
+  }
+  # Decision 0015 explicitly rebuilds the unit hierarchy and its diagnostics.
+  # These are derived products, not permanently immutable inputs to an older
+  # event-stage run. Keep raw sources and canonical grid/court geometry pinned.
+  if (file.exists("docs/decisions/0015-residential-property-geography.md")) {
+    source("R/eviction_property_geography.R")
+    geography <- read_eviction_property_geography()
+    stopifnot(!is.null(geography),
+      all(geography$property_geography_rule == eviction_property_geography_version()))
+    unit_products <- grepl(paste0("^output/(residential_parcels_unit_|residential_unit_|",
+      "unit_calibration_|unit_overcount_|williamson_certified_residential_supplement)"),p) |
+      p %in% c("output/corporate_owned_parcels_sf.rds",
+        "output/corporate_ownership_by_hex_unit_shadow.rds",
+        "output/corporate_ownership_by_hex.csv","output/corporate_ownership_by_hex.rds",
+        "output/costar_parcel_unit_calibration_matches.csv",
+        "output/residential_parcel_universe_by_county.csv","output/residential_parcels_for_hex_sf.rds",
+        "output/targeted_unit_adjustment_diagnostics.csv")
+    replaced <- replaced | unit_products
   }
   # Decision 0020 explicitly supersedes these derived aggregations. Raw
   # source caches are deliberately absent from this allowlist. Current source

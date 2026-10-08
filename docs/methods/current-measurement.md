@@ -8,6 +8,10 @@ location does not impose a two-date requirement on Part 1.
 
 ## Rules
 
+- **Residential support:** recover omitted active Williamson accounts only with
+  corroborated housing evidence. Reference-only tax accounts provide geometry
+  for their active account and never add duplicate units. Counts still follow
+  the observed/model hierarchy and final land-use review.
 - **Rent:** choose BG if all three 2014/2019/2024 estimates are positive finite,
   have finite nonnegative MOEs, and MOE/estimate is at most 0.30. Otherwise use
   tract if all three pass. Otherwise all rent terms remain missing. Never mix
@@ -33,6 +37,18 @@ location does not impose a two-date requirement on Part 1.
   flags for potentially in-window cases, including missing or conflicting dates,
   but retain counts from uniquely mapped cases and remain eligible. A zero
   describes this mapped-filing proxy, not complete filing incidence.
+  For already accepted cases, verified county-parcel links align every reliable
+  address with one residential property's operational unit cell. Retain the
+  original cell when that verification fails, with a review flag. Preserve
+  source county, effective court and City scope. Part 3 uses the same crosswalk;
+  raw geocodes and original ambiguity exclusions remain intact. See
+  [decision 0015](../decisions/0015-residential-property-geography.md).
+  [Decision 0016](../decisions/0016-reviewed-case-property-locations.md) adds
+  source-pinned, case-specific property reviews. These verify the filing date,
+  court and complete reliable-address set before applying a reviewed destination;
+  other cases sharing an address cannot inherit the correction. An unresolved
+  apartment number can remain flagged when the combined case evidence supports
+  one property. No source address or housing-unit count is changed by that review.
 - **311:** recent selected-request rate, density and signed rate change, each
   one third. Rate and density intentionally put two thirds of the weight on
   current activity. Only the configured Code Officer intake types are used.
@@ -62,6 +78,19 @@ The retrospective current snapshot is not a leakage-safe forecast backtest.
 
 ## Reproduction
 
+Reviewed property counts and Domain references enter through the promoted unit
+surface ([decision 0017](../decisions/0017-reviewed-unit-counts-and-geography.md)).
+Changes to that surface invalidate parcel-dependent ACS allocation and rent
+crosswalks, ownership snapshots/indices, 311 rates and eviction rates before
+current measurement is rebuilt. Both retrospective vintages use the same
+reviewed inventory. Case ledgers mark Ben White's user-approved 170-unit proxy
+as provisional ([decision 0018](../decisions/0018-ben-white-provisional-denominator.md)),
+without removing filings or suppressing cells.
+
+Adding a second project to a shared polygon can invalidate a former blanket
+single-property match. Such filings retain their original accepted geocodes;
+the review audit reports these changes separately from case exclusions.
+
 With the reviewed local source reconstructions available, run:
 
 ```sh
@@ -79,4 +108,5 @@ feature builder cannot silently restore the superseded selected recipes.
 Current source decisions, component scales, eligibility and checksum manifest
 are under output/part1/measurement/. Canonical Part 1 outputs are overwritten
 in place, not copied to another dated run directory. See the
-[changelog](../../CHANGELOG.md) and [decision 0013](../decisions/0013-harmonized-measurement.md).
+[changelog](../../CHANGELOG.md) and [decision 0013](../decisions/0013-harmonized-measurement.md) and the
+[ambiguity policy](../decisions/0014-eviction-ambiguity-keeps-cells.md).

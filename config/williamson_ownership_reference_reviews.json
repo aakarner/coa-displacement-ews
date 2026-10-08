@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "review_path": "data/reviewed_ownership_references/20261007/reviews.json",
+  "evidence": [
+    {
+      "path": "data/reviewed_ownership_references/20261007/reviews.json",
+      "sha256": "ad441f5421416791615d2c79f1a7f373c3a5eee778381f9d2b673b4fe1e6e502"
+    },
+    {
+      "path": "data/reviewed_ownership_references/20261007/gis_2024_manifest.json",
+      "sha256": "22a7713500cec603fa8ea38dd5299e376f8e284464ffa98a550f72186b14beff"
+    },
+    {
+      "path": "data/reviewed_ownership_references/20261007/certified_2024.json",
+      "sha256": "eb7d9f8494e9599d400d51f9589fa212fdb695451ac902504975969c7bf06e52"
+    },
+    {
+      "path": "data/reviewed_ownership_references/20261007/gis_2025.csv",
+      "sha256": "b9daabf1eda2c7a581fac80def278cbff6542a0cf0d3c1f3b8fbdad8f9645725"
+    },
+    {
+      "path": "data/reviewed_ownership_references/20261007/certified_2025.json",
+      "sha256": "2ba8e68b86f9966c824c181fc44ffb32de0d0de6501920605ef0c6c5b65727bb"
+    },
+    {
+      "path": "data/reviewed_ownership_references/20261007/gis_2024.csv",
+      "sha256": "3a4c5bc511a0779bbc1b9f0bfe130eac1a505af622865bed699d2526b20e87de"
+    },
+    {
+      "path": "data/reviewed_ownership_references/20261007/certified_2025_blocks.json",
+      "sha256": "69f85e11d2f06015641edf1b31cefcfec3bea8f3fea15e6447c108d2f980c8c8"
+    },
+    {
+      "path": "data/reviewed_ownership_references/20261007/gis_2025_manifest.json",
+      "sha256": "4fb0ec8ff8f966b5874ce564f825062a0e77bf2d5284080b623245221ebb9fd6"
+    },
+    {
+      "path": "config/wcad_residential_geometry_reviews.csv",
+      "sha256": "83e7e4249494643015dcf0bbc2e43e8dd54e0d49ec220cf721fb0e4e93ef0da6"
+    }
+  ],
+  "source_configuration_sha256": "b8e9aad388bbec8596d802b97b33d15d067e71f39acf4b503924e46220a57c18"
+}

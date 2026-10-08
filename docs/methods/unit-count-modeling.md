@@ -488,6 +488,42 @@ which hexes are eligible and the rate denominators used by several cluster
 variables. Current cluster metrics and the selection rationale are maintained
 in the Part 1 summary, decision record, and dated cluster-selection audit.
 
+## Reviewed Property Evidence at Promotion
+
+An explicit reviewed layer runs after automated count selection and before the
+final land-use check. `config/residential_unit_property_reviews.json` identifies
+exact project members, replacement totals, source hashes and any verified
+physical references. This layer currently selects Bell Springs 400, Monarch
+Bluffs 330, Asher 452, and the Villages at the Domain's southern 412 and northern
+26 homes. It preserves prior estimates and review provenance; it does not refit
+the count model using this purposively selected audit sample.
+
+The second October 7 batch adds Caliza's 270 units, selects documented totals
+of 332 at Canyon Creek and 308 at Ocotillo, and retains Nexus's 294 units.
+Caliza and Nexus use explicitly reviewed references in the largest portion of
+their parcels covered by the fixed grid. Both parcels are more than 99.9% inside
+full-purpose Austin; the pipeline checks City/parcel containment and preserves
+the original coordinates. This named exception does not enable general nearest-
+cell snapping ([decision 0019](../decisions/0019-reviewed-boundary-property-references.md)).
+The [batch audit](../audits/residential-property-batch2-2026-10.md) separately
+documents unresolved manufactured-home accounts and park-level coordinates.
+
+Existing project shares allocate replacement totals once; zero-unit land
+accounts stay zero. Only an explicitly named missing account can be added.
+Changed membership, overlapping future imports, changed evidence or invalid
+reviewed geometry fail validation. The Domain repair moves four misplaced
+accounts and adds the independently supported Building P account. Historical
+ownership for that formerly omitted account remains unknown where the pinned
+historical extract has no record.
+
+Beds and rooms are not automatically converted to ordinary housing units. An
+explicit user-approved exception adopts 170 housing-unit equivalents for Ben
+White, marked as a low-confidence provisional assumption rather than a verified
+direct count ([decision 0018](../decisions/0018-ben-white-provisional-denominator.md)).
+The 2019 listing reports approximately 178 rooms; 170 is the chosen assumption.
+Its filings carry the provisional-denominator flag. See [decision 0017](../decisions/0017-reviewed-unit-counts-and-geography.md)
+and the [production audit](../audits/reviewed-unit-properties-2026-10.md).
+
 ## Relationship to ACS Housing Estimates
 
 The parcel and ACS totals should be compared, but they should not be forced to

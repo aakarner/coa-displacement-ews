@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "reviews": [
+    {
+      "review_id": "ocotillo_exact_address_20261007",
+      "property_name": "Ocotillo",
+      "source_county": "Travis",
+      "parcel_id": "859326",
+      "project_id": "project:859326",
+      "expected_unit_hex_id": 596,
+      "reference_longitude": -97.8901178028,
+      "reference_latitude": 30.2340693161,
+      "normalized_address_pattern": "^8000 (US 290 W|US 290 WEST|W HIGHWAY 290|W US HIGHWAY 290|W U S HY 290)( (APT |UNIT |#)[A-Z0-9-]+)? AUSTIN TX 7873[67]$",
+      "review_basis": "Unique reviewed development at the exact base address; county DBA/account and Ardent project address corroborate it. Apartment identifiers are retained but not independently verified. No extension to shared Bell phases or mixed Domain addresses. Project completed 2017, before analyzed filing history.",
+      "evidence": [
+        {
+          "path": "data/reviewed_unit_properties/batch2_20261007/public_sources.json",
+          "sha256": "83ef27e575a1c1c4cda3fd7bfd07544b4b536587b2486943d58236300f8ebee3"
+        },
+        {
+          "path": "data/reviewed_unit_properties/batch2_20261007/county_account_attributes.json",
+          "sha256": "b8e89bd58a005391d2e0175bab3495c4e0d7347c47f57ad65a46038ac640c1d9"
+        }
+      ]
+    },
+    {
+      "review_id": "residual_address_20261007_549351",
+      "property_name": "The Olivine",
+      "source_county": "Travis",
+      "parcel_id": "549351",
+      "project_id": "project:549351",
+      "expected_unit_hex_id": 2683,
+      "reference_longitude": -97.69706941500091,
+      "reference_latitude": 30.43408666198372,
+      "normalized_address_pattern": "^3201 CENTURY PARK (BLVD|BOULEVARD)( (APT |UNIT |#)[A-Z0-9-]+)? AUSTIN TX 78727$",
+      "review_basis": "Verified single property/park-phase base address and reviewed denominator geography. Does not independently verify an apartment/space. County and City evidence retained.",
+      "evidence": [
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/public_sources.json",
+          "sha256": "3c85a0d8e434a36176240f6b6055f659673da2d4cdc467c195ce194727936503"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/county_full_records.json",
+          "sha256": "965f636867d51db56eb13b67e36c66e0076c9693faad6cd1aa2c6df2bf74f9a4"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/ready_home_locations.csv",
+          "sha256": "6420182c6e59a1ae25aa2353939e8cdf65a0e98522f858524b454b609353061f"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/footprints.geojson",
+          "sha256": "66e3855f6256198d86f271ac7b961fbb10ed9dc27629d3a82506bb0149bdf352"
+        }
+      ]
+    },
+    {
+      "review_id": "residual_address_20261007_942517",
+      "property_name": "The Bennett",
+      "source_county": "Travis",
+      "parcel_id": "942518",
+      "project_id": "project:942518",
+      "expected_unit_hex_id": 6789,
+      "reference_longitude": -97.7740705579564,
+      "reference_latitude": 30.182769807574488,
+      "normalized_address_pattern": "^7301 S (IH-?35|IH 35|INTERSTATE 35)( SVRD NB)?( (APT |UNIT |#)[A-Z0-9-]+)? AUSTIN TX 78744$",
+      "review_basis": "Verified single property/park-phase base address and reviewed denominator geography. Does not independently verify an apartment/space. County and City evidence retained.",
+      "evidence": [
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/public_sources.json",
+          "sha256": "3c85a0d8e434a36176240f6b6055f659673da2d4cdc467c195ce194727936503"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/county_full_records.json",
+          "sha256": "965f636867d51db56eb13b67e36c66e0076c9693faad6cd1aa2c6df2bf74f9a4"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/ready_home_locations.csv",
+          "sha256": "6420182c6e59a1ae25aa2353939e8cdf65a0e98522f858524b454b609353061f"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/footprints.geojson",
+          "sha256": "66e3855f6256198d86f271ac7b961fbb10ed9dc27629d3a82506bb0149bdf352"
+        }
+      ]
+    },
+    {
+      "review_id": "residual_address_20261007_292158",
+      "property_name": "Capitol View home 429204",
+      "source_county": "Travis",
+      "parcel_id": "429204",
+      "project_id": "park_phase:292158",
+      "expected_unit_hex_id": 3917,
+      "reference_longitude": -97.66498765418656,
+      "reference_latitude": 30.224313472099116,
+      "normalized_address_pattern": "^1308 THORNBERRY (RD|ROAD)( (APT |UNIT |LOT |#)[A-Z0-9-]+)? AUSTIN TX 78721$",
+      "review_basis": "Verified single property/park-phase base address and reviewed denominator geography. Does not independently verify an apartment/space. County and City evidence retained.",
+      "evidence": [
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/public_sources.json",
+          "sha256": "3c85a0d8e434a36176240f6b6055f659673da2d4cdc467c195ce194727936503"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/county_full_records.json",
+          "sha256": "965f636867d51db56eb13b67e36c66e0076c9693faad6cd1aa2c6df2bf74f9a4"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/ready_home_locations.csv",
+          "sha256": "6420182c6e59a1ae25aa2353939e8cdf65a0e98522f858524b454b609353061f"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/footprints.geojson",
+          "sha256": "66e3855f6256198d86f271ac7b961fbb10ed9dc27629d3a82506bb0149bdf352"
+        }
+      ]
+    },
+    {
+      "review_id": "residual_address_20261007_291921",
+      "property_name": "Village Park / Hoeke home 429134",
+      "source_county": "Travis",
+      "parcel_id": "429134",
+      "project_id": "park_phase:291921",
+      "expected_unit_hex_id": 4028,
+      "reference_longitude": -97.68920825781386,
+      "reference_latitude": 30.211457579156,
+      "normalized_address_pattern": "^2705 HOEKE (LN|LANE)( (APT |UNIT |LOT |#)[A-Z0-9-]+)? AUSTIN TX 78744$",
+      "review_basis": "Verified single property/park-phase base address and reviewed denominator geography. Does not independently verify an apartment/space. County and City evidence retained.",
+      "evidence": [
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/public_sources.json",
+          "sha256": "3c85a0d8e434a36176240f6b6055f659673da2d4cdc467c195ce194727936503"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/county_full_records.json",
+          "sha256": "965f636867d51db56eb13b67e36c66e0076c9693faad6cd1aa2c6df2bf74f9a4"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/ready_home_locations.csv",
+          "sha256": "6420182c6e59a1ae25aa2353939e8cdf65a0e98522f858524b454b609353061f"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/footprints.geojson",
+          "sha256": "66e3855f6256198d86f271ac7b961fbb10ed9dc27629d3a82506bb0149bdf352"
+        }
+      ]
+    },
+    {
+      "review_id": "residual_address_20261007_191248",
+      "property_name": "Bel Aire home 441789",
+      "source_county": "Travis",
+      "parcel_id": "441789",
+      "project_id": "park_phase:191248",
+      "expected_unit_hex_id": 5058,
+      "reference_longitude": -97.69224631464236,
+      "reference_latitude": 30.257728762274645,
+      "normalized_address_pattern": "^841 AIRPORT (BLVD|BOULEVARD)( (APT |UNIT |LOT |#)[A-Z0-9-]+)? AUSTIN TX 78702$",
+      "review_basis": "Verified single property/park-phase base address and reviewed denominator geography. Does not independently verify an apartment/space. County and City evidence retained.",
+      "evidence": [
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/public_sources.json",
+          "sha256": "3c85a0d8e434a36176240f6b6055f659673da2d4cdc467c195ce194727936503"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/county_full_records.json",
+          "sha256": "965f636867d51db56eb13b67e36c66e0076c9693faad6cd1aa2c6df2bf74f9a4"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/ready_home_locations.csv",
+          "sha256": "6420182c6e59a1ae25aa2353939e8cdf65a0e98522f858524b454b609353061f"
+        },
+        {
+          "path": "data/reviewed_unit_properties/residual_20261007/footprints.geojson",
+          "sha256": "66e3855f6256198d86f271ac7b961fbb10ed9dc27629d3a82506bb0149bdf352"
+        }
+      ]
+    }
+  ]
+}

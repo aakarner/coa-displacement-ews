@@ -32,7 +32,8 @@ build_wcad_certified_residential_supplement <- function(
     property_file,
     parcel_map_file,
     hex_grid_file,
-    review_file) {
+    review_file,
+    residential_evidence = load_wcad_residential_evidence()) {
   required_base_columns <- c(
     "parcel_id",
     "situs_address",
@@ -188,6 +189,8 @@ build_wcad_certified_residential_supplement <- function(
     "PropertyTypeDesc",
     "TotalSqFtLivingArea",
     "LegalDescription",
+    "PropertyComment",
+    "DBA",
     "PropertyLegalType",
     "SitusAddress",
     "City",
@@ -214,11 +217,42 @@ build_wcad_certified_residential_supplement <- function(
     showProgress = FALSE
   ) %>%
     tibble::as_tibble() %>%
-    dplyr::filter(QuickRefID %in% geometry_links$certified_quick_ref_id) %>%
     dplyr::mutate(
       certified_living_area = readr::parse_number(TotalSqFtLivingArea),
       certified_acres = readr::parse_number(Acres)
     )
+  account_aliases <- wcad_nonreference_links(certified) %>%
+    dplyr::filter(geometry_source_parcel_id %in% parcel_point_attributes$geometry_source_parcel_id,
+      certified_quick_ref_id %in% certified$QuickRefID)
+  # Carry residential evidence from the mapped legacy footprint to its explicit
+  # active tax account; the reference account itself never contributes units.
+  alias_evidence <- account_aliases %>%
+    dplyr::mutate(parcel_id = paste0("WILLIAMSON:", geometry_source_parcel_id)) %>%
+    dplyr::inner_join(residential_evidence, by = "parcel_id") %>%
+    dplyr::filter(wcad_residential_evidence_source != "reviewed_non_unit_companion") %>%
+    dplyr::transmute(parcel_id = paste0("WILLIAMSON:", certified_quick_ref_id),
+      wcad_residential_evidence_source = "reviewed_housing_inventory_and_county_geometry") %>% dplyr::distinct()
+  residential_evidence <- dplyr::bind_rows(residential_evidence,
+    alias_evidence %>% dplyr::filter(!parcel_id %in% residential_evidence$parcel_id))
+  all_geometry_links <- dplyr::bind_rows(geometry_links, account_aliases) %>%
+    dplyr::distinct(certified_quick_ref_id, geometry_source_parcel_id, .keep_all = TRUE)
+  # Prefer a direct current geometry; otherwise select the largest corroborated
+  # legacy account independently of eviction locations or filing counts.
+  geometry_links <- all_geometry_links %>%
+    dplyr::left_join(certified %>% dplyr::select(geometry_source_parcel_id = QuickRefID,
+      proxy_living_area = certified_living_area), by = "geometry_source_parcel_id") %>%
+    dplyr::arrange(certified_quick_ref_id,
+      dplyr::desc(certified_quick_ref_id == geometry_source_parcel_id),
+      dplyr::desc(proxy_living_area), geometry_source_parcel_id) %>%
+    dplyr::distinct(certified_quick_ref_id, .keep_all = TRUE) %>% dplyr::select(-proxy_living_area)
+  certified <- certified %>%
+    dplyr::filter(QuickRefID %in% geometry_links$certified_quick_ref_id) %>%
+    dplyr::left_join(residential_evidence %>% dplyr::mutate(
+      QuickRefID = sub("^WILLIAMSON:", "", parcel_id)) %>% dplyr::select(-parcel_id),
+      by = "QuickRefID", relationship = "many-to-one") %>%
+    dplyr::mutate(corroborated_multifamily = wcad_corroborated_multifamily(
+      PropertyTypeDesc, certified_living_area, wcad_residential_evidence_source,
+      grepl("REFERENCE ONLY", LegalDescription, ignore.case = TRUE)))
 
   certified_conflicts <- certified %>%
     dplyr::group_by(QuickRefID) %>%
@@ -248,7 +282,7 @@ build_wcad_certified_residential_supplement <- function(
     dplyr::distinct(QuickRefID, .keep_all = TRUE) %>%
     dplyr::filter(
       PropertyStatusDesc == "Active",
-      PropertyTypeDesc == "Residential",
+      PropertyTypeDesc == "Residential" | corroborated_multifamily,
       is.finite(certified_living_area),
       certified_living_area > 0
     )
@@ -287,10 +321,10 @@ build_wcad_certified_residential_supplement <- function(
         dplyr::na_if(""),
       is_corporate_owned = is_corporate_wcad_owner(owner_names),
       corporate_owned_flag = is_corporate_owned,
-      repair_reason = paste(
-        "Active certified WCAD Residential record with positive living area",
-        "was absent from the broad Williamson parcel input."
-      )
+      repair_reason = dplyr::if_else(corroborated_multifamily,
+        paste0("Missing active multifamily account corroborated by ", wcad_residential_evidence_source),
+        "Missing active certified WCAD Residential record with positive living area"),
+      initial_units = dplyr::if_else(corroborated_multifamily, certified_living_area / 900, 1)
     ) %>%
     dplyr::arrange(certified_quick_ref_id)
 
@@ -308,7 +342,9 @@ build_wcad_certified_residential_supplement <- function(
   )
   address_collisions <- supplement_audit %>%
     dplyr::filter(address_key %in% base_address_keys)
-  if (nrow(address_collisions) > 0L) {
+  # Distinct accounts at a shared development address are reconciled by the
+  # project builder; ordinary residential duplicate-address repairs still stop.
+  if (any(!address_collisions$corroborated_multifamily)) {
     stop(
       "WCAD supplement contains an address already in the parcel input.",
       call. = FALSE
@@ -335,18 +371,18 @@ build_wcad_certified_residential_supplement <- function(
         dplyr::na_if(raw_owner_zip, "")
       ),
       propertyChar_zoning = NA_character_,
-      propertyProf_imprvStateCd = NA_character_,
+      propertyProf_imprvStateCd = dplyr::if_else(corroborated_multifamily, PropertyTypeDesc, NA_character_),
       propertyProf_landStateCd = NA_character_,
       propertyProf_imprvActualYearBuilt = NA_character_,
       improvement_sqft = as.character(certified_living_area),
       land_sqft = as.character(
         dplyr::coalesce(certified_acres, 0) * 43560
       ),
-      property_units = "1",
+      property_units = as.character(initial_units),
       lat = as.character(lat),
       lon = as.character(lon),
       coord_source = dplyr::if_else(
-        geometry_link_method == "reviewed_legacy_geometry_proxy",
+        geometry_link_method != "matching_wcad_parcel_geometry",
         "wcad_reviewed_geometry_proxy",
         "wcad_certified_gap_repair"
       ),
@@ -361,7 +397,7 @@ build_wcad_certified_residential_supplement <- function(
         as.integer(corporate_owned_flag)
       ),
       corporate_units = as.character(
-        as.integer(corporate_owned_flag)
+        as.integer(corporate_owned_flag) * initial_units
       ),
       corporate_improvement_sqft = as.character(
         dplyr::if_else(
@@ -395,7 +431,7 @@ build_wcad_certified_residential_supplement <- function(
     dplyr::group_by(geometry_link_method) %>%
     dplyr::summarise(
       parcels = dplyr::n(),
-      residential_units = dplyr::n(),
+      initial_unit_proxy = sum(initial_units),
       certified_living_area = sum(certified_living_area),
       corporate_owned_parcels = sum(is_corporate_owned),
       .groups = "drop"
@@ -404,6 +440,8 @@ build_wcad_certified_residential_supplement <- function(
   list(
     parcels = supplement,
     audit = supplement_audit,
-    summary = summary
+    summary = summary,
+    residential_evidence = residential_evidence,
+    geometry_links = all_geometry_links %>% dplyr::filter(certified_quick_ref_id %in% supplement_audit$certified_quick_ref_id)
   )
 }

@@ -1,0 +1,390 @@
+{
+  "schema_version": 1,
+  "review_date": "2026-10-07",
+  "analytical_cutoff": "2026-04-01",
+  "projects": [
+    {
+      "review_id": "units_20261007_878332",
+      "project_id": "project:878332",
+      "name": "Bell Southpark Springs",
+      "source_county": "Travis",
+      "parcel_ids": [
+        "878332"
+      ],
+      "units": 400,
+      "basis": "400 distinct homes on the operator's September 25, 2025 phase map within parcel 878332; replace the project estimate once.",
+      "evidence_paths": [
+        "data/reviewed_unit_properties/batch1_20261007/bell_site_map.geojson",
+        "data/reviewed_unit_properties/batch1_20261007/reviewed_footprints.geojson"
+      ],
+      "geometry": null,
+      "supplement": null
+    },
+    {
+      "review_id": "units_20261007_533185",
+      "project_id": "project:533185",
+      "name": "Bridge at Monarch Bluffs",
+      "source_county": "Travis",
+      "parcel_ids": [
+        "533185",
+        "975264"
+      ],
+      "units": 330,
+      "basis": "Austin Energy December 28, 2023 final-inspection fact sheet, page 5: 330 rentable units at 8515 S IH 35; keep the land account at zero.",
+      "evidence_paths": [
+        "data/reviewed_unit_properties/batch1_20261007/monarch_austin_energy_2023.pdf"
+      ],
+      "geometry": null,
+      "supplement": null
+    },
+    {
+      "review_id": "units_20261007_513751",
+      "project_id": "project:513751",
+      "name": "Bridge at Asher",
+      "source_county": "Travis",
+      "parcel_ids": [
+        "513751"
+      ],
+      "units": 452,
+      "basis": "HACA April 18, 2019 acquisition record reports 452 apartments; corroborated by its 2019-2020 annual report and the current apartment association listing. The former 449 is a modeled fallback, not a conflicting direct count.",
+      "evidence_paths": [
+        "data/reviewed_unit_properties/batch1_20261007/asher_haca.web.json",
+        "data/reviewed_unit_properties/batch1_20261007/asher_association.html"
+      ],
+      "geometry": null,
+      "supplement": null
+    },
+    {
+      "review_id": "units_20261007_774341",
+      "project_id": "project:774341",
+      "name": "Villages at the Domain southern footprint",
+      "source_county": "Travis",
+      "parcel_ids": [
+        "774341",
+        "774342",
+        "774343",
+        "774344"
+      ],
+      "units": 412,
+      "basis": "Four county residential accounts link to parent 774333. Operator April 21, 2025 map has 412 southern homes; move existing housing to that footprint and replace its combined estimate. City inventory 436 versus operator development total 438 remains a documented two-unit discrepancy.",
+      "evidence_paths": [
+        "data/reviewed_unit_properties/batch1_20261007/domain_site_map.geojson",
+        "data/reviewed_unit_properties/batch1_20261007/county_account_attributes.json",
+        "data/reviewed_unit_properties/batch1_20261007/reviewed_footprints.geojson"
+      ],
+      "geometry": {
+        "lon": -97.7266875,
+        "lat": 30.3964325,
+        "polygon_parcel_id": "774333",
+        "expected_hex_id": 3485,
+        "evidence_path": "data/reviewed_unit_properties/batch1_20261007/reviewed_footprints.geojson",
+        "method": "mapped_home_nearest_mean_projected_coordinate",
+        "expected_original_lon": -97.7301417115958,
+        "expected_original_lat": 30.3912234913489
+      },
+      "supplement": null
+    },
+    {
+      "review_id": "units_20261007_774412",
+      "project_id": "project:774412",
+      "name": "Villages at the Domain Building P",
+      "source_county": "Travis",
+      "parcel_ids": [
+        "774412"
+      ],
+      "units": 26,
+      "basis": "County DBA and owner identify the omitted Building P account. City October 23, 2009 compliance report page 6 identifies Building P as 26 homes; the operator map independently locates 26 northern homes. Reviewed physical association to footprint 737155; the county's original link to unmapped 866401 is preserved, not rewritten.",
+      "evidence_paths": [
+        "data/reviewed_unit_properties/batch1_20261007/domain_site_map.geojson",
+        "data/reviewed_unit_properties/batch1_20261007/domain_compliance.web.json",
+        "data/reviewed_unit_properties/batch1_20261007/county_account_attributes.json",
+        "data/reviewed_unit_properties/batch1_20261007/reviewed_footprints.geojson"
+      ],
+      "geometry": {
+        "lon": -97.7275255,
+        "lat": 30.401097,
+        "polygon_parcel_id": "737155",
+        "expected_hex_id": 3459,
+        "evidence_path": "data/reviewed_unit_properties/batch1_20261007/reviewed_footprints.geojson",
+        "method": "mapped_home_nearest_mean_projected_coordinate"
+      },
+      "supplement": {
+        "parcel_id": "774412",
+        "source_county": "Travis",
+        "situs_address": "CENTURY OAKS TER P AUSTIN TX 78759",
+        "situs_city": "AUSTIN",
+        "situs_state": "TX",
+        "situs_zip": "78759",
+        "propertyProf_imprvStateCd": "B1",
+        "propertyProf_landStateCd": "B1",
+        "propertyProf_imprvActualYearBuilt": "2008",
+        "improvement_sqft": 35809,
+        "land_sqft": 24785.64,
+        "units_raw": 0,
+        "is_residential": true,
+        "is_owner_occupied": false,
+        "is_corporate_owned": true,
+        "has_financialized_owner": true,
+        "owner_names": "LPF VILLAGES DOMAIN LLC",
+        "n_owner_rows": "1",
+        "parcel_count": 1,
+        "corporate_parcel_count": 1,
+        "corporate_improvement_sqft": 35809,
+        "county_unit_exclude_from_unit_universe": false,
+        "coord_source": "reviewed_operator_unit_map_reference"
+      }
+    },
+    {
+      "review_id": "units_20261007_291453_assumed_170",
+      "project_id": "project:291453",
+      "name": "South Austin Marketplace / Ben White (assumed)",
+      "source_county": "Travis",
+      "parcel_ids": [
+        "291453"
+      ],
+      "units": 170,
+      "count_status": "provisional_assumption",
+      "omission_reason": "omitted_commercially_classified_residential_facility",
+      "basis": "User-approved October 7, 2026 assumption: 170 housing-unit equivalents for probable SRO/rooming-house use. The 2019 LoopNet listing reports approximately 178 rooms; the 2018 county guide reports 100 beds and single/double rentals. Neither verifies 170 dwellings. Retain low confidence and provisional provenance; see config/ben_white_170_assumption.json for citations.",
+      "evidence_paths": [
+        "config/ben_white_170_assumption.json",
+        "data/reviewed_unit_properties/batch1_20261007/county_account_attributes.json",
+        "data/reviewed_unit_properties/batch1_20261007/reviewed_footprints.geojson",
+        "data/reviewed_unit_properties/batch1_20261007/ben_white_reentry.web.json"
+      ],
+      "geometry": {
+        "lon": -97.7433559896,
+        "lat": 30.2151214239,
+        "polygon_parcel_id": "291453",
+        "expected_hex_id": 6260,
+        "evidence_path": "data/reviewed_unit_properties/batch1_20261007/reviewed_footprints.geojson",
+        "method": "county_coordinate_verified_inside_property",
+        "coord_source": "reviewed_county_property_reference"
+      },
+      "supplement": {
+        "parcel_id": "291453",
+        "source_county": "Travis",
+        "situs_address": "2101 E BEN WHITE BLVD AUSTIN TX 78741",
+        "situs_city": "AUSTIN",
+        "situs_state": "TX",
+        "situs_zip": "78741",
+        "propertyProf_imprvStateCd": "F1",
+        "propertyProf_landStateCd": "F1",
+        "propertyProf_imprvActualYearBuilt": "1979",
+        "improvement_sqft": 109835,
+        "land_sqft": 119747,
+        "units_raw": 0,
+        "is_residential": true,
+        "is_owner_occupied": false,
+        "is_corporate_owned": true,
+        "owner_names": "EBW 2101 PROPERTY LLC",
+        "n_owner_rows": "1",
+        "parcel_count": 1,
+        "corporate_parcel_count": 1,
+        "corporate_improvement_sqft": 109835,
+        "county_unit_exclude_from_unit_universe": false,
+        "coord_source": "reviewed_county_property_reference"
+      }
+    },
+    {
+      "review_id": "batch2_20261007:WILLIAMSON:R500219",
+      "project_id": "project:WILLIAMSON:R500219",
+      "name": "Caliza",
+      "source_county": "Williamson",
+      "parcel_ids": [
+        "WILLIAMSON:R500219"
+      ],
+      "units": 270,
+      "basis": "JLL April 19, 2023 sale release identifies 270 apartments at 12638 Ridgeline. Active WCAD C3 account has 341389 living square feet and DBA CALIZA. Its original point-on-surface lies outside the grid. Explicitly reviewed reference uses the largest in-grid property portion; over 99.9% of the parcel is in full-purpose Austin.",
+      "evidence_paths": [
+        "data/reviewed_unit_properties/batch2_20261007/public_sources.json",
+        "data/reviewed_unit_properties/batch2_20261007/reviewed_footprints.geojson",
+        "data/reviewed_unit_properties/batch2_20261007/reviewed_city_boundary.geojson",
+        "data/reviewed_unit_properties/batch2_20261007/county_account_attributes.json",
+        "data/reviewed_unit_properties/batch2_20261007/caliza_certified_account.csv",
+        "data/reviewed_unit_properties/batch2_20261007/caliza_raw_parcel_attributes.csv"
+      ],
+      "geometry": {
+        "lon": -97.8094836009741,
+        "lat": 30.4664284448517,
+        "polygon_parcel_id": "WILLIAMSON:R500219",
+        "expected_hex_id": 3261,
+        "evidence_path": "data/reviewed_unit_properties/batch2_20261007/reviewed_footprints.geojson",
+        "method": "reviewed_largest_in_grid_property_portion_point_on_surface",
+        "coord_source": "reviewed_boundary_property_reference",
+        "city_boundary_evidence_path": "data/reviewed_unit_properties/batch2_20261007/reviewed_city_boundary.geojson",
+        "minimum_city_overlap_fraction": 0.999
+      },
+      "supplement": {
+        "parcel_id": "WILLIAMSON:R500219",
+        "source_county": "Williamson",
+        "situs_address": "12638 RIDGELINE BLVD, CEDAR PARK, TX  78613",
+        "situs_city": "CEDAR PARK",
+        "situs_state": "TX",
+        "situs_zip": "78613",
+        "propertyProf_imprvStateCd": "C3",
+        "improvement_sqft": 341389,
+        "land_sqft": 530996.4,
+        "units_raw": 0,
+        "lon": -97.8101213853648,
+        "lat": 30.4660559500746,
+        "is_residential": true,
+        "is_owner_occupied": false,
+        "is_corporate_owned": true,
+        "owner_names": "CALIZA PROPERTY LP",
+        "n_owner_rows": "1",
+        "parcel_count": 1,
+        "corporate_parcel_count": 1,
+        "corporate_improvement_sqft": 341389,
+        "county_unit_exclude_from_unit_universe": false,
+        "coord_source": "wcad_point_on_surface_outside_grid"
+      },
+      "omission_reason": "residential_property_reference_outside_fixed_grid"
+    },
+    {
+      "review_id": "batch2_20261007:911866",
+      "project_id": "project:911866",
+      "name": "Nexus at Goodnight Ranch",
+      "source_county": "Travis",
+      "parcel_ids": [
+        "911866"
+      ],
+      "units": 294,
+      "basis": "Retain the existing county-reported 294 units. Explicitly reviewed reference uses the largest in-grid property portion because the county coordinate falls outside the fixed grid; over 99.9% of the parcel is in full-purpose Austin.",
+      "evidence_paths": [
+        "data/reviewed_unit_properties/batch2_20261007/public_sources.json",
+        "data/reviewed_unit_properties/batch2_20261007/reviewed_footprints.geojson",
+        "data/reviewed_unit_properties/batch2_20261007/reviewed_city_boundary.geojson",
+        "data/reviewed_unit_properties/batch2_20261007/county_account_attributes.json"
+      ],
+      "geometry": {
+        "lon": -97.7634626592369,
+        "lat": 30.1508653657479,
+        "polygon_parcel_id": "911866",
+        "expected_hex_id": 6929,
+        "evidence_path": "data/reviewed_unit_properties/batch2_20261007/reviewed_footprints.geojson",
+        "method": "reviewed_largest_in_grid_property_portion_point_on_surface",
+        "coord_source": "reviewed_boundary_property_reference",
+        "city_boundary_evidence_path": "data/reviewed_unit_properties/batch2_20261007/reviewed_city_boundary.geojson",
+        "minimum_city_overlap_fraction": 0.999,
+        "expected_original_lon": -97.764151572,
+        "expected_original_lat": 30.1503426944
+      },
+      "supplement": null
+    },
+    {
+      "review_id": "batch2_20261007:498141",
+      "project_id": "project:498141",
+      "name": "Bridge at Canyon Creek",
+      "source_county": "Travis",
+      "parcel_ids": [
+        "498141"
+      ],
+      "units": 332,
+      "basis": "Austin Apartment Association property directory reports 332 units at 9009 FM 620; county DBA and court review corroborate the property. Replace the modeled count once; retain the existing property reference.",
+      "evidence_paths": [
+        "data/reviewed_unit_properties/batch2_20261007/public_sources.json",
+        "data/reviewed_unit_properties/batch2_20261007/reviewed_footprints.geojson",
+        "data/reviewed_unit_properties/batch2_20261007/reviewed_city_boundary.geojson",
+        "data/reviewed_unit_properties/batch2_20261007/county_account_attributes.json"
+      ],
+      "geometry": null,
+      "supplement": null
+    },
+    {
+      "review_id": "batch2_20261007:859326",
+      "project_id": "project:859326",
+      "name": "Ocotillo",
+      "source_county": "Travis",
+      "parcel_ids": [
+        "859326"
+      ],
+      "units": 308,
+      "basis": "Ardent developer project list reports 308 units, completed May 2017; project page identifies 8000 US 290 Highway W. County DBA OCOTILLO and situs corroborate the property. Replace the modeled count once; retain the existing property reference.",
+      "evidence_paths": [
+        "data/reviewed_unit_properties/batch2_20261007/public_sources.json",
+        "data/reviewed_unit_properties/batch2_20261007/reviewed_footprints.geojson",
+        "data/reviewed_unit_properties/batch2_20261007/reviewed_city_boundary.geojson",
+        "data/reviewed_unit_properties/batch2_20261007/county_account_attributes.json"
+      ],
+      "geometry": null,
+      "supplement": null
+    }
+  ],
+  "evidence": [
+    {
+      "path": "data/reviewed_unit_properties/batch1_20261007/asher_association.html",
+      "sha256": "f87019e005052f624b41a48ae7d9c5067ca4c0e871ab57e4b30d1faa84bdd76c"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch1_20261007/asher_haca.web.json",
+      "sha256": "be04fbd1823765260486e8d11247e2494259831667e79a7c30a203f2e86dfdd9"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch1_20261007/bell_site_map.geojson",
+      "sha256": "4fa9b3f0308b757a269df508528138c7bd8f427694a84d79cc95c2c619208e77"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch1_20261007/ben_white_reentry.web.json",
+      "sha256": "544045003f1c2d881dea760049d122ecbefbb1e1a37ac53de21ff2e4cffeacda"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch1_20261007/county_account_attributes.json",
+      "sha256": "0d45e53440d02b89fcc92aca9ea58b54f3119e05d98f3fea683a6722b131220d"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch1_20261007/domain_compliance.web.json",
+      "sha256": "239eca8f89a5256918f10d14d5fac17614687abcde3f17806c98f60be2ac20a8"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch1_20261007/domain_site_map.geojson",
+      "sha256": "057f8dea5a9352caaf6724900cbf6b8b6f4e44670378f8bc78f8f824ba6d2af9"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch1_20261007/monarch_austin_energy_2023.pdf",
+      "sha256": "0445e30d05991211a39cb5af21fb54ed40313703bca0ebbc2398b20d285fe249"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch1_20261007/reviewed_footprints.geojson",
+      "sha256": "843a1019f32cefa15a307531925b98110e950f19efb8b5ed82624dfd5430dbb8"
+    },
+    {
+      "path": "config/ben_white_170_assumption.json",
+      "sha256": "58a9a2ef7472b009bae584a9a5f0fb03705f2070423a8e30540a8167e8696e34"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch2_20261007/caliza_certified_account.csv",
+      "sha256": "eaeac47ce7d09eb9a2da1781d6ffc58aeae7ccf9a1e79baeaf1f3cce6a220719"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch2_20261007/caliza_raw_parcel_attributes.csv",
+      "sha256": "b8a6e35ddc2322a290e99c8c2a8d08d658c7d6bc1049645c7f1a60dece7725e3"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch2_20261007/county_account_attributes.json",
+      "sha256": "b8e89bd58a005391d2e0175bab3495c4e0d7347c47f57ad65a46038ac640c1d9"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch2_20261007/public_sources.json",
+      "sha256": "83ef27e575a1c1c4cda3fd7bfd07544b4b536587b2486943d58236300f8ebee3"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch2_20261007/reviewed_city_boundary.geojson",
+      "sha256": "1fb56c6c5bc7708d127096157e5d8dfdb9e4f93f2afea83e7eba2cb501353cac"
+    },
+    {
+      "path": "data/reviewed_unit_properties/batch2_20261007/reviewed_footprints.geojson",
+      "sha256": "3ba61b4e1ae22875d10202c5f60587761073769f8d742bb667d3c88ac86d79bc"
+    }
+  ],
+  "facilities": [
+    {
+      "review_id": "facility_20261007_291453",
+      "source_county": "Travis",
+      "polygon_parcel_id": "291453",
+      "facility_type": "probable_sro_rooming_house",
+      "denominator_status": "provisional_assumed_170_units",
+      "basis": "User-approved October 7, 2026 assumption: 170 housing-unit equivalents for probable SRO/rooming-house use. The 2019 LoopNet listing reports approximately 178 rooms; the 2018 county guide reports 100 beds and single/double rentals. Neither verifies 170 dwellings. Retain low confidence and provisional provenance; see config/ben_white_170_assumption.json for citations."
+    }
+  ]
+}

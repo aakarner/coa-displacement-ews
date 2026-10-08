@@ -26,6 +26,7 @@ suppressPackageStartupMessages({
 source(here::here("R", "utils.R"))
 source(here::here("R", "unit_count_helpers.R"))
 source(here::here("R", "wcad_unit_eligibility.R"))
+source(here::here("R", "wcad_residential_evidence.R"))
 
 print_header("PREPARE RESIDENTIAL UNIT COUNT SOURCES")
 

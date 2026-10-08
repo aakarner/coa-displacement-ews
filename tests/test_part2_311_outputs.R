@@ -28,6 +28,12 @@ one<-which(lengths(hits)==1L)
 eq(ledger$hex_id[ok[one]],grid$hex_id[vapply(hits[one],`[`,integer(1),1L)])
 ref<-readRDS(file.path(root,"311_scaling.rds"))
 stopifnot(ref$reference_date==as.Date("2025-04-01"))
+# The reviewed 2025 level/density normalization remains frozen across inventory
+# repairs. Only the v2 signed-change component is fitted on the rebuilt sample.
+# Recomputing level quantiles with new denominators would test a different rule.
+eq(ref$bounds$upper_bound[match(c("sr_311_smoke_signal_latest_12mo_per_100_units",
+  "sr_311_smoke_signal_latest_12mo_density"), ref$bounds$component)],
+  c(40.1837837837839, 281.117867347339))
 sets<-list()
 for(i in 1:2) {
   cutoff<-as.Date(c("2025-04-01","2026-04-01")[i])
@@ -66,7 +72,7 @@ for(i in 1:2) {
   for(j in seq_along(comp)) {
     x<-f[[comp[j]]];b<-ref$bounds[ref$bounds$component==comp[j],]
     signed <- grepl("rate_change_per_100_units$",comp[j])
-    if(i==1L) eq(c(b$lower_bound,b$upper_bound), if(signed) c(-1,1)*as.numeric(quantile(abs(x),.99,na.rm=TRUE,type=7)) else as.numeric(quantile(x,c(.01,.99),na.rm=TRUE,type=7)))
+    if(i==1L && !b$bounds_preserved) eq(c(b$lower_bound,b$upper_bound), if(signed) c(-1,1)*as.numeric(quantile(abs(x),.99,na.rm=TRUE,type=7)) else as.numeric(quantile(x,c(.01,.99),na.rm=TRUE,type=7)))
     expected<-if(b$degenerate_range) ifelse(is.na(x),NA_real_,if(signed) 50 else 0) else
       100*(pmin(pmax(x,b$lower_bound),b$upper_bound)-b$lower_bound)/(b$upper_bound-b$lower_bound)
     eq(f[[paste0(comp[j],"_score")]],expected);scores[,j]<-expected

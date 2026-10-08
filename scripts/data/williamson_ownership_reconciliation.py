@@ -12,7 +12,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 
-RECONCILIATION_VERSION = "ews-wcad-reconciliation-v2"
+RECONCILIATION_VERSION = "ews-wcad-reconciliation-v4"
 GIS_SNAPSHOT_ID = "txgio-williamson-2025-07-wcad-parcels"
 UNAVAILABLE = {"", "UNAVAILABLE", "NOT AVAILABLE", "CONFIDENTIAL", "WITHHELD", "SUPPRESSED"}
 
@@ -53,6 +53,35 @@ def source_vintage(year, acquisition_date):
     return year, acquisition_date
 
 
+def recover_gis_mailing_line(raw, lm):
+    """Complete the observed 60-character GIS field from its own full address.
+
+    Only accept a strict prefix extension with independently matching locality.
+    This reads the missing characters from MAIL_ADDR; it never guesses a suite
+    number or borrows an address from another parcel, source, or tax year.
+    """
+    line = str(raw.get("MAIL_LINE1") or "").strip()
+    if len(line) != 60 or not unavailable(raw.get("MAIL_LINE2")):
+        return line, False
+    full = str(raw.get("MAIL_ADDR") or "").strip()
+    match = re.fullmatch(r"(.*),\s*([^,]+?),?\s+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)", full, re.I)
+    if not match:
+        return line, False
+    delivery, city, state, zipcode = match.groups()
+    for field, parsed in (("MAIL_CITY", city), ("MAIL_STAT", state), ("MAIL_ZIP", zipcode)):
+        existing = clean(raw.get(field))
+        if unavailable(existing):
+            return line, False
+        if field == "MAIL_ZIP":
+            existing, parsed = existing[:5], parsed[:5]
+        if existing != clean(parsed):
+            return line, False
+    prefix, complete = lm.normalize_address(line), lm.normalize_address(delivery)
+    if not prefix or not complete.startswith(prefix) or complete == prefix:
+        return line, False
+    return delivery.strip(), True
+
+
 def standardize_gis(raw, lm, *, year=2025, acquisition_date=None):
     """Validate the caller's verified source vintage before mapping any fields.
 
@@ -71,6 +100,7 @@ def standardize_gis(raw, lm, *, year=2025, acquisition_date=None):
     name = str(raw.get("OWNER_NAME") or "").strip()
     suppressed = unavailable(name)
     mail_suppressed = suppressed or unavailable(raw.get("MAIL_LINE1"))
+    mail_line, mail_recovered = recover_gis_mailing_line(raw, lm) if not mail_suppressed else ("", False)
     full_situs = str(raw.get("SITUS_ADDR") or "").strip()
     city, state, zipcode = (clean(raw.get(f)) for f in ("SITUS_CITY", "SITUS_STAT", "SITUS_ZIP"))
     # Parse the terminal locality from this source's own full situs; commas
@@ -103,7 +133,7 @@ def standardize_gis(raw, lm, *, year=2025, acquisition_date=None):
         "tax_year": year, "parcel_id": "WILLIAMSON:" + key,
         "owner_id": "",  # A property ID is not an owner ID.
         "owner_name": "" if suppressed else name, "owner_share": "",
-        "owner_addr_line1": "" if mail_suppressed else str(raw.get("MAIL_LINE1") or "").strip(),
+        "owner_addr_line1": mail_line,
         "owner_addr_line2": "" if mail_suppressed else str(raw.get("MAIL_LINE2") or "").strip(),
         "owner_addr_line3": "", "owner_addr_city": str(raw.get("MAIL_CITY") or "").strip(),
         "owner_addr_state": str(raw.get("MAIL_STAT") or "").strip(),
@@ -124,6 +154,7 @@ def standardize_gis(raw, lm, *, year=2025, acquisition_date=None):
         "source_reported_owner_name": name, "source_exemption_codes": "",
         "source_year_verified": True, "source_situs_component_conflict": parse_conflict,
         "source_gis_name_care": str(raw.get("NAME_CARE") or "").strip(),
+        "source_gis_mailing_full_address_recovered": mail_recovered,
     }
 
 
@@ -163,6 +194,39 @@ def name_relation(cert, gis):
     return "disagree"
 
 
+def clipped_non_delivery_line_matches(cert, gis, lm):
+    """Recognize a clipped attention/care-of/trust line before exact delivery.
+
+    Printed lines clip independently. Joining them first hides a prefix match
+    when the next line (the actual street or PO box) survives intact. Do not
+    treat clipping of street, box, or unit identifiers as this special case.
+    Locality and owner corroboration are enforced by the caller.
+    """
+    lines = [str(cert.get(f"owner_addr_line{i}") or "").strip() for i in (1, 2, 3)]
+    heading, remainder = lines[0], " ".join(line for line in lines[1:] if line)
+    if not cert.get("source_address_may_be_truncated") or len(heading) < 29:
+        return False
+    if not re.search(r"^(?:ATTN\b|ATTENTION\b|C/O\b|CO\b)|\b(?:REVOCAB\w*|TRUST\w*|FAMILY)\b",
+                     heading, re.I):
+        return False
+    # Require an independently readable delivery line, including its number.
+    if not re.match(r"^(?:\d+\b|P\.?\s*O\.?\s+BOX\s+\w+\b)", remainder, re.I):
+        return False
+    prefix = lm.normalize_address(heading)
+    delivery = lm.normalize_address(remainder)
+    full = lm.normalize_address(" ".join(str(gis.get(f"owner_addr_line{i}") or "")
+                                          for i in (1, 2, 3)))
+    suffix = " " + delivery
+    if not prefix or not delivery or not full.endswith(suffix):
+        return False
+    full_heading = full[:-len(suffix)]
+    if not full_heading.startswith(prefix):
+        return False
+    extension = full_heading[len(prefix):]
+    # An extension may complete a name, never add/change a numeric identifier.
+    return bool(extension.strip()) and bool(re.fullmatch(r"[A-Z ]+", extension))
+
+
 def address_relation(cert, gis, lm, *, situs=False):
     if situs:
         components = ("situs_city", "situs_state", "situs_zip")
@@ -188,6 +252,8 @@ def address_relation(cert, gis, lm, *, situs=False):
         return "exact"
     if clipped and len(c) >= 10 and g.startswith(c):
         return "certified_prefix"
+    if not situs and clipped_non_delivery_line_matches(cert, gis, lm):
+        return "certified_non_delivery_prefix"
     return "disagree"
 
 
@@ -206,6 +272,8 @@ def reconcile_year(certified_rows, gis_rows, lm, *, year):
                 name_extended=False, name_completeness_confirmed=False,
                 mailing_extended=False, situs_extended=False,
                 certified_present=bool(certified_rows), gis_present=bool(gis_rows))
+    diag["gis_mailing_full_address_recovered"] = any(
+        row.get("source_gis_mailing_full_address_recovered", False) for row in gis_rows)
     selected = [dict(row) for row in certified_rows]
     if not gis_rows:
         if not certified_rows:
@@ -237,7 +305,7 @@ def reconcile_year(certified_rows, gis_rows, lm, *, year):
     diag.update(name_relation=name_relation(cert, gis),
                 mailing_relation=address_relation(cert, gis, lm),
                 situs_relation=address_relation(cert, gis, lm, situs=True))
-    agree = {"exact", "certified_prefix"}
+    agree = {"exact", "certified_prefix", "certified_non_delivery_prefix"}
     if diag["name_relation"] not in agree:
         diag.update(reconciliation_status="owner_disagreement_certified_retained", reconciliation_conflict=True)
         return selected, diag

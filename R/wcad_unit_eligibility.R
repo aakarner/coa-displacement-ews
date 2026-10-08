@@ -48,7 +48,8 @@ wcad_unit_attribute_columns <- function() {
     "wcad_condo_unit",
     "wcad_parcel_unit",
     "wcad_parcel_building",
-    "wcad_use_description"
+    "wcad_use_description",
+    "wcad_residential_evidence_source"
   )
 }
 
@@ -199,7 +200,9 @@ load_wcad_unit_attributes <- function(
   }
 
   attributes %>%
-    dplyr::filter(parcel_id %in% parcel_ids)
+    dplyr::filter(parcel_id %in% parcel_ids) %>%
+    dplyr::left_join(readr::read_csv("output/williamson_residential_evidence.csv",
+      col_types = readr::cols(.default = "c"), show_col_types = FALSE), by = "parcel_id", relationship = "many-to-one")
 }
 
 classify_wcad_unit_eligibility <- function(data) {
@@ -253,7 +256,10 @@ classify_wcad_unit_eligibility <- function(data) {
           ),
           apartment_pattern
         ),
-      wcad_apartment_signal = wcad_apartment_primary_signal |
+      wcad_corroborated_apartment_signal = wcad_corroborated_multifamily(
+        wcad_property_type, model_improvement_sqft, wcad_residential_evidence_source,
+        stringr::str_detect(dplyr::coalesce(wcad_legal_description, ""), "REFERENCE ONLY")),
+      wcad_apartment_signal = wcad_corroborated_apartment_signal | wcad_apartment_primary_signal |
         (
           wcad_property_type %in% c("C3", "C5") &
             wcad_apartment_comment_signal

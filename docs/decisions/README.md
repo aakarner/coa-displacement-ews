@@ -29,6 +29,11 @@ record established an exact date.
 | [0012](0012-part3-eviction-demolition-pilot.md) | Pilot joint eviction and demolition forecasts at 1- and 3-year horizons | Accepted architecture |
 | [0013](0013-harmonized-measurement.md) | Share complete measurement recipes while separating current and temporal eligibility | Accepted |
 | [0014](0014-eviction-ambiguity-keeps-cells.md) | Flag ambiguous eviction cases without suppressing candidate cells | Accepted |
+| [0015](0015-residential-property-geography.md) | Recover omitted residential accounts and align verified filings with unit geography | Accepted |
+| [0016](0016-reviewed-case-property-locations.md) | Apply case-specific property reviews while preserving source addresses and unit counts | Accepted |
+| [0017](0017-reviewed-unit-counts-and-geography.md) | Promote reviewed housing counts and Domain geography; retain unresolved facility denominators | Accepted |
+| [0018](0018-ben-white-provisional-denominator.md) | Adopt 170 provisional units at Ben White with explicit source and assumption provenance | Accepted, provisional count |
+| [0019](0019-reviewed-boundary-property-references.md) | Use explicit in-parcel references for Caliza and Nexus at the fixed grid boundary | Accepted |
 | [0020](0020-full-purpose-h3-grid.md) | Expand full-purpose H3 coverage with permanent cell IDs | Accepted |
 
 ## What Qualifies

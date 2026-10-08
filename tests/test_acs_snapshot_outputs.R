@@ -17,6 +17,10 @@ after <- read.csv(file.path(root, "part1_preservation_after.csv"))
 eq(before[c("path", "sha256")], after[c("path", "sha256")])
 if (file.exists(file.path(root, "part1_inputs_before.rds"))) {
   first <- readRDS(file.path(root, "part1_inputs_before.rds"))
+  # A dated ACS run does not lock the promoted residential surface against
+  # the approved subsequent property repairs. Preserve all other input pins.
+  source("tests/current_preservation_policy.R")
+  first <- current_preservation_entries(first)
   for (i in seq_len(nrow(first))) stopifnot(identical(
     digest::digest(file = first$path[i], algo = "sha256"), first$sha256[i]))
 }

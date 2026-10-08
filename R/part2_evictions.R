@@ -81,7 +81,7 @@ part2_eviction_source_coverage <- function(hex_counties, source_config, jp_refer
 
 part2_eviction_resolve <- function(filings, geocodes, grid, hex_counties, city, city_reference,
                                   annual_coverage, history_start = as.Date("2022-01-01"),
-                                  max_cutoff = as.Date("2026-04-01"), crs = 3083) {
+                                  max_cutoff = as.Date("2026-04-01"), crs = 3083, property_geography = NULL) {
   # Keep ALL rows/dates of a potentially relevant case. Filtering rows first
   # could hide a conflicting filing date on the other side of the cutoff.
   relevant <- filings %>% dplyr::filter(is.na(file_date) | (file_date >= history_start & file_date <= max_cutoff)) %>%
@@ -126,6 +126,9 @@ part2_eviction_resolve <- function(filings, geocodes, grid, hex_counties, city, 
   resolved$cases$assigned_hex_key[invalid] <- NA_character_
   resolved$assigned_cases <- dplyr::filter(resolved$assigned_cases, !case_number %in% invalid_ids)
   resolved$issues <- dplyr::filter(resolved$cases, assignment_status != "assigned_unique_hex")
+  if (!is.null(property_geography)) resolved <- apply_eviction_property_geography(
+    resolved, evidence, property_geography, annual_coverage, hex_counties,
+    city_reference$hex_id[city_reference$eviction_inside_current_city])
   # All physical candidates are retained for date/county/court conflicts too,
   # not just the three location-conflict statuses in the legacy annual helper.
   candidates <- evidence %>% dplyr::filter(!is.na(hex_id), point_inside_current_city,

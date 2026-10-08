@@ -22,6 +22,7 @@ suppressPackageStartupMessages({
 source(here::here("R/utils.R"))
 source(here::here("R/unit_count_helpers.R"))
 source(here::here("R/wcad_unit_eligibility.R"))
+source(here::here("R/wcad_residential_evidence.R"))
 source(here::here("R/wcad_residential_supplement.R"))
 
 print_header("02d - CALIBRATE PARCEL UNIT COUNTS")
@@ -160,6 +161,8 @@ parcels_raw <- bind_rows(
   parcels_raw,
   wcad_supplement$parcels
 )
+write_csv(wcad_supplement$geometry_links, file.path(OUTPUT_DIR, "williamson_residential_geometry_links.csv"))
+write_csv(wcad_supplement$residential_evidence, file.path(OUTPUT_DIR, "williamson_residential_evidence.csv"))
 write_csv(
   wcad_supplement$parcels,
   file.path(

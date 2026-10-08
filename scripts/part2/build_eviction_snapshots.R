@@ -5,6 +5,7 @@ source("R/pipeline.R")
 source("R/eviction_panel.R")
 source("R/eviction_coverage.R")
 source("R/part2_evictions.R")
+source("R/eviction_property_geography.R")
 source("R/part2_index_scoring.R")
 root <- "output/part2/evictions"
 # Refit both components on the earlier snapshot when rebuilding this
@@ -62,7 +63,8 @@ resolution_coverage <- build_eviction_hex_year_coverage(select(counties, hex_id,
   source_config, jps, max(cutoffs))
 cat("Resolving namespaced eviction cases from prepared records and final geocode registries...\n")
 resolved <- part2_eviction_resolve(filings, geocodes, grid, select(counties, hex_id, source_county), city,
-  city_reference, resolution_coverage, history_start, max(cutoffs))
+  city_reference, resolution_coverage, history_start, max(cutoffs),
+  property_geography = read_eviction_property_geography())
 saveRDS(resolved$cases, file.path(root, "eviction_case_ledger.rds"))
 write_csv(resolved$cases, file.path(root, "eviction_case_ledger.csv"))
 write_csv(resolved$issues, file.path(root, "eviction_case_assignment_issues.csv"))
@@ -148,7 +150,10 @@ inputs <- unique(c(grid_path, units_path, city_path, county_path, jp_path, jp_me
   "config/hex_county_assignment_2024_metadata.csv", source_path, source_config$path, filing_paths, geocode_paths,
   qa_paths, "R/pipeline.R", "R/eviction_panel.R", "R/eviction_coverage.R", "R/part2_evictions.R",
   "R/part2_index_scoring.R", "scripts/part2/build_eviction_snapshots.R"))
+inputs <- c(inputs, "R/eviction_property_geography.R", "R/eviction_property_reviews.R", if (!identical(Sys.getenv("EWS_EVICTION_GEOGRAPHY"), "raw"))
+  c("output/property_geography/eviction_address_properties.rds", "output/property_geography/property_geography_manifest.json"))
 manifest <- list(schema_version = 2L, status = "paired_eviction_features_complete_v2",
+  property_geography_rule = if (identical(Sys.getenv("EWS_EVICTION_GEOGRAPHY"), "raw")) "original_geocode" else eviction_property_geography_version(),
   analysis_cutoffs = as.character(cutoffs), history_start = as.character(history_start),
   eligibility_rule = "rolling_scored_24_months_v2",
   eligibility_window_starts = c("2023-04-02", "2024-04-02"),
@@ -160,7 +165,7 @@ manifest <- list(schema_version = 2L, status = "paired_eviction_features_complet
   temporal_reconstruction = "retrospective; current prepared records and geocodes, not an as-published historical extraction",
   windows = "Inclusive Apr2..Apr1 recent and preceding windows; coverage checks and ambiguity audit flags restricted to those scored 24 months. Since2022 counts are unscored diagnostics only",
   source_coverage = "Every calendar-year segment of the scored 24 months covers its actual requested dates; final year ends April1, not Dec31. No pre-window coverage requirement",
-  geography = "fixed 2026-04-29 Austin FULL city-center mask and exact event-point footprint; Travis all 5 courts; Williamson effective JP1/2; Hays/JP3/unassigned missing",
+  geography = "Original geocodes determine case acceptance and ambiguity; verified residential-property links use the unit reference hex within the same county, effective court and fixed city scope. Unverified links retain original hexes. Both original and analytical assignments are preserved.",
   zero_definition = "Zero uniquely and reliably mapped filings among covered local sources and court/City geography; ambiguous cases remain unassigned and do not invalidate this proxy zero",
   missing_definition = "Unsupported county/court/scored source period or outside city; ambiguous and wholly unlocated cases do not suppress cells or courts",
   all_filing_locations_complete = FALSE,

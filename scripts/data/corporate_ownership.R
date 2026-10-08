@@ -20,6 +20,7 @@ suppressPackageStartupMessages({
 })
 
 source(here::here("R/utils.R"))
+source(here::here("R/reviewed_unit_properties.R"))
 
 print_header("02c - PROCESS CORPORATE PARCELS")
 
@@ -104,6 +105,14 @@ if (unit_surface == "promoted") {
       call. = FALSE
     )
   }
+
+  unit_reviews <- read_reviewed_unit_properties()
+  validate_reviewed_unit_surface(residential_parcels_raw, unit_reviews)
+  supplements <- reviewed_unit_supplement_ids(unit_reviews)
+  if (any(supplements %in% targeted_baseline$parcel_id))
+    stop("Reviewed supplemental accounts now overlap the targeted baseline; re-review required.")
+  targeted_baseline <- bind_rows(targeted_baseline, tibble(
+    parcel_id = supplements, current_baseline_targeted_units = rep(0, length(supplements))))
 
   promotion_validation <- residential_parcels_raw %>%
     st_drop_geometry() %>%
