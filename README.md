@@ -18,33 +18,32 @@ Major design changes are recorded in the [analytical changelog](CHANGELOG.md).
 The [current measurement contract](docs/methods/current-measurement.md) governs
 the harmonized Part 1/Part 2 recipes. Part 3 ML work is currently paused.
 
-The unit of analysis is an H3 resolution 9 hexagon. The repository retains a
-7,027-cell computational grid generated from the 2021 Census Austin place
-polygon. The Part 3 pilot uses a fixed subset of 6,060 cells whose projected
-point-on-surface falls inside the exact April 29, 2026 City of Austin
-full-purpose boundary.
+The unit of analysis is an H3 resolution 9 hexagon. The computational surface
+now contains **7,950 cells** and fully covers the adopted April 29, 2026 Austin
+full-purpose boundary. The October 7 expansion added 923 cells while preserving
+all 7,027 original IDs and geometries. Analytical scope remains center-based:
+**6,196 cells** have their projected point-on-surface inside that boundary.
+The current Part 1 sample has **2,693 eligible cells**; the paired Part 2 sample
+has **2,515**. See the [completed rebuild report](docs/audits/residential-cluster-rebuild-2026-10.md)
+and [grid decision](docs/decisions/0020-full-purpose-h3-grid.md).
 
 ## Three-County Study Area
 
 Austin's full-purpose municipal boundary extends into Travis, Williamson, and
-Hays Counties. The fixed current-full Part 3 geography and 2024 ACS allocation
-produce the following approximate distribution:
+Hays Counties. The expanded center-selected geography contains:
 
-| County | Austin area, square miles | Center-selected H3 cells | Allocated population, people | Allocated housing, units |
-| --- | ---: | ---: | ---: | ---: |
-| Travis | 268.6 (93.3%) | 5,711 | 881,953 (93.0%) | 439,264 (93.5%) |
-| Williamson | 13.7 (4.8%) | 295 | 65,032 (6.9%) | 30,129 (6.4%) |
-| Hays | 5.5 (1.9%) | 54 | 909 (0.1%) | 287 (0.1%) |
-| **Total** | **287.8** | **6,060** | **947,894** | **469,680** |
+| County | Center-selected H3 cells |
+| --- | ---: |
+| Travis | 5,780 |
+| Williamson | 296 |
+| Hays | 120 |
+| **Total** | **6,196** |
 
-Area is calculated from the intersection of county boundaries with Austin's
-full-purpose boundary. Population and housing are sums of 2024 ACS 5-year
-estimates allocated to the center-selected H3 cells through the project's
-Census-block and residential-parcel dasymetric method and attributed to the
-source block group's county. Counts are rounded, and the shares will change
-when the source or boundary vintage changes. The full 7,027-cell computational
-grid remains available for Part 1, Part 2, and boundary QA; it is not itself the
-Part 3 study universe.
+County assignment uses each cell's reference point. The full computational
+grid also retains boundary-intersecting and legacy cells for aggregation and
+audit. It is not itself the eligible analytical sample. ACS population and
+housing are reallocated across the expanded grid using the existing Census-block
+and residential-parcel method; the former 6,060-cell totals describe the old grid.
 
 Although most of Austin is in Travis County, the analysis seeks comparable
 data for all three counties wherever a domain is critical to classification or
@@ -54,7 +53,7 @@ a zero. Parts 1 and 2 now use Travis and Williamson JP1/JP2 eviction evidence.
 The Part 3 outcome panel uses the same jurisdictions with effective-dated
 precinct coverage. Within the fixed current-full subset, the supplied
 Williamson source covers 128 cells in 2020-2021 and 266 cells from 2022 onward;
-29 current JP3 cells and all 54 Hays cells remain explicit gaps.
+30 current JP3 cells and all 120 Hays cells remain explicit gaps.
 
 Williamson address linkage uses a cached local public-address match, then the
 City of Austin public ArcGIS locator, then the U.S. Census Bureau batch
@@ -171,8 +170,8 @@ Run-specific coverage, diagnostics, and the assignment checksum are generated
 in `output/part1/baseline_cluster_summary.csv`. The rationale for the current
 seven-cluster choice is retained in
 [`docs/decisions/0008-select-seven-clusters.md`](docs/decisions/0008-select-seven-clusters.md),
-with the corrected 2,557-cell fit documented in the
-[current audit](docs/audits/part1-harmonized-measurement-2026-09.md).
+with the corrected 2,675-cell fit documented in the
+[residential/property geography audit](docs/audits/residential-property-repair-2026-10.md).
 The August spatial-holdout findings describe the superseded specification,
 not validation of this refit. The current baseline remains provisional pending
 partner review and now includes covered Williamson JP1/JP2 eviction evidence.

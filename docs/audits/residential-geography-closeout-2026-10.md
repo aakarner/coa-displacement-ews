@@ -1,5 +1,9 @@
 # Residential geography and eviction-denominator repair: status report
 
+> **Subsequent production update — October 7, 2026:** These staged repairs
+> have now been incorporated into the expanded-grid production rebuild.
+> See the [completed rebuild report](residential-cluster-rebuild-2026-10.md).
+> Counts and pending-work language below describe this report's earlier endpoint.
 
 **October 7, 2026. This is a closeout of the intensive review, not a claim that
 every location or coverage problem is fixed.** Recent-filing figures cover

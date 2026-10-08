@@ -1,50 +1,36 @@
 # Part 1: harmonized current measurement
 
-Updated September 10, 2026; retrospective April 1, 2026 cutoff. This is the
-current Part 1 baseline, replacing the earlier available-component specification.
-The [measurement contract](../methods/current-measurement.md) and
-[decision 0013](../decisions/0013-harmonized-measurement.md) give the full rules.
+The run statistics below precede the October residential/property repair.
+See the [current repair audit](residential-property-repair-2026-10.md) for the
+rebuilt inventory, 2,675-cell model and updated profile comparison.
 
-## What changed
+Updated September 11, 2026; retrospective April 1, 2026 cutoff. This is the
+current Part 1 baseline. The [measurement contract](../methods/current-measurement.md),
+[decision 0013](../decisions/0013-harmonized-measurement.md), and
+[ambiguity policy](../decisions/0014-eviction-ambiguity-keeps-cells.md) specify
+its measurement and eligibility rules.
 
-Part 1 now uses the same complete, fixed component recipes as Part 2. Rent
-retains level, growth and acceleration using a coherent reliable three-vintage
-BG history or tract fallback. Vulnerability requires all five terms. Evictions
-use recent rate and signed rate change, not percentage change or an
-expanding-history share; 311 uses rate, density and signed rate change.
-Ownership uses jointly known corporate/financialized evidence with explicit
-coverage. Unknown evidence is not zero pressure.
+## Change and coverage
 
-Follow-up: eviction eligibility now checks only April 2, 2024–April 1, 2026,
-the two scored years, not all history since January 2022. Older-only ambiguity
-no longer removes a cell; missing/conflicting dates potentially in-window and
-all other safeguards remain. This restores 109 current eviction scores and
-101 fully eligible Part 1 cells. Raw filing counts, geocodes and actual court
-coverage are unchanged; no previously eligible cell is lost.
+Ambiguous eviction cases stay flagged and unassigned. Their candidate cells
+retain accepted uniquely mapped filings and audit flags. Source coverage still
+spans the two scored years, April 2, 2024–April 1, 2026. Source records,
+geocodes, accepted raw counts, unit denominators and other eligibility gates
+are unchanged. The change restores 103 fully eligible cells without losing
+any previously eligible cell. Those cells contain 2,619 recent and 2,217
+previous-window accepted filings; see the [decision audit](eviction-ambiguity-policy-2026-09.md).
 
-Part 1 uses current-only support: the 2014/2019/2024 rent triplet and 2025
-ownership evidence. It does not require the corresponding prior snapshot.
-Component bounds use 2026 domain support; cluster means/SDs use the eligible
-2026 sample. Part 2 additionally fixes rent source level and ownership cohort
-across dates, requires both dates to pass, and freezes 2025 scales. Consequently
-the two parts share measurement formulas, not identical scores or cluster IDs.
+- **2,660 current cells:** 2,512 Travis and 148 Williamson, up from 2,557.
+- Includes **all 2,490 paired Part 2 cells**, plus 170 current-only cells.
+- Rent histories: 1,702 block-group and 958 tract.
+- Approximately 435,358 fixed promoted residential units and 785,949 allocated
+  people in classified cells; 80.9% of population and 84.1% of ACS housing
+  allocated to the full 7,027-cell audit grid. These are not exact City-clipped
+  coverage measures.
+- 169 included cells straddle the current city boundary; whole-hex units and
+  areas remain the denominators.
 
-## Sample and coverage
-
-- **2,557 current cells:** 2,410 Travis and 147 Williamson.
-- Includes **all 2,351 paired Part 2 cells**, plus 206 current-only eligible cells.
-- Included rent histories: 1,630 block-group and 927 tract.
-- Classified cells contain approximately 399,593 fixed promoted residential
-  units and 727,183 allocated people: 74.9% of population and 77.3% of ACS
-  housing units allocated to the full 7,027-cell audit grid. These denominators
-  are not a claim of complete City of Austin coverage.
-
-The old 3,250-cell sample is not the valid current full sample under the
-corrected rules. Its reduction is a measurement/coverage correction, not
-observed temporal change. Whole-hex denominators are retained; 165 included
-cells straddle the current boundary.
-
-Sequential exclusions (each cell appears only at its first failing gate):
+Sequential exclusions assign each cell to its first failing gate:
 
 | Gate | Excluded | Remaining |
 | --- | ---: | ---: |
@@ -53,82 +39,72 @@ Sequential exclusions (each cell appears only at its first failing gate):
 | Current ownership evidence | 10 | 3,264 |
 | 311 coverage | 7 | 3,257 |
 | Demolition coverage | 0 | 3,257 |
-| Observed eviction coverage | 136 | 3,121 |
-| Amenity usability | 0 | 3,121 |
-| All required components | 564 | **2,557** |
+| Eviction source coverage | 30 | 3,227 |
+| Amenity usability | 0 | 3,227 |
+| All required components | 567 | **2,660** |
 
-All 7,027 cells remain in the feature, eligibility and fixed-assignment audit
-outputs; excluded cells are not assigned a concern category. The compact
-Part 1 assignment/profile table contains classified cells only.
+All 7,027 cells remain in feature, eligibility and fixed-assignment audits.
+Excluded cells receive no cluster or concern category.
 
 ## Refit and interpretation
 
-The routine six-domain/amenity-augmented comparison was rerun across k=2–12,
-with 100 gap bootstraps and 100 paired 80% subsamples. This sensitivity compares
-domain inclusion under the corrected measurement; it is not a retained old recipe.
+Complete fixed recipes remain in force. Part 1 uses current-only source
+support and component scales estimated from 2026 domain support. Part 2 uses
+paired source support and its frozen 2025 scales. The two parts therefore
+share formulas, not identical scores or cluster IDs.
 
-For the selected seven-domain, seven-cluster fit: mean silhouette is 0.222,
-mean subsample adjusted Rand index is 0.949, and cluster sizes range from 87
-to 877. The diagnostics do not identify a unique optimal k: silhouette favors
-four, stability favors eight, and gap recommendations diverge (including the
-upper search boundary). Seven remains a provisional interpretable typology.
-The August spatially blocked review was **not** repeated; its old results do
-not validate this new fit. Partner review remains outstanding.
+The six-domain/amenity-augmented sensitivity was rerun across k=2–12 with
+100 gap bootstraps and 100 paired 80% subsamples. For the selected seven-domain,
+seven-cluster model, mean silhouette is 0.221 and mean subsample adjusted Rand
+index is 0.941. Silhouette favors four, stability favors eight, and gap criteria
+favor eight or the upper search boundary. Seven remains a provisional
+interpretable typology. The prior August spatial-holdout review was not repeated
+and does not validate this refit; partner review remains outstanding.
 
-Numeric model IDs were reassigned by the refit. Names and qualitative concern
-tiers were reviewed against the new centroids and raw profiles, then pinned
-to centroid and label-file hashes. Display order is below; IDs are not scores.
+Names and existing qualitative tiers were matched to the new profiles using
+centroids and raw events, then pinned to centroid and label-file hashes.
+Numeric model IDs are nominal; the display order below carries the labels.
 
-| Display | Current profile | Qualitative concern | Cells |
-| --- | --- | --- | ---: |
-| 1 | Lower Measured Pressure | Low | 877 |
-| 2 | Higher Rents / Lower Vulnerability | Low | 690 |
-| 3 | Nearby Amenity Activity | Moderate | 125 |
-| 4 | Corporate Ownership + Vulnerability | Moderate | 311 |
-| 5 | Selected 311 + Vulnerability | Moderate | 234 |
-| 6 | Demolition-Permit Concentration | High | 233 |
-| 7 | Eviction-Filing Concentration | Very high | 87 |
+| Display | Model ID | Profile | Concern | Cells |
+| --- | --- | --- | --- | ---: |
+| 1 | 1 | Lower Measured Pressure | Low | 913 |
+| 2 | 7 | Higher Rents / Lower Vulnerability | Low | 689 |
+| 3 | 4 | Nearby Amenity Activity | Moderate | 129 |
+| 4 | 6 | Corporate Ownership + Vulnerability | Moderate | 359 |
+| 5 | 2 | Selected 311 + Vulnerability | Moderate | 250 |
+| 6 | 3 | Demolition-Permit Concentration | High | 235 |
+| 7 | 5 | Eviction-Filing Concentration | Very high | 85 |
 
-Every cell in the eviction-concentration group has a recent filing; its mean
-rate is 19.46 per 100 units. Every cell in the demolition-concentration group
-has a recent permit. These anchors support the descriptions, not predicted
-displacement probabilities. Low concern does not mean no vulnerable residents.
+Every member of the eviction-concentration profile has a recent mapped filing;
+its mean rate is 27.9 per 100 units. Every member of the demolition-concentration
+profile has a recent permit. These descriptions are not displacement
+probabilities. Low concern does not mean no vulnerable residents or displacement.
 
-Compared with the immediately preceding harmonized 2,456-cell fit, the broad
-profiles remain recognizable; the eviction group increases from 81 to 87.
-Sample-based bounds/scaling and centroids are refreshed, so changed assignments
-are not themselves a pure estimate of the eligibility rule's effect.
+The broad profiles remain recognizable after expanding support. The eviction
+profile changes from 87 to 85 cells as its mean rate rises from 19.5 to 27.9;
+restored cells do not all join that profile. Refitted scales and boundaries
+also affect assignment, so the differences are not a temporal estimate.
 
 ## Products and verification
 
-Canonical current features, model, diagnostics, labels, static/interactive maps,
-local site map, neighborhood summaries and frozen-model self-assignment audit
-have been regenerated in place. No website deployment, commit or push was made.
+Canonical features, model, diagnostics, labels, maps, local site map,
+neighborhood summaries and frozen-model self-assignment audits are regenerated
+in place. No website deployment is part of this change.
+
+Independent checks reconstruct all seven recipes, eligibility, scaling,
+centroids, assignments, margins, silhouette, labels and frozen-model
+reproduction. The routine Part 1 audit checks the selected baseline. Part 2
+has its own source, matrix, model, concern and figure audits. Original dated
+preservation hashes remain intact; authorized derived-product replacements
+are distinguished from source changes.
 
 - Main map: `figures/03e_amenity_clusters_tentative.png`.
 - Neighborhood map: `figures/03g_neighborhood_cluster_plurality.png`.
-- Measurement decisions, bounds, eligibility and source hashes:
-  `output/part1/measurement/`.
-- Model/summary/validation: `output/part1/baseline_cluster_*`.
-- Before/after decision audit: `output/part1/eviction_window_change_summary.csv`,
-  with full-grid masks and unchanged raw-window counts in companion tables.
+- Current source decisions, scales and hashes: `output/part1/measurement/`.
+- Model, summary, validation and assignments: `output/part1/baseline_cluster_*`.
+- Before/after masks: `output/part1/eviction_ambiguity_change_*`.
 
-Validation includes pure current-source adapter tests, an independent raw-input
-reconstruction of all seven recipes and eligibility, independent current model
-scaling/centroid/assignment/margin/silhouette/label checks, and the routine
-baseline audit. Part 2 matrix, event, model, concern and figure audits verify
-the regenerated paired results and source hashes. Current Part 1 replacement
-is explicitly distinguished from the earlier run's as-run preservation checks;
-old checksums were not rewritten to disguise the rebuild.
-
-The obsolete 14 cluster-selection and 10 high-risk-island generated review
-artifacts were removed without creating another archive. Their processing code
-and source evidence remain. The short dated August decision narrative is
-clearly superseded; its numerical claims are not current. Raw source vintages
-and provenance needed for reconstruction are retained. The
-[running changelog](../../CHANGELOG.md) records future material changes.
-
-Part 2 is also regenerated on 2,351 paired cells; Part 3 ML remains paused. Remaining
-limitations include Hays/Williamson JP3 eviction coverage, address linkage,
-coordinate-required 311 extraction, retrospective amenity completeness,
-overlapping ACS periods and whole-hex boundary denominators.
+Part 3 labels are rebuilt under the same ambiguity policy; ML remains paused.
+Remaining limitations include Hays/Williamson JP3 filing gaps, incomplete
+address linkage, coordinate-required 311 extraction, retrospective amenity
+completeness, overlapping ACS releases and whole-hex denominators.

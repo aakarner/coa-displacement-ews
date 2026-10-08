@@ -5,6 +5,11 @@ The root [analytical changelog](../CHANGELOG.md) provides the running record of
 major decisions and corrections; superseded generated model runs are not
 archived automatically.
 
+The consolidated [residential geography status report](audits/residential-geography-closeout-2026-10.md)
+documents completed production fixes, measured effects, staged Oak Ranch and
+ownership changes, and remaining coverage limits. It distinguishes the original
+41-cell audit from the broader set of low-unit and unclassified cells.
+
 ## Getting Started
 
 - [`quickstart.md`](quickstart.md): installation, configuration, pipeline
@@ -54,6 +59,13 @@ and superseded choices.
 
 ## Audit Snapshots
 
+- [Ben White provisional denominator, October 2026](audits/ben-white-provisional-units-2026-10.md):
+  user-authorized 170-unit assumption, source citations, provenance and the
+  incremental production rebuild.
+- [Reviewed housing counts and property geography, October 2026](audits/reviewed-unit-properties-2026-10.md):
+  Bell, Asher, Monarch and Domain production repairs, the earlier unresolved
+  Ben White denominator, and effects on filings and clusters.
+
 Files under `audits/` record results for a stated data and method vintage. They
 support methodological decisions but are not automatically updated when the
 pipeline changes:
@@ -61,13 +73,20 @@ pipeline changes:
 - [`audits/hays-eviction-jp4-update-2026-10.md`](audits/hays-eviction-jp4-update-2026-10.md):
   canonical JP4 filing inventory, collection of 15 added cases, and refreshed
   Austin boundary screening with preserved prior observations.
+- [`audits/residential-property-repair-2026-10.md`](audits/residential-property-repair-2026-10.md):
+  current residential recovery and verified filing/property geography repair,
+  staged measurement comparisons, 41-cell follow-up and refitted profiles.
+- [`audits/reviewed-property-locations-2026-10.md`](audits/reviewed-property-locations-2026-10.md):
+  production application of 71 Bell/Asher/Monarch case-location reviews, with
+  unchanged units and source records, shared annual/paired assignments and
+  before/after measurements.
 - [`audits/parcel-acs-unit-audit-2026-07.md`](audits/parcel-acs-unit-audit-2026-07.md):
   parcel/ACS housing-unit reconciliation and populated zero-unit review.
 - [`audits/part1-cluster-selection-2026-08.md`](audits/part1-cluster-selection-2026-08.md):
   superseded August selection evidence, not validation of the corrected fit.
 - [`audits/part1-harmonized-measurement-2026-09.md`](audits/part1-harmonized-measurement-2026-09.md):
-  current complete-component Part 1 refit, current-only eligibility, profile
-  interpretation, coverage, validation and retirement of obsolete outputs.
+  September complete-component Part 1 refit, current-only eligibility, profile
+  interpretation, coverage and validation; run statistics precede the October repair.
 - [`audits/amenity-historical-coverage-2026-09.md`](audits/amenity-historical-coverage-2026-09.md):
   archived-source coverage and reconstruction options for a one-year-back
   amenity feature.
@@ -109,3 +128,9 @@ should use Git tags and GitHub release notes.
 - [`handoffs/landlord-mapper-historical-ownership-poc.md`](handoffs/landlord-mapper-historical-ownership-poc.md):
   speed-first instructions for producing comparable 2024 and 2025 Travis
   ownership snapshots in the sibling `landlord-mapper` repository.
+
+- [Residential follow-up staging](audits/residential-followup-2026-10.md): precision, Ocotillo, source-year ownership and Oak Ranch integration; historical staging endpoint, now rebuilt.
+
+- [Apartment references and manufactured-home recovery](audits/residential-residual-repairs-2026-10.md): recovery of 676 homes and two apartment reference corrections; historical staging counts.
+
+- [Completed residential/grid rebuild](audits/residential-cluster-rebuild-2026-10.md): expanded April 2026 surface, production cluster comparisons, remaining low-unit filings, and full validation.

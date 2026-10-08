@@ -1,5 +1,9 @@
 # Apartment references and manufactured-home recovery — October 7, 2026
 
+> **Subsequent production update — October 7, 2026:** These staged repairs
+> have now been incorporated into the expanded-grid production rebuild.
+> See the [completed rebuild report](residential-cluster-rebuild-2026-10.md).
+> Counts and pending-work language below describe this report's earlier endpoint.
 
 ## Status and scope
 

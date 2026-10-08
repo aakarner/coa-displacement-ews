@@ -59,8 +59,10 @@ expected_geography <- ifelse(reliable_series$block_group, "block_group", ifelse(
 selection <- selection[match(ids, selection$hex_id), ]
 eq(selection$bg_reliable_both, reliable_series$block_group); eq(selection$tract_reliable_both, reliable_series$tract)
 eq(selection$selected_geography, expected_geography)
-stopifnot(sum(expected_geography == "block_group", na.rm = TRUE) == 3018L,
-  sum(expected_geography == "tract", na.rm = TRUE) == 1605L, sum(is.na(expected_geography)) == 2404L)
+stopifnot(length(expected_geography) == nrow(grid),
+  all(expected_geography[reliable_series$block_group] == "block_group"),
+  all(expected_geography[!reliable_series$block_group & reliable_series$tract] == "tract"),
+  all(is.na(expected_geography[!reliable_series$block_group & !reliable_series$tract])))
 supported <- !is.na(expected_geography)
 rent_components <- c("rent_level", "rent_growth", "rent_acceleration")
 for (i in seq_along(dates)) {

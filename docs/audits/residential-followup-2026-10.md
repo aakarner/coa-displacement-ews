@@ -1,5 +1,9 @@
 # Residential repair follow-up: staged implementation
 
+> **Subsequent production update — October 7, 2026:** These staged repairs
+> have now been incorporated into the expanded-grid production rebuild.
+> See the [completed rebuild report](residential-cluster-rebuild-2026-10.md).
+> Counts and pending-work language below describe this report's earlier endpoint.
 
 October 7, 2026. These changes are wired into the production pipeline, but **no
 production rebuild, cluster fit, map regeneration or full test suite has run**.

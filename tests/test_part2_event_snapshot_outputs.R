@@ -114,7 +114,8 @@ for (domain in c("311", "demolitions")) {
   }
 }
 preserved <- readRDS("output/part2/events/existing_outputs_before.rds")
-# The user authorized overwriting provisional Part2 outputs; Part1/Part3 remain protected.
+# The user authorized overwriting provisional Part2 outputs; dated decisions
+# below separately release the rebuilt Part1 and annual eviction products.
 preserved <- preserved[!grepl("(^|/)output/part2/", preserved$path), ]
 source("tests/current_preservation_policy.R")
 preserved <- current_preservation_entries(preserved)

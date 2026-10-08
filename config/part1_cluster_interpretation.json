@@ -1,13 +1,21 @@
 {
   "schema_version": 1,
-  "review_date": "2026-09-10",
+  "review_date": "2026-10-07",
   "measurement_version": "complete-components-v2",
   "analysis_as_of_date": "2026-04-01",
-  "centroids_sha256": "b374d1b993acbd3d030a901b93d39611d4b89c6c96185ffb7ac94e7a587963c9",
-  "labels_sha256": "124ab29c76ec74264540b454229231b30659ee80620d123c74f7a1355cc11dea",
-  "eligibility_rule": "rolling_scored_24_months_v1",
-  "rationale": "Names and qualitative tiers reviewed against the newly fitted full-current-sample profiles and raw events. Numeric IDs are nominal, not risk ranks. Low groups are lower measured pressure or lower vulnerability, not no-displacement areas. Mapped filings and permits do not establish completed displacement.",
-  "human_concern_rank_by_cluster": {"1": 4, "2": 2, "3": 2, "4": 1, "5": 1, "6": 3, "7": 2},
+  "centroids_sha256": "d02f5fb27c47233b5316d8dc48a492b6abe80bec28f17da7df2e80ce2742883d",
+  "labels_sha256": "267dd6d575fa858ecfcf7e78df0d074837db9cf5a494070732a231dd49a1a094",
+  "eligibility_rule": "rolling_scored_24_months_v2",
+  "rationale": "Reviewed all seven refitted profiles and raw event rates after accumulated residential/location repairs and expansion to the April 2026 full-purpose H3 surface with stable existing IDs. Nominal IDs are matched to the same substantive profiles and concern tiers. Every eviction-profile cell has recent filings (mean 13.7 per 100 units); every demolition-profile cell has a recent residential permit. Existing center-based City scope, minimum-unit and source-coverage rules remain in force. Profiles are not calibrated displacement probabilities.",
+  "human_concern_rank_by_cluster": {
+    "2": 1,
+    "7": 1,
+    "3": 2,
+    "4": 2,
+    "1": 2,
+    "6": 3,
+    "5": 4
+  },
   "probability_calibration": false,
   "review_required_when_centroids_change": true
 }

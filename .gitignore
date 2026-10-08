@@ -108,6 +108,10 @@ data/raw_hays_evictions/
 /data/reviewed_manufactured_housing/oak_ranch_20261007/integration/owner_rows_*.json
 /data/reviewed_manufactured_housing/oak_ranch_20261007/integration/home_owner_snapshots.csv
 
+# Private rebuild archive and row-level residential/case comparisons.
+/output/residential_cluster_rebuild_20261007/
+/tmp/residential_cluster_rebuild_20261007/
+
 # Local source caches and private residential audit bundles.
 /data/raw_geography/
 /data/reviewed_manufactured_housing/

@@ -52,7 +52,7 @@ before_hashes <- vapply(local_inputs, digest::digest, character(1), file = TRUE,
 
 # These are the explicitly reviewed human categories. C numbers are nominal;
 # their numerical order is not used to calculate either rank or direction.
-approved_rank <- c(C3 = 1L, C6 = 2L, C2 = 2L, C5 = 3L, C4 = 1L, C1 = 4L, C7 = 2L)
+approved_rank <- c(C2 = 1L, C5 = 2L, C7 = 2L, C6 = 3L, C4 = 1L, C3 = 4L, C1 = 2L)
 tier_names <- c("Low", "Moderate", "High", "Very high")
 mapping <- config$clusters
 check(config$schema_version == 1L && config$measurement_version == "part2-fixed-components-v2",
@@ -245,23 +245,23 @@ check(all(unit_support$higher_share + unit_support$lower_share <= unit_support$m
 baseline_clusters <- x$cluster_2025
 centers <- model$baseline$centers
 signal_features <- setdiff(model$features, "demographic_vulnerability_index")
-check(all(centers["C3", signal_features] < 0), "C3 six signal indices below their baseline means")
-check(which.max(centers[, "sr_311_pressure_index"]) == match("C6", rownames(centers)) &&
-  centers["C6", "demographic_vulnerability_index"] > 0, "C6 request activity and vulnerability anchor")
-check(which.max(centers[, "ownership_pressure_index"]) == match("C2", rownames(centers)) &&
-  centers["C2", "demographic_vulnerability_index"] > 0, "C2 ownership and vulnerability anchor")
+check(all(centers["C2", signal_features] < 0), "C2 six signal indices below their baseline means")
+check(which.max(centers[, "sr_311_pressure_index"]) == match("C5", rownames(centers)) &&
+  centers["C5", "demographic_vulnerability_index"] > 0, "C5 request activity and vulnerability anchor")
+check(which.max(centers[, "ownership_pressure_index"]) == match("C7", rownames(centers)) &&
+  centers["C7", "demographic_vulnerability_index"] > 0, "C7 ownership and vulnerability anchor")
 demo <- readRDS("output/part2/demolitions/demolition_features_paired.rds")
 demo <- demo[demo$analysis_as_of_date == dates[1], ]
 demo <- demo[match(x$hex_id, demo$hex_id), ]
-check(all(demo$demo_latest_24mo[baseline_clusters == "C5"] > 0) &&
-  which.max(centers["C5", ]) == match("demolition_pressure_index", colnames(centers)), "C5 mapped recent permit and dominant demolition anchor")
+check(all(demo$demo_latest_24mo[baseline_clusters == "C6"] > 0) &&
+  which.max(centers["C6", ]) == match("demolition_pressure_index", colnames(centers)), "C6 mapped recent permit and dominant demolition anchor")
 rate <- 100 * recent[, 1] / fixed_units
 rates_by_cluster <- tapply(rate, baseline_clusters, mean)
-check(all(recent[baseline_clusters == "C1", 1] > 0) && round(rates_by_cluster["C1"], 1) == 15.4 &&
-  all(round(rates_by_cluster[names(rates_by_cluster) != "C1"], 1) <= 1.8) &&
-  mean(100 * (recent[baseline_clusters == "C1", 1] - previous[baseline_clusters == "C1", 1]) /
-    fixed_units[baseline_clusters == "C1"]) > 0 && centers["C1", "demographic_vulnerability_index"] > 0,
-  "C1 filing concentration, relative rate, positive change and vulnerability anchors")
+check(all(recent[baseline_clusters == "C3", 1] > 0) && round(rates_by_cluster["C3"], 1) == 11.7 &&
+  all(round(rates_by_cluster[names(rates_by_cluster) != "C3"], 1) <= 2.4) &&
+  mean(100 * (recent[baseline_clusters == "C3", 1] - previous[baseline_clusters == "C3", 1]) /
+    fixed_units[baseline_clusters == "C3"]) > 0 && centers["C3", "demographic_vulnerability_index"] > 0,
+  "C3 filing concentration, relative rate, positive change and vulnerability anchors")
 acs <- readRDS("output/part2/acs/acs_features_paired.rds")
 acs <- acs[acs$analysis_as_of_date == dates[1], ]
 acs <- acs[match(x$hex_id, acs$hex_id), ]
@@ -269,16 +269,16 @@ check(mean(acs$acs_rent_current_real[baseline_clusters == "C4"]) > mean(acs$acs_
   mean(acs$acs_rent_growth_recent_annualized_pct[baseline_clusters == "C4"]) > 0 &&
   which.min(centers[, "demographic_vulnerability_index"]) == match("C4", rownames(centers)),
   "C4 higher, rising rent and lowest vulnerability anchors")
-check(which.max(centers[, "amenity_change_index"]) == match("C7", rownames(centers)), "C7 nearby amenity exposure anchor")
+check(which.max(centers[, "amenity_change_index"]) == match("C1", rownames(centers)), "C1 nearby amenity exposure anchor")
 
 # Exact reviewed-run fixture supplements the recomputation above. A future
 # model must obtain a new reviewed hash/mapping, not silently reuse these labels.
-reviewed_hash <- "a0b242512ecc72f353fa7bec45653024e0a5fd0f1543f6d4d7d1c376e7f8a441"
+reviewed_hash <- "ef04610eb1f300e69ce0352aba21acf5bccbd8971a2e6d754616a4e23a5d172f"
 if (identical(config$baseline_centers_sha256, reviewed_hash)) {
   equal(c(n, sum(moved), sum(change > 0), sum(change < 0), sum(change == 0)),
-    c(2351, 822, 335, 262, 1754), "reviewed corrected-run count fixture", 0)
+    c(2490, 867, 342, 266, 1882), "reviewed corrected-run count fixture", 0)
   equal(c(sum(moved & change == 0), sum(abs(change) == 1), sum(abs(change) >= 2)),
-    c(225, 354, 243), "reviewed same-tier/one-tier/multitier fixture", 0)
+    c(259, 366, 242), "reviewed same-tier/one-tier/multitier fixture", 0)
 }
 
 # Pin both the immediate interpretation inputs and the upstream corrected model

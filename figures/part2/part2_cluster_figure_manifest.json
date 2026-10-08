@@ -2,10 +2,10 @@
   "schema_version": 2,
   "status": "paired_cluster_static_figures_complete",
   "measurement_version": "part2-fixed-components-v2",
-  "created_at_utc": "2026-09-10T14:36:02Z",
-  "sample_cells": 2351,
-  "fixed_city_center_cells": 6060,
-  "excluded_city_center_cells": 3709,
+  "created_at_utc": "2026-10-08T03:22:00Z",
+  "sample_cells": 2515,
+  "fixed_city_center_cells": 6196,
+  "excluded_city_center_cells": 3681,
   "cluster_labels": ["C1", "C2", "C3", "C4", "C5", "C6", "C7"],
   "labels_are_risk_ranks": false,
   "alignment": "maximize shared-cell overlap with coeval fixed-2026 assignments, not feature-risk order",
@@ -34,83 +34,83 @@
   "inputs": [
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/output/hex_grid.rds",
-      "size": 542060,
-      "modified": "2026-08-18T09:23:42.537953-0500",
-      "sha256": "9411cf13e7a07a932e20c8aa2a4e01639fcf5af92e83b4033d8e66a94e3877e7"
+      "size": 645688,
+      "modified": "2026-10-07T22:56:19.656345-0400",
+      "sha256": "5a8ea56fc3a6bf6d53dd431336744afcd87909dff567a74fe62ad6b1bc615831"
     },
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/output/part2/clusters/part2_cluster_assignments.rds",
-      "size": 274107,
-      "modified": "2026-09-10T09:35:09.786130-0500",
-      "sha256": "0088b85b70493314ed80ac987a0491facd9b407f298da930f9f5ef700e717287"
+      "size": 292634,
+      "modified": "2026-10-07T23:20:53.859695-0400",
+      "sha256": "3e1e0aea80ae4027f878d784f7aeddd7c2ff5ef33c1f78390f91a61d48a665b2"
     },
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/output/part2/clusters/part2_cluster_profiles_long.csv",
-      "size": 15328,
-      "modified": "2026-09-10T09:34:37.321448-0500",
-      "sha256": "a5db199463c8cb62e92a6b5591925915a75d43eb40e624604219ce3cb9344297"
+      "size": 15354,
+      "modified": "2026-10-07T23:20:18.358197-0400",
+      "sha256": "652f8360fb5455f389125d5c0b8ac3840651773416a43e7a1da6eca2580e2d9d"
     },
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/output/part2/clusters/part2_cluster_run_manifest.json",
-      "size": 14451,
-      "modified": "2026-09-10T09:35:15.470435-0500",
-      "sha256": "15cf69d4477b674de4372f1645399c3b59e69502dc8096a5e5c00e8fbc3f3ad6"
+      "size": 14454,
+      "modified": "2026-10-07T23:21:05.256247-0400",
+      "sha256": "6de3bed97604c084ac3dea77cc5bf70f9f016dab80a6c02d7390af9064c75b8e"
     },
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/output/part2/matrix/part2_eligibility_by_hex.rds",
-      "size": 90868,
-      "modified": "2026-09-10T09:33:39.118442-0500",
-      "sha256": "5a38af375804e52a7d72d6db4e86f3780793d22576dd352640f13610af5ebe61"
+      "size": 116701,
+      "modified": "2026-10-07T23:19:43.676374-0400",
+      "sha256": "94d540cbd2364630eca1296f346de9e5c974d2a96ea202021e4c4a12546c383d"
     },
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/output/part2/matrix/part2_features_paired.rds",
-      "size": 459995,
-      "modified": "2026-09-10T09:33:39.076164-0500",
-      "sha256": "1644721044807ce3a5fecde4333b826c7e004368dcb113d81bd1663abea886c1"
+      "size": 497508,
+      "modified": "2026-10-07T23:19:43.629432-0400",
+      "sha256": "966c63d97835abc2c887f896292610d14a0ef7a1ed14280b552e24712600e416"
     },
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/R/pipeline.R",
       "size": 3122,
-      "modified": "2026-09-04T13:12:07.030004-0500",
+      "modified": "2026-09-04T14:12:07.030004-0400",
       "sha256": "b44bbf50008e0d92c012f79503c79ed615c868980cc8af7c3799892f791c2902"
     },
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/scripts/part2/visualize_cluster_comparison.R",
-      "size": 15469,
-      "modified": "2026-09-08T14:51:00.573856-0500",
-      "sha256": "2bc361039673ec2b03103e8ac3bf9daa49c9d79b9e6e0faf961be5a8c43292e0"
+      "size": 15574,
+      "modified": "2026-10-07T22:56:51.225351-0400",
+      "sha256": "fb22827e1c5f8c203ff3945228c9bb7a7846ac1b8edb690e7e3856a95706e9c3"
     }
   ],
   "outputs": [
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/figures/part2/part2_cluster_comparison_maps.png",
-      "size": 1772372,
-      "modified": "2026-09-10T09:36:02.510377-0500",
-      "sha256": "b8d8353d444a3bb59483fb3dc55dc2742fc3f83ed62a5ee4a3346987eaeee29b"
+      "size": 1803424,
+      "modified": "2026-10-07T23:22:00.316235-0400",
+      "sha256": "763c95d53e40f672405dcc9dcc46ae6dfda871c9718cc129982b197c742f02e4"
     },
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/figures/part2/part2_cluster_palette.csv",
       "size": 400,
-      "modified": "2026-09-10T09:36:02.973362-0500",
+      "modified": "2026-10-07T23:22:00.685597-0400",
       "sha256": "95255c13ec47a07f14486c7a3803bbf0268d2b8ce0af05330eefff3d3eed8552"
     },
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/figures/part2/part2_cluster_profile_heatmap.png",
-      "size": 374172,
-      "modified": "2026-09-10T09:36:02.971153-0500",
-      "sha256": "5cbfa48d837cbe12d89033444f23ba40b570d3eacd79e720d0a380215e1e5ed2"
+      "size": 374031,
+      "modified": "2026-10-07T23:22:00.683852-0400",
+      "sha256": "f78955c610db6cf3dc2687096a294e213bfddc21fca11220863b23c17aeccd67"
     },
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/figures/part2/part2_cluster_transition_heatmap.png",
-      "size": 219268,
-      "modified": "2026-09-10T09:36:02.694342-0500",
-      "sha256": "4f847bb4102b4df038196af3dc09d02c8daa4fa9290b1bf19118ca72cede76c0"
+      "size": 224389,
+      "modified": "2026-10-07T23:22:00.496278-0400",
+      "sha256": "d946eb805d73cc1776a8c638bc155dfdee381f84f51d4835cd6b2699ab1db49c"
     },
     {
       "path": "/Users/alexkarner/Repositories/coa-displacement-ews/figures/part2/part2_cluster_transition_plot_data.csv",
-      "size": 1652,
-      "modified": "2026-09-10T09:36:02.975460-0500",
-      "sha256": "f2144f61f7884189b4f68213fcbd76298432f91588d7e6c5dc0fb629cb9656e0"
+      "size": 1662,
+      "modified": "2026-10-07T23:22:00.687633-0400",
+      "sha256": "f22dab8139785047ccbf410201be21532c49072c5dcb5eb6d61e53bba0c771d4"
     }
   ],
   "runtime": {
