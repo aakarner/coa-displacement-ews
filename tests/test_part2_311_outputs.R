@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Independent read-only audit of local paired 311 artifacts.
 suppressPackageStartupMessages({library(dplyr); library(sf)})
 source("R/part2_311.R")
@@ -34,8 +35,8 @@ for(i in 1:2) {
   previous_start<-as.Date(c("2023-04-02","2024-04-02")[i])
   directory<-file.path(root,as.character(cutoff))
   f<-readRDS(file.path(directory,"311_features_by_hex.rds"));sets[[i]]<-f
-  stopifnot(identical(f$hex_id,grid$hex_id),is.integer(f$hex_id),nrow(f)==7027L,
-    all(f$analysis_as_of_date==cutoff),sum(f$sr_311_in_current_city_scope)==6060L,
+  stopifnot(identical(f$hex_id,grid$hex_id),is.integer(f$hex_id),nrow(f)==grid_contract()$grid_cells,
+    all(f$analysis_as_of_date==cutoff),sum(f$sr_311_in_current_city_scope)==grid_contract()$city_center_cells,
     all(!f$sr_311_all_requests_coverage_verified))
   eq(f$area_km2,grid$area_km2)
   eq(f$residential_units,units$residential_units[match(grid$hex_id,units$hex_id)])

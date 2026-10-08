@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Static scientific figures for the paired, covered-subset cluster comparison.
 # This script overwrites only the authorized figures/part2 artifacts. No Part 1 labels, risk
 # ordering, model fitting, or interactive map/site updates are performed here.
@@ -39,7 +40,7 @@ feature_labels <- c(
   ownership_pressure_index = "Corporate\nownership",
   amenity_change_index = "Amenity\nopenings")
 
-stopifnot(nrow(grid) == 7027L, is.integer(grid$hex_id),
+stopifnot(nrow(grid) == grid_contract()$grid_cells, is.integer(grid$hex_id),
   all(c("hex_id", "common_comparison_ready", cluster_columns, "moved_fixed") %in% names(assignments)),
   !anyDuplicated(assignments$hex_id), setequal(assignments$hex_id, grid$hex_id),
   !anyDuplicated(eligibility$hex_id), setequal(eligibility$hex_id, grid$hex_id),
@@ -50,7 +51,7 @@ stopifnot(identical(assignments$common_comparison_ready, eligibility$common_comp
   !anyNA(assignments$common_comparison_ready), !anyNA(eligibility$in_current_city_scope),
   sum(assignments$common_comparison_ready) > length(cluster_levels),
   sum(assignments$common_comparison_ready) == cluster_manifest$common_hexes,
-  sum(eligibility$in_current_city_scope) == 6060L,
+  sum(eligibility$in_current_city_scope) == grid_contract()$city_center_cells,
   all(!assignments$common_comparison_ready | eligibility$in_current_city_scope))
 eligible <- assignments %>% filter(common_comparison_ready)
 paired_sample <- paired[paired$hex_id %in% eligible$hex_id, ]
@@ -107,7 +108,7 @@ map_attributes <- assignments %>% select(hex_id, common_comparison_ready, all_of
     map_class = factor(if_else(common_comparison_ready, cluster, excluded_label), levels = names(map_palette)))
 map_grid <- st_transform(grid %>% select(hex_id), 3083)
 map_data <- map_grid %>% inner_join(map_attributes, by = "hex_id", relationship = "one-to-many")
-stopifnot(nrow(map_data) == 6060L * 3L)
+stopifnot(nrow(map_data) == grid_contract()$city_center_cells * 3L)
 maps <- ggplot(map_data) +
   geom_sf(aes(fill = map_class), color = NA, linewidth = 0) +
   facet_wrap(vars(solution), nrow = 1, labeller = as_labeller(solution_labels)) +

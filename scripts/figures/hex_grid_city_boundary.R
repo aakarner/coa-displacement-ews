@@ -2,9 +2,9 @@
 # Map the Current EWS Hex Grid and City of Austin Boundary
 ################################################################################
 #
-# The production grid was generated from the 2021 Census Austin place polygon.
-# This figure compares that fixed H3 grid with the City jurisdiction boundary
-# dated April 29, 2026, which is used by current boundary audits.
+# Show the expanded production H3 grid and the adopted April 29, 2026
+# full-purpose boundary. Original cell IDs and whole polygons are retained;
+# computational coverage and center-based analytical scope are distinct.
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -18,6 +18,8 @@ suppressPackageStartupMessages({
 
 source(here::here("R", "utils.R"))
 source(here::here("R", "analysis_config.R"))
+source(here::here("R", "grid_contract.R"))
+grid_metadata <- grid_contract()
 
 OUTPUT_DIR <- here::here("output")
 FIGURES_DIR <- here::here("figures")
@@ -26,11 +28,12 @@ JURISDICTIONS_FILE <- here::here(
   "data",
   "BOUNDARIES_jurisdictions_20260429.geojson"
 )
-ANALYSIS_CRS <- 5070
+COUNTIES_FILE <- here::here("data", "raw_geography", "counties_2024.zip")
+ANALYSIS_CRS <- 3083
 
 dir.create(FIGURES_DIR, recursive = TRUE, showWarnings = FALSE)
 
-required_files <- c(HEX_GRID_FILE, JURISDICTIONS_FILE)
+required_files <- c(HEX_GRID_FILE, JURISDICTIONS_FILE, COUNTIES_FILE)
 missing_files <- required_files[!file.exists(required_files)]
 if (length(missing_files) > 0L) {
   stop(
@@ -45,6 +48,23 @@ sf_use_s2(FALSE)
 hex_grid <- load_output(HEX_GRID_FILE, "current EWS hex grid") %>%
   st_make_valid() %>%
   st_transform(ANALYSIS_CRS)
+
+# Reuse the pinned 2024 county geometry used by the production crosswalk.
+stopifnot(identical(digest::digest(file = COUNTIES_FILE, algo = "sha256"),
+  "da4051717caec55c75e3748c3608c2a3dbde8d1ff401bbaf4f952e3c3fb63ef1"))
+counties <- st_read(paste0("/vsizip/", normalizePath(COUNTIES_FILE)), quiet = TRUE) %>%
+  filter(STATEFP == "48", NAME %in% c("Travis", "Williamson", "Hays")) %>%
+  st_make_valid() %>% st_transform(ANALYSIS_CRS)
+stopifnot(nrow(counties) == 3L)
+map_bbox <- st_bbox(hex_grid)
+map_bbox[c("xmin", "ymin")] <- map_bbox[c("xmin", "ymin")] - 600
+map_bbox[c("xmax", "ymax")] <- map_bbox[c("xmax", "ymax")] + 600
+# Clip lines after taking the polygon boundaries to avoid drawing a box edge.
+county_lines <- suppressWarnings(st_intersection(
+  st_line_merge(st_union(st_boundary(counties))), st_as_sfc(map_bbox)))
+county_visible <- suppressWarnings(st_intersection(counties, st_as_sfc(map_bbox)))
+county_labels <- suppressWarnings(st_point_on_surface(county_visible)) %>%
+  mutate(label = paste(NAME, "County"))
 
 city_jurisdictions <- st_read(JURISDICTIONS_FILE, quiet = TRUE) %>%
   st_make_valid() %>%
@@ -72,7 +92,7 @@ if (nrow(city_boundary) != 1L || nrow(city_limited) != 1L) {
 hex_intersects_city <- lengths(st_intersects(hex_grid, city_boundary)) > 0L
 hex_intersects_limited <- lengths(st_intersects(hex_grid, city_limited)) > 0L
 hex_points <- suppressWarnings(st_point_on_surface(hex_grid))
-hex_center_in_city <- lengths(st_within(hex_points, city_boundary)) > 0L
+hex_center_in_city <- lengths(st_covered_by(hex_points, city_boundary)) > 0L
 
 hex_map <- hex_grid %>%
   mutate(
@@ -85,8 +105,7 @@ hex_map <- hex_grid %>%
 
 grid_union <- st_union(hex_grid)
 city_uncovered <- suppressWarnings(st_difference(city_boundary, grid_union)) %>%
-  st_as_sf() %>%
-  mutate(map_class = "Full-purpose area outside grid")
+  st_as_sf()
 
 city_area_km2 <- as.numeric(st_area(city_boundary)) / 1e6
 city_uncovered_km2 <- sum(as.numeric(st_area(city_uncovered))) / 1e6
@@ -102,15 +121,22 @@ if (
   stop("Grid and City boundary overlap checks failed.", call. = FALSE)
 }
 
+stopifnot(nrow(hex_grid) == grid_metadata$grid_cells,
+  sum(hex_intersects_city) == grid_metadata$city_intersecting_cells,
+  sum(hex_center_in_city) == grid_metadata$city_center_cells,
+  city_uncovered_km2 * 1e6 < 1,
+  identical(digest::digest(file = JURISDICTIONS_FILE, algo = "sha256"),
+    grid_metadata$boundary_sha256))
+
 summary_text <- paste0(
   comma(nrow(hex_grid)),
   " total H3 cells\n",
   comma(sum(hex_intersects_city)),
   " intersect full-purpose Austin\n",
-  comma(sum(!hex_intersects_city & hex_intersects_limited)),
-  " intersect limited-purpose Austin only\n",
-  comma(sum(!hex_intersects_city & !hex_intersects_limited)),
-  " intersect neither jurisdiction\n",
+  comma(sum(hex_center_in_city)),
+  " have centers inside full-purpose Austin\n",
+  comma(sum(!hex_intersects_city)),
+  " retained cells outside full-purpose Austin\n",
   number(median_hex_area_km2, accuracy = 0.001),
   " km2 median cell area\n",
   number(city_covered_pct, accuracy = 0.1),
@@ -120,8 +146,7 @@ summary_text <- paste0(
 map_palette <- c(
   "Intersects full-purpose boundary" = "#B8D8D8",
   "Limited-purpose jurisdiction only" = "#F3D58A",
-  "Outside both City jurisdictions" = "#E7EBF0",
-  "Full-purpose area outside grid" = "#F4A6A6"
+  "Outside both City jurisdictions" = "#E7EBF0"
 )
 
 map_theme <- theme_void(base_size = 11) +
@@ -150,20 +175,21 @@ main_map <- ggplot() +
     linewidth = 0.07
   ) +
   geom_sf(
-    data = city_uncovered,
-    aes(fill = map_class),
-    color = NA
-  ) +
-  geom_sf(
     data = city_boundary,
     fill = NA,
     color = "#C62828",
     linewidth = 0.85
   ) +
+  geom_sf(data = county_lines, color = "#344563", linewidth = 0.65,
+    linetype = "longdash") +
+  geom_sf_label(data = county_labels, aes(label = label), size = 3.3,
+    fontface = "bold", color = "#344563", fill = alpha("white", 0.92),
+    label.padding = grid::unit(0.15, "lines"), linewidth = 0) +
   scale_fill_manual(values = map_palette, drop = FALSE) +
-  coord_sf(datum = NA, expand = FALSE) +
+  coord_sf(xlim = unname(map_bbox[c("xmin", "xmax")]),
+    ylim = unname(map_bbox[c("ymin", "ymax")]), datum = NA, expand = FALSE) +
   labs(
-    title = "Complete Current Study Grid",
+    title = "Expanded Computational Grid",
     subtitle = paste(
       "Gold cells are outside full-purpose Austin but intersect",
       "the City's limited-purpose jurisdiction."
@@ -251,10 +277,10 @@ metrics_panel <- ggplot() +
   ) +
   annotate(
     "rect",
-    xmin = c(0, 0, 0, 0),
-    xmax = c(0.09, 0.09, 0.09, 0.09),
-    ymin = c(-0.01, -0.13, -0.25, -0.37),
-    ymax = c(0.07, -0.05, -0.17, -0.29),
+    xmin = c(0, 0, 0),
+    xmax = c(0.09, 0.09, 0.09),
+    ymin = c(-0.01, -0.13, -0.25),
+    ymax = c(0.07, -0.05, -0.17),
     fill = unname(map_palette),
     color = "#8C99A8",
     linewidth = 0.2
@@ -262,12 +288,16 @@ metrics_panel <- ggplot() +
   annotate(
     "text",
     x = 0.12,
-    y = c(0.03, -0.09, -0.21, -0.33),
+    y = c(0.03, -0.09, -0.21),
     label = names(map_palette),
     hjust = 0,
     size = 2.55,
     color = "#344563"
   ) +
+  annotate("segment", x = 0, xend = 0.09, y = -0.33, yend = -0.33,
+    color = "#344563", linewidth = 0.65, linetype = "longdash") +
+  annotate("text", x = 0.12, y = -0.33, label = "County boundary (2024 Census)",
+    hjust = 0, size = 2.55, color = "#344563") +
   coord_cartesian(xlim = c(0, 1), ylim = c(-0.41, 1), clip = "off") +
   theme_void() +
   theme(plot.margin = margin(8, 10, 8, 10))
@@ -280,13 +310,12 @@ grid_figure <- main_map + right_column +
   plot_annotation(
     title = "Current EWS Hex Grid and City of Austin Boundary",
     subtitle = paste(
-      "H3 resolution 9 grid generated from the 2021 Census Austin place;",
-      "compared with the City's full- and limited-purpose jurisdictions dated April 29, 2026."
+      "H3 resolution 9 expanded to cover the April 29, 2026 full-purpose boundary;",
+      "923 cells added, with all original cell IDs preserved."
     ),
     caption = paste(
-      "Complete cells are retained rather than clipped.",
-      "The red outline is the current full-purpose boundary;",
-      "red fill identifies full-purpose areas outside the fixed grid."
+      "Red: April 2026 full-purpose boundary. Dashed gray: 2024 Census county boundaries. Whole cells remain unclipped.",
+      "Analytical eligibility uses City-center membership plus unit and data-coverage requirements."
     ),
     theme = theme(
       plot.title = element_text(
@@ -332,3 +361,5 @@ ggsave(
 
 print_progress(paste0("Saved current grid map: ", png_file))
 print_progress(paste0("Saved vector grid map: ", pdf_file))
+
+cat(summary_text, "\n")

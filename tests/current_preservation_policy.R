@@ -17,7 +17,37 @@ current_preservation_entries <- function(entries) {
     p %in% c("output/hex_features.rds","output/feature_list.csv","output/feature_coverage_audit.csv",
       "output/part2/baseline_fixed_cluster_assignments.csv","output/part2/baseline_fixed_cluster_assignment_summary.csv") |
     grepl("^output/amenity_cluster_",p) | grepl("^figures/03[deg]_",p)
-  # Raw inputs, canonical unit/geometry surfaces, historical Part2 products,
-  # and Part3 products are never exempted by this rule.
+  # Decision 0020 explicitly supersedes these derived aggregations. Raw
+  # source caches are deliberately absent from this allowlist. Current source
+  # manifests and the independent grid-coverage test validate replacements.
+  if (file.exists("docs/decisions/0020-full-purpose-h3-grid.md")) {
+    source("R/grid_contract.R")
+    stopifnot(grid_contract()$version == "austin_full_20260429_stable_h3_v1")
+    grid_products <- c("output/311_requests_by_hex_summary.csv", "output/311_requests_by_hex_summary.rds",
+      "output/311_requests_by_hex_year.csv", "output/311_service_request_counts.csv",
+      "output/311_service_request_selection.csv", "output/acs_dasymetric_allocation_qa.csv",
+      "output/acs_dasymetric_block_hex_allocation.csv", "output/acs_dasymetric_block_hex_allocation.rds",
+      "output/acs_dasymetric_hex_bg_crosswalk.csv", "output/acs_dasymetric_hex_bg_crosswalk.rds",
+      "output/acs_demographics_by_hex.csv", "output/acs_demographics_by_hex.rds",
+      "output/acs_rent_by_hex_vintage.csv", "output/acs_rent_by_hex_vintage.rds",
+      "output/acs_rent_dasymetric_crosswalk_qa.csv", "output/acs_rent_dominant_sources_by_hex_vintage.csv",
+      "output/acs_rent_trends_by_hex.csv", "output/acs_rent_trends_by_hex.rds",
+      "output/amenity_change_features_by_hex.csv", "output/amenity_change_features_by_hex.rds",
+      "output/amenity_events_geocoded.rds", "output/amenity_geocoding_method_qa.csv",
+      "output/amenity_geocoding_qa.csv", "output/amenity_hex_distribution_qa.csv",
+      "output/demolition_permits_annual_qa.csv", "output/demolition_permits_by_hex_year.csv",
+      "output/demolition_permits_source_qa.csv", "output/demolition_permits_unmatched_qa.csv",
+      "output/hex_grid.rds", "output/part2/acs/acs_features_paired.rds",
+      "output/part2/amenities/amenity_features_paired.rds", "output/part2/ownership/ownership_common_support_by_hex_year.rds",
+      "output/part3/demolition_coverage_current_snapshot_qa.csv", "output/part3/demolition_coverage_current_snapshot_summary.csv",
+      "output/part3/demolition_historical_coverage_by_hex_year.csv",
+      "output/part3/demolition_panel_source_manifest.csv")
+    # The separately regenerated H3 demonstration consumes that same grid
+    # and adopted boundary; it does not alter fitted analysis artifacts.
+    grid_products <- c(grid_products, "figures/10_hex_grid_city_boundary.png",
+      "figures/10_hex_grid_city_boundary.pdf")
+    replaced <- replaced | p %in% grid_products
+  }
+  # Other files remain protected by their dated inventories.
   entries[!replaced,,drop=FALSE]
 }

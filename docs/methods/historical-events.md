@@ -2,7 +2,7 @@
 
 These two standalone stages reconstruct the selected 311 and residential
 demolition indices for April 1, 2025 and April 1, 2026. They read pinned local
-histories, retain the fixed 7,027-cell audit grid, and write only separate
+histories, retain the fixed 7,950-cell audit grid, and write only separate
 Part 2 outputs. They do not run the eviction build, clusters or Part 3 ML.
 
 ## Exact windows and sources
@@ -43,7 +43,7 @@ March 31. The source file is checksum-pinned.
 ## Fixed geography and coverage
 
 Both streams use the existing City of Austin FULL-purpose boundary snapshot
-dated April 29, 2026. Among the 7,027 grid cells, 6,060 have their representative
+dated April 29, 2026. Among the 7,950 grid cells, 6,196 have their representative
 points inside that fixed boundary. Qualifying events must also have coordinates
 inside the exact current FULL boundary. Events outside the grid or in city
 slivers whose cell centers lie outside remain explicit exclusions. These

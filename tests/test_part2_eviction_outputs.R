@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Offline integration checks against persisted evidence, not annual outcome labels.
 suppressPackageStartupMessages({library(dplyr); library(readr); library(testthat)})
 source("R/part2_index_scoring.R")
@@ -21,7 +22,7 @@ bound <- as.numeric(quantile(abs(baseline$eviction_latest_12mo_rate_change_per_1
 stopifnot(identical(scale$bounds$upper_bound[2], bound), identical(scale$bounds$lower_bound[2], -bound))
 
 test_that("all grid rows and fixed denominators persist at both dates", {
-  expect_equal(nrow(paired), 14054L); expect_true(is.integer(paired$hex_id))
+  expect_equal(nrow(paired), 2L * grid_contract()$grid_cells); expect_true(is.integer(paired$hex_id))
   expect_equal(nrow(distinct(paired, hex_id, analysis_as_of_date)), nrow(paired))
   expect_equal(sort(unique(paired$analysis_as_of_date)), dates)
   expect_equal(paired$residential_units, units$residential_units[match(paired$hex_id, units$hex_id)])
@@ -68,8 +69,9 @@ for (i in seq_along(dates)) local({
     expect_equal(max(segments$requested_end),date)
     expect_true(all(f$eviction_eligibility_window_start==previous_start))
     expect_true(all(f$eviction_eligibility_window_end==date))
-    expect_equal(sum(f$eviction_inside_current_city), 6060L)
-    expect_equal(sum(f$eviction_source_covered), 5977L)
+    expect_equal(sum(f$eviction_inside_current_city), grid_contract()$city_center_cells)
+    expect_equal(f$eviction_source_covered, f$eviction_inside_current_city &
+      summary$covered[match(f$hex_id, summary$hex_id)])
     uncertainty <- read_csv(file.path(directory, "eviction_localizable_uncertainty.csv"), show_col_types = FALSE)
     source <- read_csv(file.path(root,"eviction_source_case_dates.csv"),show_col_types=FALSE)
     candidates <- read_csv(file.path(root,"eviction_candidate_hexes.csv"),show_col_types=FALSE)

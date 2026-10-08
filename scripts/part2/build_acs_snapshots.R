@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Corrected paired ACS inputs overwrite superseded Part 2 ACS products.
 # --assemble-only keeps demographics but always rebuilds rent from twelve raw
 # caches and dominant-geography crosswalks, never from old rent trend outputs.
@@ -30,7 +31,7 @@ protected_paths <- c(fixed_paths, cache_paths, crosswalk_paths,
 protected_before <- build_file_manifest(protected_paths, require_all = TRUE, hash_files = TRUE)
 write_csv(protected_before, file.path(root, "part1_preservation_before.csv"))
 grid <- readRDS(fixed_paths[1]); grid_ids <- grid$hex_id
-stopifnot(nrow(grid) == 7027L, is.integer(grid_ids), !anyNA(grid_ids), !anyDuplicated(grid_ids))
+stopifnot(nrow(grid) == grid_contract()$grid_cells, is.integer(grid_ids), !anyNA(grid_ids), !anyDuplicated(grid_ids))
 # Preserve the original normalization rows, including original availability
 # counts; do not estimate fresh bounds on the corrected complete-case cohort.
 expected_bounds_sha256 <- "045e6d84ddc67880dee5fe7528c2279cdbde35adfc1f33d1866c539c7c96df94"

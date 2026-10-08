@@ -64,7 +64,7 @@ best agreement under relabeling, not a separate validation statistic.
 
 Later observations are assigned to their nearest 2025 center in Euclidean
 standardized-feature space. The baseline must reproduce its own training
-assignments exactly. The outputs retain all 7,027 audit cells; excluded cells
+assignments exactly. The outputs retain all 7,950 audit cells; excluded cells
 have missing assignments and their original exclusion reason.
 
 The primary transition table compares baseline 2025 with fixed 2026. A separate

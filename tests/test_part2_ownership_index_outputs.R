@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Read-only integration audit of the completed paired ownership index artifacts.
 suppressPackageStartupMessages({library(dplyr); library(readr); library(sf)})
 source("R/part2_ownership_index.R")
@@ -21,7 +22,7 @@ for (i in seq_along(cutoffs)) {
   c <- common[common$tax_year == years[[i]], ]; c <- c[match(grid$hex_id, c$hex_id), ]
   f <- full[full$tax_year == years[[i]], ]; f <- f[match(grid$hex_id, f$hex_id), ]
   ready <- x$ownership_comparison_ready
-  stopifnot(nrow(x) == 7027L, identical(x$hex_id, grid$hex_id), identical(x$area_km2, as.numeric(grid$area_km2)),
+  stopifnot(nrow(x) == grid_contract()$grid_cells, identical(x$hex_id, grid$hex_id), identical(x$area_km2, as.numeric(grid$area_km2)),
     all(x$analysis_as_of_date == cutoffs[[i]]), all(x$tax_year == years[[i]]), sum(ready) == 3227L,
     identical(ready, c$comparison_ready), all(is.finite(x$ownership_pressure_index[ready])),
     all(is.na(x$ownership_pressure_index[!ready])),
@@ -54,7 +55,7 @@ stopifnot(identical(bounds[[1]], bounds[[2]]),
   identical(features[[1]]$common_parcels, features[[2]]$common_parcels))
 paired <- readRDS(file.path(root, "ownership_features_paired.rds"))
 changes <- readRDS(file.path(root, "ownership_feature_changes_by_hex.rds"))
-stopifnot(identical(paired, bind_rows(features)), nrow(paired) == 14054L,
+stopifnot(identical(paired, bind_rows(features)), nrow(paired) == 2L * grid_contract()$grid_cells,
   !anyDuplicated(paired[c("hex_id", "analysis_as_of_date")]),
   identical(changes, part2_ownership_changes(features[[1]], features[[2]])),
   sum(changes$ownership_change_available) == 3227L)

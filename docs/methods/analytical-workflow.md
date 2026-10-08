@@ -42,12 +42,12 @@ The current feature surface combines:
   transactions, and amenity change;
 - denominators and coverage indicators needed to distinguish zero from missing.
 
-The 7,027-cell H3 surface is the common computational grid generated from the
-2021 Census Austin place polygon. Part 3 uses a fixed study subset of 6,060
+The 7,950-cell H3 surface expands the original Census-2021 grid to cover the
+adopted City boundary, preserving every original cell ID. Part 3 uses 6,196
 cells whose projected point-on-surface falls inside the exact April 29, 2026
 City of Austin FULL polygon. Retaining the larger grid supports Part 1, Part 2,
 and boundary diagnostics without treating all grid cells as eligible Part 3
-locations.
+locations. See [decision 0020](../decisions/0020-full-purpose-h3-grid.md).
 
 Time-indexed features must retain their observation cutoff and source vintage.
 No Part 3 predictor may contain information published after the forecast origin.

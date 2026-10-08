@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Local-only paired mapped-filing proxies; never refreshes or overwrites Part 1/3.
 suppressPackageStartupMessages({library(dplyr); library(readr); library(sf)})
 source("R/pipeline.R")
@@ -32,7 +33,7 @@ counties <- read_csv(county_path, show_col_types = FALSE) %>% mutate(hex_id = as
 jps <- read_csv(jp_path, show_col_types = FALSE) %>% mutate(hex_id = as.integer(hex_id))
 jp_metadata <- read_csv(jp_metadata_path, show_col_types = FALSE)
 source_config <- read_csv(source_path, show_col_types = FALSE)
-stopifnot(nrow(grid) == 7027L, is.integer(grid$hex_id), !anyDuplicated(units$hex_id),
+stopifnot(nrow(grid) == grid_contract()$grid_cells, is.integer(grid$hex_id), !anyDuplicated(units$hex_id),
   setequal(grid$hex_id, units$hex_id), !anyDuplicated(counties$hex_id), setequal(grid$hex_id, counties$hex_id),
   identical(as.character(grid$h3_index), as.character(counties$h3_index[match(grid$hex_id, counties$hex_id)])),
   all(jps$h3_index == as.character(grid$h3_index[match(jps$hex_id, grid$hex_id)])),
@@ -43,7 +44,7 @@ city_rows <- st_read(city_path, quiet = TRUE) %>%
 stopifnot(nrow(city_rows) > 0L)
 city <- st_sf(geometry = st_union(st_transform(st_make_valid(city_rows), 3083)))
 city_reference <- part2_eviction_city_reference(grid, city)
-stopifnot(sum(city_reference$eviction_inside_current_city) == 6060L)
+stopifnot(sum(city_reference$eviction_inside_current_city) == grid_contract()$city_center_cells)
 support <- st_drop_geometry(grid) %>% select(hex_id, area_km2) %>%
   left_join(select(units, hex_id, residential_units), by = "hex_id") %>%
   left_join(select(counties, hex_id, source_county), by = "hex_id") %>%

@@ -50,7 +50,7 @@ sample. Part 2 retains both component bounds and standardization from 2025.
 Require current FULL-purpose city-center membership, at least 20 fixed units,
 current ownership evidence, usable event coverage, retrospective amenity
 usability and every component of all seven indices. Do not require the cell
-to pass the 2025 snapshot. Keep all 7,027 audit cells and explicit exclusions.
+to pass the 2025 snapshot. Keep all 7,950 audit cells and explicit exclusions.
 
 The dated event-domain reconstructions are reused as raw measures and rescored
 for the current reference. They are not downloaded or geocoded again. Hays and

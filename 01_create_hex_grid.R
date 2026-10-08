@@ -15,7 +15,7 @@
 # computational efficiency.
 #
 # INPUTS:
-#   - Austin city boundary from tigris package (downloaded automatically)
+#   - Adopted April 29, 2026 Austin full-purpose boundary and permanent H3 ID registry
 #
 # OUTPUTS:
 #   - output/hex_grid.rds: H3 hexagonal grid as sf object
@@ -57,85 +57,42 @@ dir.create(FIGURES_DIR, showWarnings = FALSE, recursive = TRUE)
 # Step 1: Get Austin city boundary
 ################################################################################
 
-print_progress("Fetching Austin, TX city boundary from Census...")
-
-# Get Texas places (cities) from Census TIGER/Line
-austin_boundary <- tigris::places(state = "TX", year = 2021) %>%
-  filter(NAME == "Austin") %>%
-  st_transform(4326)  # WGS84 coordinate system
-
-print_progress(paste0("Austin boundary loaded. Area: ", 
-                     round(st_area(austin_boundary) / 1e6, 2), " km²"))
-
-################################################################################
-# Step 2: Create hexagonal grid using H3
-################################################################################
-
-print_progress(paste0("Creating H3 hexagonal grid at resolution ", H3_RESOLUTION, "..."))
-
-# Use H3's polygon fill for the fixed Austin boundary. Boundary cells remain
-# complete H3 polygons, so the grid extends slightly beyond the legal boundary
-# in some places and omits small boundary slivers in others.
-h3_indices_sf <- polygon_to_cells(austin_boundary, res = H3_RESOLUTION, simple = FALSE)
-
-# Extract H3 indices as a character vector
-h3_indices <- unlist(h3_indices_sf$h3_address, use.names = FALSE)
-
-if (length(h3_indices) == 0) {
-  stop("polygon_to_cells() returned no H3 indexes.", call. = FALSE)
+boundary_path <- "data/BOUNDARIES_jurisdictions_20260429.geojson"
+registry_path <- "config/hex_id_registry.csv"
+austin_boundary <- st_read(boundary_path, quiet = TRUE) %>%
+  filter(toupper(trimws(city_name)) == "CITY OF AUSTIN", toupper(trimws(jurisdiction_type)) == "FULL") %>%
+  st_transform(3083) %>% st_make_valid() %>% summarise()
+# Pad for candidate discovery, then retain every positive-area intersecting cell.
+# Keep legacy audit cells too, so their identifiers/review links remain stable.
+candidates <- polygon_to_cells(st_transform(st_buffer(austin_boundary,500),4326),res=H3_RESOLUTION)[[1]]
+candidate_polys <- st_as_sf(cell_to_polygon(unique(as.character(candidates)),simple=FALSE)) %>% st_transform(3083)
+intersection <- suppressWarnings(st_intersection(candidate_polys,austin_boundary))
+required_ids <- sort(unique(intersection$h3_address[as.numeric(st_area(intersection)) > 1e-4]))
+if (!file.exists(registry_path)) stop("Missing permanent H3 ID registry; do not renumber the existing grid.")
+registry <- readr::read_csv(registry_path,show_col_types=FALSE,col_types=readr::cols(hex_id='i',h3_index='c'))
+stopifnot(!anyDuplicated(registry$hex_id),!anyDuplicated(registry$h3_index))
+missing_ids <- setdiff(required_ids,registry$h3_index)
+if(length(missing_ids)) stop("H3 registry does not cover the adopted boundary; review and append missing IDs.")
+hex_grid <- st_as_sf(cell_to_polygon(registry$h3_index,simple=FALSE)) %>%
+  rename(h3_index=h3_address) %>% left_join(registry,by='h3_index') %>% arrange(hex_id)
+centers <- suppressWarnings(st_centroid(st_geometry(hex_grid)))
+hex_grid$longitude <- st_coordinates(centers)[,1]
+hex_grid$latitude <- st_coordinates(centers)[,2]
+hex_grid$area_km2 <- as.numeric(st_area(hex_grid))/1e6
+hex_grid <- select(hex_grid,hex_id,h3_index,longitude,latitude,area_km2,geometry)
+# Preserve the exact existing polygons and metadata when extending a live grid.
+old_path <- file.path(OUTPUT_DIR,'hex_grid.rds')
+if(file.exists(old_path)) {
+ old <- readRDS(old_path);j <- match(old$h3_index,hex_grid$h3_index)
+ stopifnot(!anyNA(j),identical(old$hex_id,hex_grid$hex_id[j]))
+ hex_grid <- bind_rows(old,hex_grid[!hex_grid$h3_index %in% old$h3_index,]) %>% arrange(hex_id)
 }
-if (anyDuplicated(h3_indices)) {
-  stop("polygon_to_cells() returned duplicate H3 indexes.", call. = FALSE)
-}
-h3_indices <- sort(as.character(h3_indices))
-
-print_progress(paste0("Generated ", length(h3_indices), " H3 hexagons covering Austin"))
-
-# Convert H3 indices to polygon geometries
-print_progress("Converting H3 indices to polygon geometries...")
-hex_grid <- cell_to_polygon(h3_indices, simple = FALSE) |>
-  st_as_sf() %>%
-  rename(h3_index = h3_address) %>%
-  arrange(h3_index)
-
-if (
-  nrow(hex_grid) != length(h3_indices) ||
-    !identical(hex_grid$h3_index, h3_indices)
-) {
-  stop("H3 index and polygon counts do not match.", call. = FALSE)
-}
-
-print_progress(paste0("Final grid contains ", nrow(hex_grid), " hexagons"))
-
-################################################################################
-# Step 3: Add grid metadata
-################################################################################
-
-print_progress("Adding metadata to hexagonal grid...")
-
-hex_grid <- hex_grid %>%
-  mutate(
-    # Calculate centroid coordinates
-    centroid = st_centroid(geometry),
-    longitude = st_coordinates(centroid)[, 1],
-    latitude = st_coordinates(centroid)[, 2],
-  ) %>%
-  select(-centroid) %>%
-  mutate(
-    # Calculate area in km²
-    area_km2 = as.numeric(st_area(geometry)) / 1e6,
-    
-    # Create sequential ID
-    hex_id = row_number()
-  ) %>%
-  select(hex_id, h3_index, longitude, latitude, area_km2, geometry)
-  
-
-# Summary statistics
-print_progress("Grid summary:")
-cat(paste0("  - Number of hexagons: ", nrow(hex_grid), "\n"))
-cat(paste0("  - Average area: ", round(mean(hex_grid$area_km2), 3), " km²\n"))
-cat(paste0("  - Total area covered: ", round(sum(hex_grid$area_km2), 2), " km²\n"))
+projected <- st_transform(hex_grid,3083)
+uncovered <- suppressWarnings(st_difference(st_geometry(austin_boundary),st_union(projected)))
+uncovered_m2 <- sum(as.numeric(st_area(uncovered)))
+stopifnot(uncovered_m2 < 1)
+center_count <- sum(lengths(st_covered_by(suppressWarnings(st_point_on_surface(projected)),austin_boundary))>0L)
+print_progress(paste(nrow(hex_grid),'cells;',center_count,'center-selected City cells; uncovered square meters:',uncovered_m2))
 
 ################################################################################
 # Step 4: Save the grid
@@ -143,6 +100,16 @@ cat(paste0("  - Total area covered: ", round(sum(hex_grid$area_km2), 2), " km²\
 
 output_file <- file.path(OUTPUT_DIR, "hex_grid.rds")
 save_output(hex_grid, output_file, "hexagonal grid")
+jsonlite::write_json(list(schema_version=1L,version='austin_full_20260429_stable_h3_v1',
+ resolution=H3_RESOLUTION,grid_cells=nrow(hex_grid),city_center_cells=center_count,
+ city_intersecting_cells=length(required_ids),uncovered_city_m2=uncovered_m2,
+ computational_rule='legacy_cells_union_positive_area_full_city_intersection',
+ analytical_rule='hex_point_on_surface_within_current_city_full',
+ boundary_path=boundary_path,boundary_sha256=digest::digest(file=boundary_path,algo='sha256'),
+ registry_path=registry_path,registry_sha256=digest::digest(file=registry_path,algo='sha256'),
+ grid_sha256=digest::digest(file=output_file,algo='sha256')),
+ file.path(OUTPUT_DIR,'hex_grid_manifest.json'),pretty=TRUE,auto_unbox=TRUE,digits=NA)
+
 
 ################################################################################
 # Step 5: Create visualization

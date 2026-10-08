@@ -103,7 +103,7 @@ the selected geographic level cannot change between snapshots. See
 Amenity retrospective usability is not a claim of exhaustive historical source
 coverage; its unknown completeness flag is not treated as FALSE or TRUE.
 
-All 7,027 hexes remain in the audit table at each date. The final two analysis
+All 7,950 hexes remain in the audit table at each date. The final two analysis
 matrices have identical eligible IDs and order. Exclusion reasons are provided
 both as overlapping flags and as a single priority-ordered reason, so totals
 can be reconciled without double-counting. Source details stay in their

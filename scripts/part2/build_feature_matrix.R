@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Local-only assembly of already-validated/scored snapshots. No clustering or ML.
 suppressPackageStartupMessages({library(dplyr); library(readr); library(sf)})
 source("R/pipeline.R")
@@ -33,7 +34,7 @@ stopifnot(all(domains$evictions$eviction_eligibility_rule == "rolling_scored_24_
 grid <- readRDS("output/hex_grid.rds")
 units <- st_drop_geometry(readRDS("output/corporate_ownership_by_hex.rds"))
 counties <- read_csv("config/hex_county_assignment_2024.csv", show_col_types = FALSE)
-stopifnot(nrow(grid) == 7027L, !anyDuplicated(units$hex_id), !anyDuplicated(counties$hex_id),
+stopifnot(nrow(grid) == grid_contract()$grid_cells, !anyDuplicated(units$hex_id), !anyDuplicated(counties$hex_id),
   setequal(grid$hex_id, units$hex_id), setequal(grid$hex_id, counties$hex_id),
   identical(as.character(grid$h3_index), counties$h3_index[match(grid$hex_id, counties$hex_id)]))
 support <- st_drop_geometry(grid)[c("hex_id", "area_km2")]

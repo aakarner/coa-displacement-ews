@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Build only paired retrospective demolition features from already-local data.
 # No network calls and no writes outside output/part2/demolitions/.
 suppressPackageStartupMessages({
@@ -44,12 +45,12 @@ for (row in seq_len(nrow(coverage_config))) {
 dir.create(output_root, recursive = TRUE, showWarnings = FALSE)
 raw <- read_csv(raw_path, col_types = cols(.default = col_character()), show_col_types = FALSE)
 hex_grid <- readRDS(grid_path)
-if (!inherits(hex_grid, "sf") || nrow(hex_grid) != 7027L || anyNA(hex_grid$hex_id) || anyDuplicated(hex_grid$hex_id)) {
-  stop("The canonical 7,027-cell demolition grid is invalid.")
+if (!inherits(hex_grid, "sf") || nrow(hex_grid) != grid_contract()$grid_cells || anyNA(hex_grid$hex_id) || anyDuplicated(hex_grid$hex_id)) {
+  stop("The versioned demolition grid is invalid.")
 }
 city <- part2_demolition_city_reference(hex_grid, st_read(boundary_path, quiet = TRUE))
-if (sum(city$reference$hex_center_inside_current_austin_full) != 6060L) {
-  stop("The fixed current-FULL study geography no longer contains 6,060 cells.")
+if (sum(city$reference$hex_center_inside_current_austin_full) != grid_contract()$city_center_cells) {
+  stop("The fixed current-FULL study geography no longer matches the versioned center-selected cell count.")
 }
 cat("Preparing unique issued residential demolition permits...\n")
 prepared <- part2_prepare_demolitions(raw, source_end)

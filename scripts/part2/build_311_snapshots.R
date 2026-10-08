@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Local-only selected 311 reconstruction. Never refreshes or overwrites Part 1.
 suppressPackageStartupMessages({library(dplyr); library(readr); library(sf)})
 source("R/pipeline.R")
@@ -27,7 +28,7 @@ write_csv(before, file.path(root, "part1_preservation_before.csv"))
 cache <- readRDS(raw_path)
 types <- read_csv(type_path, show_col_types = FALSE)
 grid <- readRDS(grid_path)
-stopifnot(nrow(grid) == 7027L)
+stopifnot(nrow(grid) == grid_contract()$grid_cells)
 units <- st_drop_geometry(readRDS(units_path))
 stopifnot(!anyDuplicated(units$hex_id), setequal(grid$hex_id, units$hex_id))
 support <- st_drop_geometry(grid) %>% select(hex_id, area_km2) %>%
@@ -58,7 +59,7 @@ write_csv(monthly, file.path(root, "311_monthly_type_qa.csv"))
 stopifnot(all((monthly %>% group_by(month) %>% summarise(n = sum(requests)))$n > 0L))
 cat("Replaying FULL-only historical geography over each exact 24-month window...\n")
 coverage <- part2_311_geography(grid, city, baselines, actions, cutoffs)
-stopifnot(sum(coverage$sr_311_in_current_city_scope & coverage$analysis_as_of_date == cutoffs[1]) == 6060L)
+stopifnot(sum(coverage$sr_311_in_current_city_scope & coverage$analysis_as_of_date == cutoffs[1]) == grid_contract()$city_center_cells)
 write_csv(coverage, file.path(root, "311_historical_geography_by_hex_date.csv"))
 sets <- list(); summaries <- list()
 for (i in seq_along(cutoffs)) {

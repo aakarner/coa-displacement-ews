@@ -1,10 +1,11 @@
+source("R/grid_contract.R")
 # Independent reconstruction of current selected inputs; no production helpers.
 suppressPackageStartupMessages({library(sf); library(readr)})
 eq <- function(a,b) stopifnot(isTRUE(all.equal(a,b,check.attributes=FALSE,tolerance=1e-9)))
 root <- "output/part1/measurement"
 x <- readRDS(file.path(root,"current_measurement.rds"))
 manifest <- jsonlite::fromJSON(file.path(root,"current_measurement_manifest.json"))
-stopifnot(manifest$status=="current_measurement_complete_v2", nrow(x)==7027L,
+stopifnot(manifest$status=="current_measurement_complete_v2", nrow(x)==grid_contract()$grid_cells,
   !anyDuplicated(x$hex_id), is.integer(x$hex_id), all(x$analysis_as_of_date==as.Date("2026-04-01")),
   all(x$measurement_scope=="single_cutoff_current_sample"))
 for (entries in list(manifest$inputs,manifest$outputs)) {

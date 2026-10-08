@@ -267,15 +267,17 @@ list(
 
   # Base geography.
   tar_target(grid_script, "01_create_hex_grid.R", format = "file"),
+  tar_target(grid_inputs, c("config/hex_id_registry.csv", "data/BOUNDARIES_jurisdictions_20260429.geojson", "R/grid_contract.R"), format="file"),
   tar_target(
     hex_grid,
     run_r_script_stage(
       grid_script,
       c(
         "output/hex_grid.rds",
+        "output/hex_grid_manifest.json",
         "figures/01_hex_grid_static.png"
       ),
-      dependencies = analysis_config
+      dependencies = list(analysis_config, grid_inputs)
     ),
     format = "file"
   ),

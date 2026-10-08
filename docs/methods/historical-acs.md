@@ -11,7 +11,7 @@ resume Part 3 ML. Outputs live under `output/part2/acs/`.
 | Demographics | 2019–2023 ACS 5-year, labeled 2023 | 2020–2024 ACS 5-year, labeled 2024 |
 | Rent releases | 2013, 2018, 2023 | 2014, 2019, 2024 |
 | Dollar base | 2024 dollars | 2024 dollars |
-| Spatial support | Same 7,027 hexes, 2020 Census blocks and current parcel support | Identical support |
+| Spatial support | Same 7,950 hexes, 2020 Census blocks and current parcel support | Identical support |
 | Scoring reference | Fit component bounds on earlier observed inputs | Apply the earlier bounds unchanged |
 
 The 2023 release was published [December 12, 2024](https://www.census.gov/programs-surveys/acs/news/data-releases/2023/release.html);

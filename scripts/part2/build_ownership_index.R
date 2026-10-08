@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Assemble paired ownership scores from existing, pinned ownership summaries.
 # No network, classifier, parcel rebuilding, or writes to the source directory.
 suppressPackageStartupMessages({library(dplyr); library(readr); library(sf)})
@@ -31,7 +32,7 @@ pin_entries <- part2_ownership_manifest_entries(upstream)
 verification <- part2_ownership_verify_hashes(pin_entries)
 source_preservation <- build_file_manifest(source_root, recursive = TRUE, require_all = TRUE, hash_files = TRUE)
 grid <- readRDS("output/hex_grid.rds")
-if (!inherits(grid, "sf") || nrow(grid) != 7027L || !is.integer(grid$hex_id)) {
+if (!inherits(grid, "sf") || nrow(grid) != grid_contract()$grid_cells || !is.integer(grid$hex_id)) {
   stop("Expected the canonical 7,027-cell grid with integer identifiers.")
 }
 common_path <- file.path(source_root, "ownership_common_support_by_hex_year.rds")

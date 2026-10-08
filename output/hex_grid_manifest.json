@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "version": "austin_full_20260429_stable_h3_v1",
+  "resolution": 9,
+  "grid_cells": 7950,
+  "city_center_cells": 6196,
+  "city_intersecting_cells": 7215,
+  "uncovered_city_m2": 0,
+  "computational_rule": "legacy_cells_union_positive_area_full_city_intersection",
+  "analytical_rule": "hex_point_on_surface_within_current_city_full",
+  "boundary_path": "data/BOUNDARIES_jurisdictions_20260429.geojson",
+  "boundary_sha256": "f020a2441f63150746a80616e83ae163c47839d43b5b248357aeffc5d9d5b39f",
+  "registry_path": "config/hex_id_registry.csv",
+  "registry_sha256": "9ecdb4197f3b1311a9640f756c503a8a1753994806300e436ff2a8c0215fb531",
+  "grid_sha256": "5a8ea56fc3a6bf6d53dd431336744afcd87909dff567a74fe62ad6b1bc615831"
+}

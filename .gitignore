@@ -91,3 +91,6 @@ data/raw_hays_evictions/
 !figures/.gitkeep
 !data/.gitkeep
 !data/README.md
+
+# Public county/precinct source caches remain local.
+/data/raw_geography/

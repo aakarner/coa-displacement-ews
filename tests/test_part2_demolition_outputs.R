@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Read-only integration audit of the completed, local paired demolition run.
 suppressPackageStartupMessages({library(dplyr); library(sf); library(readr)})
 source("R/part2_event_scoring.R")
@@ -21,8 +22,8 @@ for (i in seq_along(cutoffs)) {
   e <- readRDS(file.path(directory, "demolition_events_audit.rds"))
   s <- readRDS(file.path(directory, "demolition_scaling.rds"))
   stopifnot(identical(x$hex_id, grid$hex_id), identical(x$area_km2, as.numeric(grid$area_km2)),
-            nrow(x) == 7027L, nrow(c) == 2L * nrow(x), !anyDuplicated(x$hex_id),
-            all(x$analysis_as_of_date == cutoff), sum(x$hex_center_inside_current_austin_full) == 6060L,
+            nrow(x) == grid_contract()$grid_cells, nrow(c) == 2L * nrow(x), !anyDuplicated(x$hex_id),
+            all(x$analysis_as_of_date == cutoff), sum(x$hex_center_inside_current_austin_full) == grid_contract()$city_center_cells,
             all(x$demolition_area_basis == "canonical_full_hex_area_not_city_clipped"),
             all(x$demolition_scaling_reference_as_of_date == cutoffs[[1]]),
             !anyDuplicated(e$permit_id), all(e$is_residential), all(e$is_demolition))

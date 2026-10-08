@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 ################################################################################
 # Build the Part 3 Residential-Demolition Outcome Panel
 ################################################################################
@@ -112,13 +113,13 @@ SOURCE_MANIFEST_FILE <- project_path(
 
 # Part 3 uses one fixed study geography for every outcome: the H3 cells whose
 # centers fall within the City of Austin FULL-purpose boundary in the dated
-# jurisdiction snapshot.  The full 7,027-cell grid remains in the output so
+# jurisdiction snapshot.  The full versioned grid remains in the output so
 # exclusion is explicit rather than silently changing the panel's shape.
 CITY_BOUNDARY_SNAPSHOT_DATE <- as.Date("2026-04-29")
 CITY_STUDY_GEOGRAPHY <- "current_austin_full_purpose_fixed"
 CITY_HEX_ASSIGNMENT_METHOD <-
   "hex_point_on_surface_within_current_city_full"
-EXPECTED_CITY_STUDY_HEXES <- 6060L
+EXPECTED_CITY_STUDY_HEXES <- grid_contract()$city_center_cells
 SPATIAL_ANALYSIS_CRS <- 3083
 
 required_files <- c(

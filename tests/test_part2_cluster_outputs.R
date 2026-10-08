@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Read-only integration audit. Run only after the historical analysis is complete:
 # Rscript tests/test_part2_cluster_outputs.R
 suppressPackageStartupMessages({library(dplyr); library(readr); library(sf)})
@@ -77,7 +78,7 @@ manifest <- jsonlite::read_json(file.path(root, "part2_cluster_run_manifest.json
 stopifnot(identical(manifest$status, "historical_cluster_comparison_complete_v2"),
   isTRUE(manifest$retrospective_reconstruction), isTRUE(manifest$ml_work_paused),
   isTRUE(manifest$canonical_part1_unchanged), identical(manifest$risk_ranking, FALSE),
-  manifest$existing_artifacts_preserved > 0L, manifest$audit_hexes == 7027L, manifest$common_hexes > 7L)
+  manifest$existing_artifacts_preserved > 0L, manifest$audit_hexes == grid_contract()$grid_cells, manifest$common_hexes > 7L)
 verify_files(bind_rows(manifest$inputs, manifest$outputs))
 before <- readRDS(file.path(root, "existing_artifacts_before.rds"))
 after <- read_csv_output("existing_artifacts_preservation_after.csv")

@@ -1,3 +1,4 @@
+source("R/grid_contract.R")
 # Read-only cross-stream audit after the two standalone event builds.
 suppressPackageStartupMessages({library(dplyr); library(sf)})
 source("R/part2_event_scoring.R")
@@ -35,7 +36,7 @@ for (domain in c("311", "demolitions")) {
     x <- sets[[i]]
     stopifnot(identical(x$hex_id, ids), all(c(city_column, usable_column, "area_km2") %in% names(x)),
       is.logical(x[[usable_column]]), !anyNA(x[[usable_column]]),
-      sum(x[[city_column]]) == 6060L, all(!x[[usable_column]] | x[[city_column]]))
+      sum(x[[city_column]]) == grid_contract()$city_center_cells, all(!x[[usable_column]] | x[[city_column]]))
     eq(x$area_km2, grid$area_km2)
     scored <- part2_apply_event_scaling(x, reference)$features
     eq(x[c(index, paste0(components, "_score"), paste0(index, "_components_available"))],

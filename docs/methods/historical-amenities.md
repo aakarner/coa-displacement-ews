@@ -73,7 +73,7 @@ A separate Part 2 cache is initially seeded from the Part 1 cache. Unmatched
 records stay in an all-event audit, with spatial scope marked unknown rather
 than outside Austin.
 
-Both vintages use the same 7,027-cell grid and projected hex centroids. Openings
+Both vintages use the same 7,950-cell grid and projected hex centroids. Openings
 within 800 meters receive linearly declining distance weights. Each category
 combines recent weighted openings with the positive portion of the change from
 the previous window; the three category scores are equally weighted.
