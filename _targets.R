@@ -1058,6 +1058,15 @@ list(
     format = "file"
   ),
   tar_target(
+    part1_map_assets,
+    c(
+      "config/webmap_cluster_descriptions.csv",
+      "scripts/part1/webmap/address-search.js",
+      "scripts/part1/webmap/address-search.css"
+    ),
+    format = "file"
+  ),
+  tar_target(
     part1_visualizations,
     run_r_script_stage(
       part1_visualization_script,
@@ -1067,6 +1076,7 @@ list(
         "site/index.html"
       ),
       dependencies = list(
+        part1_map_assets,
         current_features,
         part1_cluster_analysis,
         cluster_labels,

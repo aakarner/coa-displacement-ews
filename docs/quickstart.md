@@ -176,6 +176,23 @@ run `Rscript scripts/part1/visualize_baseline_clusters.R`, then publish the upda
 `site/index.html` through the GitHub Pages workflow. Force-refresh the browser
 if old watermarked tiles remain cached.
 
+The webmap's **Find an address** box searches the City of Austin's public
+[address locator](https://maps.austintexas.gov/arcgis/rest/services/Geocode/COA_Locator/GeocodeServer).
+Enter a street address (include the city or ZIP code for ambiguous matches),
+press **Search** or Enter, then select a result to zoom to its marker. Click a
+nearby hexagon to inspect its cluster details. **Clear** or Escape removes the
+search and marker. Searches need an internet connection and send only the
+entered address to the City's locator; no additional API key is required.
+The JavaScript and CSS in `scripts/part1/webmap/` are embedded during map
+generation and tracked as inputs to `part1_visualizations`.
+
+Public-facing cluster descriptions live in
+`config/webmap_cluster_descriptions.csv`. The map build checks their cluster
+IDs, display numbers and names against the reviewed analytical labels, then
+substitutes the analysis date for `{analysis_cutoff}`. Wording edits do not
+change the hash-pinned model interpretation, assignments or concern levels.
+The title and legend collapse into expandable panels on narrow screens.
+
 - `output/hex_features.rds`: current shared feature surface.
 - `output/amenity_cluster_sensitivity.rds`: Part 1 cluster diagnostics.
 - `output/part1/baseline_cluster_model.rds`: frozen Part 1 model.

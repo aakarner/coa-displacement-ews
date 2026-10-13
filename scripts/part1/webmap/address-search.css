@@ -1,0 +1,71 @@
+.ews-address-search {
+  box-sizing: border-box;
+  width: 350px;
+  max-width: calc(100vw - 20px);
+  padding: 12px;
+  border: 1px solid #b8c0c6;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 2px 8px #0002;
+  color: #243541;
+  font: 13px/1.4 Arial, sans-serif;
+}
+.ews-search-label { display: block; margin-bottom: 6px; font-weight: 700; }
+.ews-search-row { display: flex; gap: 6px; }
+.ews-search-row input {
+  box-sizing: border-box;
+  width: 0;
+  min-width: 0;
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #788892;
+  border-radius: 4px;
+  font: inherit;
+}
+.ews-address-search button {
+  min-height: 36px;
+  border: 1px solid #788892;
+  border-radius: 4px;
+  padding: 6px 9px;
+  background: #fff;
+  color: #243541;
+  font: inherit;
+  cursor: pointer;
+}
+.ews-address-search .ews-search-submit { background: #243f50; border-color: #243f50; color: #fff; }
+.ews-address-search button:hover { background: #edf2f5; }
+.ews-address-search .ews-search-submit:hover { background: #365d75; }
+.ews-address-search :focus-visible { outline: 3px solid #227fbd; outline-offset: 2px; }
+.ews-search-status:not(:empty) { margin-top: 8px; }
+.ews-address-search .ews-search-results {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  max-height: 190px;
+  overflow-y: auto;
+}
+.ews-search-results li + li { margin-top: 4px; }
+.ews-search-results button { width: 100%; text-align: left; overflow-wrap: anywhere; }
+.ews-address-search .ews-search-credit { display: inline-block; margin-top: 8px; color: #426173; font-size: 11px; }
+.ews-address-marker span {
+  display: block;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #172f40;
+  box-shadow: 0 0 0 2px #172f40, 0 2px 5px #0006;
+}
+.ews-map-details > summary { display: none; }
+@media (max-width: 700px) {
+  .ews-search-row input { font-size: 16px; }
+  .ews-search-results { max-height: 25vh !important; }
+  /* Leave space above search for the collapsed information panel. */
+  .ews-address-search { margin-top: 40px !important; }
+  .leaflet-top.leaflet-right { max-width: calc(100% - 62px); }
+  .leaflet-top.leaflet-right .info.legend { box-sizing: border-box; max-width: 100%; }
+  .ews-map-panel { max-width: calc(100vw - 40px); max-height: 35vh; overflow-y: auto; }
+  .ews-map-details > summary { display: list-item; cursor: pointer; font-weight: 700; }
+  .ews-map-details[open] > summary { margin-bottom: 8px; }
+}

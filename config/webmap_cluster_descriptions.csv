@@ -1,0 +1,8 @@
+cluster,display_cluster,tentative_name,description
+2,1,Lower Measured Pressure,Measured displacement pressures are lower than in other clusters. Residents may still be vulnerable to displacement; a low concern level does not mean displacement is absent.
+7,2,Higher Rents / Lower Vulnerability,Rents are higher and rising after accounting for inflation. The measured household characteristics suggest less vulnerability to displacement than in other clusters. Recent eviction filings and residential demolition permits are relatively uncommon.
+3,3,Nearby Amenity Activity,More nearby businesses and amenities have opened recently. Corporate property ownership and selected 311 requests also contribute to this cluster's pattern. These signals do not establish that displacement occurred.
+4,4,Corporate Ownership + Vulnerability,"Corporate property ownership is common and residents show higher measured vulnerability to displacement. Eviction filing rates are also elevated, but are not this cluster's main distinguishing feature."
+1,5,Selected 311 + Vulnerability,This cluster has many 311 requests for a City code officer and higher measured vulnerability to displacement. A request does not confirm a code violation.
+6,6,Demolition-Permit Concentration,Every hexagon in this cluster had at least one residential demolition permit during the two years ending {analysis_cutoff}. Permits do not confirm completed demolition or displacement.
+5,7,Eviction-Filing Concentration,Every hexagon in this cluster had at least one eviction filing assigned to a location within it during the year ending {analysis_cutoff}. Filing rates and residents' measured vulnerability to displacement are high compared with other clusters. Filings do not confirm that an eviction occurred.

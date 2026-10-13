@@ -270,9 +270,9 @@ unclassified_statuses <- tibble(
   interactive_label = c(
     paste0(
       "No cluster: fewer than ", minimum_residential_units,
-      " promoted residential units"
+      " housing units"
     ),
-    "No cluster: outside scope or incomplete evidence"
+    "No cluster: outside study area or missing data"
   ),
   map_color = c("#CDD2D6", "#727B82"),
   fill_opacity = c(0.42, 0.68)
@@ -495,7 +495,29 @@ ggsave(
 ################################################################################
 
 print_progress("Creating interactive cluster map...")
+# Public-facing copy is separate from the hash-pinned analytical interpretation.
+# Match both identifiers and names to prevent descriptions drifting between profiles.
+webmap_descriptions <- read_csv(
+  project_path("config", "webmap_cluster_descriptions.csv"),
+  show_col_types = FALSE
+)
+description_keys <- c("cluster", "display_cluster", "tentative_name")
+if (
+  !all(c(description_keys, "description") %in% names(webmap_descriptions)) ||
+    anyDuplicated(webmap_descriptions$cluster) ||
+    nrow(webmap_descriptions) != nrow(cluster_labels) ||
+    nrow(anti_join(cluster_labels, webmap_descriptions, by = description_keys)) > 0L ||
+    anyNA(webmap_descriptions$description) ||
+    any(!nzchar(trimws(webmap_descriptions$description)))
+) {
+  stop("Review webmap descriptions to match the selected cluster labels.", call. = FALSE)
+}
+webmap_descriptions$description <- gsub(
+  "{analysis_cutoff}", analysis_cutoff_label,
+  webmap_descriptions$description, fixed = TRUE
+)
 interactive_data <- map_data %>%
+  left_join(webmap_descriptions, by = description_keys) %>%
   st_transform(4326) %>%
   mutate(
     residential_units_label = if_else(
@@ -506,22 +528,22 @@ interactive_data <- map_data %>%
     popup_html = case_when(
       coverage_status == "below_minimum_parcel_units" ~ paste0(
         "<div style='min-width:260px;line-height:1.35'>",
-        "<strong style='font-size:14px'>No cluster membership</strong><br>",
+        "<strong style='font-size:14px'>No cluster assigned</strong><br>",
         "<strong>Reason:</strong> Fewer than ", minimum_residential_units,
-        " promoted residential units<br>",
-        "<strong>Promoted residential units:</strong> ",
+        " housing units<br>",
+        "<strong>Housing units in the analysis:</strong> ",
         residential_units_label, "<hr style='margin:7px 0'>",
         "<strong>Hex ID:</strong> ", hex_id, "</div>"
       ),
       coverage_status == "eligible_but_missing_cluster_feature" ~ paste0(
         "<div style='min-width:260px;line-height:1.35'>",
-        "<strong style='font-size:14px'>No cluster membership</strong><br>",
+        "<strong style='font-size:14px'>No cluster assigned</strong><br>",
         "<strong>Exclusion:</strong> ", primary_exclusion, "<br>",
-        "<strong>Missing inputs:</strong> ", missing_cluster_input_count,
+        "<strong>Missing measures:</strong> ", missing_cluster_input_count,
         " of ", length(profile_vars), "<br>",
-        "<strong>Unavailable input(s):</strong> ",
+        "<strong>Unavailable measures:</strong> ",
         missing_cluster_input_names, "<br>",
-        "<strong>Promoted residential units:</strong> ",
+        "<strong>Housing units in the analysis:</strong> ",
         residential_units_label, "<hr style='margin:7px 0'>",
         "<strong>Hex ID:</strong> ", hex_id, "</div>"
       ),
@@ -529,8 +551,8 @@ interactive_data <- map_data %>%
         "<div style='min-width:260px;line-height:1.35'>",
         "<strong style='font-size:14px'>Cluster ", display_cluster, ": ",
         tentative_name, "</strong><br>",
-        "<strong>Qualitative concern:</strong> ", concern_level, "<br>",
-        "<span>", interpretation, "</span><hr style='margin:7px 0'>",
+        "<strong>Concern level:</strong> ", concern_level, "<br>",
+        "<span>", htmlEscape(description), "</span><hr style='margin:7px 0'>",
         "<strong>Hex ID:</strong> ", hex_id, "<br>",
         "Rent pressure: ", round(rent_pressure_citywide_index, 1), "<br>",
         "Demographic vulnerability: ",
@@ -651,14 +673,14 @@ cluster_layer_names <- paste0(
 cluster_legend_labels <- paste0(
   "<strong>Cluster ", cluster_labels$display_cluster, " — ",
   cluster_labels$tentative_name, "</strong>",
-  "<br><span style='font-size:11px'><strong>Qualitative concern:</strong> ",
+  "<br><span style='font-size:11px'><strong>Concern level:</strong> ",
   cluster_labels$concern_level, "</span>"
 )
 unclassified_legend_labels <- paste0(
   "<strong>", unclassified_statuses$interactive_label, "</strong>",
   "<br><span style='font-size:11px'>",
   format(unclassified_statuses$map_hexes, big.mark = ","),
-  " hexes retained without cluster membership</span>"
+  " hexagons shown without an assigned cluster</span>"
 )
 
 interactive_map <- interactive_map %>%
@@ -680,8 +702,8 @@ interactive_map <- interactive_map %>%
       HTML
     ),
     title = HTML(paste0(
-      "Typology clusters and status<br>",
-      "<span style='font-size:11px'>Clusters ordered low to high risk</span>"
+      "Displacement pressure clusters<br>",
+      "<span style='font-size:11px'>Ordered from low to very high concern</span>"
     )),
     opacity = 0.9
   ) %>%
@@ -694,18 +716,35 @@ interactive_map <- interactive_map %>%
       paste0(
         "<div style='background:rgba(255,255,255,.94);padding:8px 10px;",
         "border:1px solid #bbb;max-width:300px'>",
-        "<strong>Part 1 Baseline Clusters</strong><br>",
-        "<span style='font-size:11px'>Analysis cutoff: ",
-        analysis_cutoff_label, "; selected k = ", selected_k,
-        " typology with interpretive risk categories<br>",
+        "<strong>Displacement Pressure Clusters</strong><br>",
+        "<span style='font-size:11px'>Analysis as of ",
+        analysis_cutoff_label, ". Areas are grouped into ", selected_k,
+        " clusters with similar measured conditions. Concern levels summarize",
+        " those conditions; they are not probabilities of displacement.<br>",
         format(nrow(classified_map_data), big.mark = ","), " of ",
         format(nrow(map_data), big.mark = ","),
-        " grid cells have cluster membership; excluded cells remain visible",
-        " with their reason.</span></div>"
+        " hexagons have an assigned cluster. Other hexagons remain visible",
+        " with an explanation.</span></div>"
       )
     ),
     position = "topright"
   )
+
+# Inline the search assets so both exported copies remain self-contained.
+search_asset_dir <- project_path("scripts", "part1", "webmap")
+interactive_map <- htmlwidgets::onRender(
+  interactive_map,
+  paste(readLines(file.path(search_asset_dir, "address-search.js")), collapse = "\n")
+)
+interactive_map <- htmlwidgets::prependContent(
+  interactive_map,
+  tags$head(
+    tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
+    tags$style(HTML(paste(
+      readLines(file.path(search_asset_dir, "address-search.css")), collapse = "\n"
+    )))
+  )
+)
 
 interactive_path <- file.path(
   FIGURES_DIR,
